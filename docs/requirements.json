@@ -1,0 +1,187 @@
+{
+  "objective": "按照七页设计实现对标 Clash Verge Rev 的 Mac 原生 LumaRoute 客户端",
+  "designDirectory": "design",
+  "stack": "SwiftUI + Swift + bundled Mihomo",
+  "requirements": [
+    {
+      "id": "overview",
+      "description": "状态、代理模式、系统代理和 TUN 独立控制、流量",
+      "status": "complete",
+      "evidence": [
+        "实际GUI状态/模式/系统代理与TUN独立控制、组合启停、真实流量与节点显示通过；work/ui-review-2026-10-13/06-overview-final.png"
+      ]
+    },
+    {
+      "id": "subscriptions",
+      "description": "链接/文件/拖放导入，多配置激活，定时更新，更新失败保留有效版本",
+      "status": "complete",
+      "evidence": [
+        "docs/subscription-verification.md: 真实链接导入、服务商额度与到期、重启加载通过",
+        "docs/functional-verification.md: 原生 HTTP/YAML/URI、多配置切换、手动与定时更新失败保留有效版本/成功更新通过",
+        "work/ui-functional-2026-10-13/drag-import-result.json: 用户 Finder 实际拖放识别3节点、内容与源文件相同、原活动配置和系统代理不变；测试配置已在原生页面清理"
+      ]
+    },
+    {
+      "id": "subscriptionMetadata",
+      "description": "服务商提供的额度和到期时间",
+      "status": "complete",
+      "evidence": [
+        "docs/subscription-verification.md: 实际额度与到期信息已在原生订阅页显示"
+      ]
+    },
+    {
+      "id": "groups",
+      "description": "保留订阅策略组，节点筛选，当前选择，手动/自动切换",
+      "status": "complete",
+      "evidence": [
+        "docs/subscription-verification.md: 10个真实策略组、手动切换与恢复原选择已验证；自动故障切换待验证",
+        "真实原生界面：9组卡片、订阅原顺序、候选数量与参考图一致；嵌套策略组单独标识，展开和组内测速可用",
+        "docs/functional-verification.md: 原生日本自动、手动固定/恢复自动、更新保留、恢复原策略；真实内核自动失效切换与Fallback均通过"
+      ]
+    },
+    {
+      "id": "latency",
+      "description": "单节点和批量延迟测试，超时，进度/取消，限并发",
+      "status": "complete",
+      "evidence": [
+        "docs/subscription-verification.md: 原生批量25/25均返回有效延迟，限并发实现；取消和真实provider测试仍待验证",
+        "docs/functional-verification.md: 真实provider专用测速与不可用节点失败已验证；批量取消与并发界面仍待最终验收",
+        "work/ui-functional-2026-10-13/: 原生批量停止3/5不启动剩余、重新完成5/5、服务端观测并发峰值1、单节点5秒超时与失败显示均通过"
+      ]
+    },
+    {
+      "id": "routingModes",
+      "description": "规则/全局/直连",
+      "status": "complete",
+      "evidence": [
+        "docs/functional-verification.md: 真实内核测试规则、全局、直连的实际请求路径",
+        "原生GLOBAL卡片选东京后实际HTTPS204，恢复DIRECT与规则模式"
+      ]
+    },
+    {
+      "id": "systemProxy",
+      "description": "设置/绕过/覆盖检测/恢复",
+      "status": "complete",
+      "evidence": [
+        "最终无证书root服务实际系统代理ON/OFF、节点保留、恢复7890通过；与其他代理软件争用时所有权保护实际触发；共存顺序及限制见docs/functional-verification.md",
+        "work/design-qa-2026-10-14/system-proxy-bypass-result.json: HTTP/HTTPS/SOCKS均实际启用19790，6条绕过地址与保存设置一致；关闭后恢复原7890快照"
+      ]
+    },
+    {
+      "id": "tun",
+      "description": "授权后台服务，开关，协议栈，路由，局域网排除，MTU，DNS保存恢复",
+      "status": "complete",
+      "evidence": [
+        "Mixed/System/gVisor/MIPS四种协议栈均有真实type=Tun请求；System MTU1280、gVisor MTU1500、MIPS MTU9000完整HTTP200/160000字节/exit0，DNS劫持/自动路由/接口探测/局域网排除实际配置已核对；work/design-qa-2026-10-14/tun-*-result.json",
+        "关闭后3个服务DNS、原代理与IPv4默认路由恢复；启用IPv6参数的MIPS关闭后IPv6默认路由也恢复，无自己的utun路由残留；mips-off-restoration.json。当时流量测试使用IPv4；后续IPv6出口与TUN开启睡眠已验证，物理换网仍列入recovery待验收",
+        "work/ipv6-acceptance-2026-10-14/tun-ipv6-result.json：IPv4物理网络下，Mixed/MTU1500实际IPv6目标经utun6、type=Tun、东京代理链，HTTP200且服务器报告IPv6出口；同时IPv4完整200/160000字节；IPv6单独关闭后地址/IPv6路由清除、TUN保持开启且IPv4请求204；关闭全部接管后DNS/原代理/默认路由恢复"
+      ]
+    },
+    {
+      "id": "connections",
+      "description": "目标/进程/规则/代理链/流量/断开",
+      "status": "complete",
+      "evidence": [
+        "原生真实请求展示进程路径、目标、命中规则、东京代理链及流量；work/ui-review-2026-10-13/10-connections-final.png",
+        "work/ui-functional-2026-10-13/connections-result.json: 原生进程/IP/关键词/TCP/UDP/策略过滤、详情、关闭单条和全部通过；两个真实流式请求分别被中断，控制接口数量2→1→0"
+      ]
+    },
+    {
+      "id": "rules",
+      "description": "查看搜索，自定义域名/IP规则，顺序，更新保留，应用回滚",
+      "status": "complete",
+      "evidence": [
+        "docs/functional-verification.md: 原生域名规则启用/禁用影响同一真实请求，IPv4规则顺序影响实际路由、无效CIDR保持旧规则、搜索/撤销、订阅更新保留均通过"
+      ]
+    },
+    {
+      "id": "logs",
+      "description": "过滤/暂停/清空/详情/脱敏诊断",
+      "status": "complete",
+      "evidence": [
+        "docs/functional-verification.md: 原生暂停/继续、级别/来源/关键词过滤、详情、清空通过；真实导出全量日志，合成token原值不存在且显示已隐藏"
+      ]
+    },
+    {
+      "id": "macIntegration",
+      "description": "菜单栏，登录启动，关闭窗口不退出，快捷键，深浅色",
+      "status": "in_progress",
+      "evidence": [
+        "docs/functional-verification.md: 菜单栏用户实际重开同PID、关闭窗口不断内核、Command-N/Command-Shift-P、深浅色和恢复系统外观、登录项目注册/注销系统登记通过；实际登录会话启动未验证",
+        "2026-10-14用户明确选择“稍后再测登录自启”；保持登录自启原设置不变，不代替真实登录会话验收"
+      ]
+    },
+    {
+      "id": "maintenance",
+      "description": "本地备份恢复，版本，检查更新，内核/规则数据库更新与回退",
+      "status": "complete",
+      "evidence": [
+        "原生 GEO 更新及回退通过：两次root内核重启后实际HTTPS204、东京3保留、系统代理和TUN均关闭；geo-update-root.json/geo-rollback-root.json",
+        "原生创建和恢复备份通过：测速并发7恢复6、数据库和订阅字节与备份一致、恢复前版本自动另存；损坏YAML备份拒绝且原数据库/文件/代理继续正常",
+        "管理员版本传递错误已修复并原生复测：官方31→下载更新32→回退31，root运行版本/路径独立确认、每次实际HTTPS204、东京3与原7890代理保留；清除临时历史后重开回到内置32（core-fixed-*.json）；16项维护和44项原生回归通过"
+      ]
+    },
+    {
+      "id": "recovery",
+      "description": "内核退出/睡眠唤醒/切换网络，恢复检查，网络设置所有权保护",
+      "status": "in_progress",
+      "evidence": [
+        "TUN开启正常退出/重开与GUI异常退出恢复通过：root内核退出、3个服务DNS/原7890代理/默认路由恢复，无自己的utun路由残留，东京3保留；work/ui-functional-2026-10-13/crash-recovery-result.json",
+        "真实睡眠13秒、接管关闭时唤醒检查通过，真实代理HTTPS204与设置/节点保留；sleep-recovery-result.json。用户明确将物理断网重连延后",
+        "work/design-qa-2026-10-14/root-core-recovery-result.json: 仅终止本应用root内核，GUI不变，3.69秒恢复为新root进程，原节点/代理不变，真实HTTPS204；原Clash进程保留",
+        "work/service-lifecycle-2026-10-14/service-lifecycle-result.json：接管关闭时helper强制退出，GUI不变，4.76秒内新helper/root内核自动恢复；实际卸载/重装同一构建通过，job/安装快照/自己的进程确认移除，订阅文件/数据库/原DNS与代理不变，重开实际HTTPS204",
+        "work/service-lifecycle-2026-10-14/service-tun-crash-result.json与core-tun-crash-result.json：TUN开启且DNS实际变化时分别SIGKILL自己的helper/root内核，3.41/3.56秒恢复；GUI、节点和原Clash保留，全部DNS与原代理/IPv4IPv6默认路由恢复，无自己的utun路由残留，接管关闭，实际HTTPS204",
+        "卸载时launchd登记短暂残留导致误报已真实复现并修复：bootout后有界等待35秒，退出未确认则保留文件；卸载和更新两个入口共用等待；build-service-wait.log构建/签名通过，修复版完整生命周期实测通过",
+        "物理断网重连仍按用户选择延后；TUN开启实际睡眠唤醒已通过。当时仅确认物理网络没有公网IPv6；后续通过节点的真实IPv6 TUN出口已验收（ipv6-acceptance-2026-10-14/tun-ipv6-result.json）",
+        "work/service-lifecycle-2026-10-14/sleep-tun-result.json：系统日志确认11:02:34睡眠、11:02:39唤醒，共5秒；GUI/helper/root core同PID、节点及持久化数据库不变，唤醒前后真实type=Tun请求均HTTP200/160000字节；关闭后原DNS/代理/默认路由恢复，无自己的utun路由残留"
+      ]
+    },
+    {
+      "id": "designFidelity",
+      "description": "七页原生布局与设计稿视觉比对",
+      "status": "complete",
+      "evidence": [
+        "design-qa.md: 七页原设计与最终实机并排比较，已修复来源筛选、活动订阅强调、网络设置密度、空状态、备份导航、错误文案与连接策略截断；视觉范围通过",
+        "work/design-qa-2026-10-14/final/seven-pages.png及compare-*.png；实机1050x772像素。代理页依用户后续要求使用原策略组卡片；未宣称全量辅助功能审计完成"
+      ]
+    },
+    {
+      "id": "build",
+      "description": "可重复构建，.app，Run入口，实际启动",
+      "status": "complete",
+      "evidence": [
+        "script/build_and_run.sh: 多次构建、签名校验、.app实际启动已验证；SDK26.5适配本机CLT"
+      ]
+    },
+    {
+      "id": "verification",
+      "description": "真实内核集成测试，配置回滚，路由与测速验证，授权TUN和代理接管的实际验证",
+      "status": "in_progress",
+      "evidence": [
+        "最新44项原生回归、41项真实内核集成、16项内核维护事务、11项GEO集成通过；work/ipv6-acceptance-2026-10-14/native-final.log和runtime-green.log，work/ui-functional-2026-10-13/core-version-fixed.log和geo-regression.log",
+        "管理员跨版本更新回退、GEO更新回退、备份损坏保护、全部TUN协议栈流量/恢复、GUI与root内核异常退出恢复均有实际证据；实际登录启动、物理重连仍待验收",
+        "work/design-qa-2026-10-14/final-cleanup.json及work/ui-functional-2026-10-13/final-clean-relaunch.json：测试fixture已停止，整个持久化数据库等于原始快照，重开实际接管关闭，东京3真实HTTPS204，原7890代理不变",
+        "work/service-lifecycle-2026-10-14/：真实helper崩溃、卸载重装、TUN开启下的helper和root内核崩溃恢复通过；卸载launchd退出竞态已复现、修复、构建并实测；后续已验证IPv4网络经节点的真实IPv6 TUN出口",
+        "TUN开启的真实睡眠唤醒、唤醒后实际TUN流量与关闭恢复通过；完整数据库已恢复原始快照，GUI/helper/安装器与root快照摘要一致，两份.app严格签名通过；service-lifecycle-2026-10-14/final-cleanup.json",
+        "2026-10-14用户分别延后实际断网重连和登录自启；IPv6 TUN出口后续已实测通过。其余已列明实现与实测完成，保留完整目标，人工/环境验收未完成，不标记全部完成",
+        "work/ipv6-acceptance-2026-10-14/runtime-red.log→runtime-green.log：真实内核先复现IPv6配置被系统探测清除，修复CoreRunner的官方启动环境选项后41项集成通过；native-final.log原生44项通过。仅补显式IPv6地址无效，已撤回该改动和镜像断言；最终实际IPv6 TUN出口、双栈流量、独立关闭IPv6与完整恢复通过；构建/服务快照/严格签名一致",
+        "work/ui-functional-2026-10-13/ipv6-final-relaunch.json：重开实际v1.19.32/TUN关闭、东京3和原分组选择保留、原7890代理不变、真实HTTPS204；重开后的完整持久化数据库仍等于原始快照"
+      ]
+    }
+  ],
+  "advancedLater": [
+    "JavaScript配置脚本",
+    "WebDAV云同步",
+    "自定义主题CSS",
+    "带宽测速"
+  ],
+  "note": "后续高级功能未包含在第一版；不得以静态示例或编译通过替代实际功能验证",
+  "localUse": {
+    "distribution": "本机自用",
+    "certificateRequired": false,
+    "notarizationRequired": false,
+    "buildSigning": "automatic ad-hoc",
+    "service": "administrator-installed root-owned snapshot via system launchd",
+    "serviceVerification": "Root health, system proxy/bypass, all four TUN stacks with IPv4 traffic, real IPv6 TUN egress over an IPv4 uplink, IPv6 hot enable/disable, DNS/routes restoration, GUI/core/helper crash recovery including TUN-on, real service uninstall/reinstall, maintenance rollback and actual sleep with takeover off/on verified. Only user-deferred real login and physical reconnect acceptance remain."
+  }
+}

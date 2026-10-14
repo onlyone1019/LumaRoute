@@ -1,0 +1,23 @@
+{
+  "repository": "MetaCubeX/meta-rules-dat",
+  "assets": [
+    {
+      "name": "GeoIP.dat",
+      "url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat",
+      "digest": "sha256:116cc0f03d48991962f7f9cdbbcf53d45d89777f9c3cd1a663210853e5df6093",
+      "updated_at": "2026-10-13T03:08:13Z"
+    },
+    {
+      "name": "geoip.metadb",
+      "url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb",
+      "digest": "sha256:e060b447d974e2dde71340c47783f0263d4d4a6656237f4f824c186044647eb3",
+      "updated_at": "2026-10-13T03:08:14Z"
+    },
+    {
+      "name": "GeoSite.dat",
+      "url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat",
+      "digest": "sha256:30b8fe82c220879da1fadf896ec18b26b495091980dab3dca7a11199c74a5773",
+      "updated_at": "2026-10-13T03:08:14Z"
+    }
+  ]
+}

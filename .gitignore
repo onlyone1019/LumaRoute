@@ -1,0 +1,12 @@
+.build/
+dist/
+work/
+Resources/Core/mihomo-*
+Resources/GeoData/*.metadb
+Resources/GeoData/*.dat
+Resources/GeoData/*.partial
+.DS_Store
+*.xcuserstate
+__pycache__/
+*.py[cod]
+

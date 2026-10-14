@@ -13,7 +13,7 @@
 | 原路径注销后重新注册 | 仍无 Dock 项 |
 | `/Applications/LumaRoute Local.app` | 有蓝色 L 图标 |
 
-当前保留 `/Applications/LumaRoute Local.app` 作为本机安装路径。旧包已移到私有 `work/dock-performance-2026-10-14/original-installed-path-backup.app`，仅作回退备份。没有重置 Dock、清空全局注册、修改安全校验或重新签名。已证明路径差异影响实际表现，尚不能断言底层是哪一种系统缓存或注册异常。
+第 14 版当时采用 `/Applications/LumaRoute Local.app` 作为本机安装路径；当前路径见下方 Build 18 记录。旧包已移到私有 `work/dock-performance-2026-10-14/original-installed-path-backup.app`，仅作回退备份。没有重置 Dock、清空全局注册、修改安全校验或重新签名。已证明路径差异影响实际表现，尚不能断言底层是哪一种系统缓存或注册异常。
 
 新路径启动后，真实后台服务已连接，内核已就绪，原节点选择已恢复。主程序与管理员服务快照的主程序 SHA256 相同，不需要新一轮管理员授权。用户最终确认：关闭主窗口后 Dock 图标消失；从菜单栏打开控制台后蓝色 L 图标恢复；最小化时 Dock 图标保留，点击恢复同一个窗口。
 
@@ -29,3 +29,17 @@
 切换到新路径后，与验证前快照比较，database.json 和全部已记录订阅 YAML 的 SHA256 不变；系统代理输出不变。应用系统代理接管和 TUN 均关闭，原 127.0.0.1:7890 系统代理保留。
 
 诊断原始结果存于本机私有 `work/dock-performance-2026-10-14/`，不包含在发布包中。不要把保留诊断包或备份包当作新的安装入口。
+
+## Build 18：恢复 Dock 并保留 LumaRoute 名称
+
+系统代理优化版本更新时，安装脚本重新使用了 `/Applications/LumaRoute.app`，此前已观察到的 Dock 缺失再次出现。当前运行应用的激活策略为 regular，主窗口和后台服务正常；这仍不能证明 Dock 图标实际存在。
+
+保持 Build 18 的二进制、Info.plist、图标和签名不变，先移动到 `/Applications/LumaRoute Local.app`，用户确认 Dock 图标出现。用户随后明确要求应用只叫 **LumaRoute**，因此最终采用 `/Applications/LumaRoute/LumaRoute.app`。用户再次确认“图标正常，名称是 LumaRoute”。
+
+- 当前安装路径：`/Applications/LumaRoute/LumaRoute.app`，包名及 CFBundleName 均为 LumaRoute。
+- 应用启动后内核就绪、管理员后台服务运行正常，原美国住宅节点保留。
+- 主程序、helper、Info.plist、图标哈希与移动前一致；主程序和 helper 与管理员服务快照匹配，无需重新授权。
+- 已记录的 421 个原用户文件全部保持原哈希，系统代理输出与操作前一致；系统代理和 TUN 均关闭。
+- 没有更改 Dock 全局配置、重签名或修改窗口显示逻辑；这是已通过用户实际验收的安装路径规避方式，底层系统原因仍未确定。
+
+后续整体替换应沿用当前已验收路径，不重新创建 `/Applications/LumaRoute.app` 或添加 Local 名称。本次证据为 `work/dock-build18-2026-10-14/verification.json`，本地 Build 18 更新脚本已改用最终路径。

@@ -46,7 +46,7 @@ final class HelperClient {
     }
     var label: String {
         if let local = localInstallation {
-            guard cachedLocalAccepted else { return "需更新本机服务" }
+            guard cachedLocalAccepted else { return "待完成更新" }
             return local.healthOnly ? "本机服务 · 启动验证":"已安装（本机）"
         }
         guard supportsPrivilegedService else { return "本机服务未配置" }
@@ -57,11 +57,19 @@ final class HelperClient {
         default: return "服务不可用"
         }
     }
-    func register(networkReady:Bool = false) throws {
+    var networkSetup: NetworkServiceSetup {
+        if let local = localInstallation {
+            return .resolve(installed:true,accepted:cachedLocalAccepted,healthOnly:local.healthOnly)
+        }
+        return supportsPrivilegedService && service.status == .enabled ? .ready:.install
+    }
+    func register(networkReady:Bool = false) async throws {
         if !supportsPrivilegedService || localInstallation != nil {
-            let name = networkReady ? "install-local-network-service.command":"install-local-service.command"
-            let installer = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/"+name)
-            guard NSWorkspace.shared.open(installer) else { throw LumaError.message("无法打开本机服务安装终端") }
+            _ = try LocalServiceInstallation.requirement(for:Bundle.main.bundleURL)
+            try await LocalServiceAuthorization.install(app:Bundle.main.bundleURL,ownerUID:getuid(),networkReady:networkReady)
+            connection?.invalidate(); connection = nil
+            cachedLocalStamp = nil
+            _ = localInstallation
             return
         }
         try requireSupportedSigning()
@@ -83,8 +91,7 @@ final class HelperClient {
         try await service.unregister()
     }
     func openApproval() {
-        if !supportsPrivilegedService || localInstallation != nil { try? register() }
-        else { SMAppService.openSystemSettingsLoginItems() }
+        SMAppService.openSystemSettingsLoginItems()
     }
     func send(_ request: HelperRequest) async throws -> HelperResponse {
         try requireAvailableService()

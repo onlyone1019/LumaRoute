@@ -92,11 +92,16 @@ struct SettingsPage:View {
                     Divider()
                     NativeRow(title:"后台服务",detail:"首次启用需要管理员授权",compact:true) {
                         StatusDot(active:store.serviceRunning)
-                        Text(store.serviceInstalling ? "等待安装完成…":store.serviceRunning ? "已授权 · 运行中":store.serviceLabel).foregroundStyle(.secondary)
+                        Text(store.serviceInstalling ? "正在准备…":store.serviceRunning ? "已授权 · 运行中":store.serviceLabel).foregroundStyle(.secondary)
+                        if store.serviceSetup != .ready {
+                            Button(store.serviceSetupButton) { store.installService(networkReady:true) }.disabled(store.busy || store.serviceInstalling)
+                        }
                         Menu("管理服务") {
-                            Button("安装并授权网络服务") { store.installService(networkReady:true) }.disabled(store.serviceInstalling)
+                            Button("重新同步服务") { store.installService(networkReady:true) }.disabled(store.serviceInstalling)
                             Button("仅验证服务启动") { store.installService() }.disabled(store.serviceInstalling)
-                            Button("打开授权设置") { store.helper.openApproval() }
+                            if store.helper.supportsPrivilegedService && store.helper.localInstallation == nil {
+                                Button("打开授权设置") { store.helper.openApproval() }
+                            }
                             Button("卸载服务",role:.destructive) { store.uninstallService() }
                         }.frame(width:110)
                     }

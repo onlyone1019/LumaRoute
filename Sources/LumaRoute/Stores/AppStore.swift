@@ -57,6 +57,9 @@ final class AppStore: ObservableObject {
     @Published var availableCore: CoreRelease?
     @Published var canRollbackCore = false
     @Published var canRollbackGeo = false
+    @Published var serviceSetup: NetworkServiceSetup = .ready
+    private var pendingServiceSettings: NetworkSettings?
+    var serviceSetupButton: String { serviceSetup == .update ? "完成更新":"启用网络功能" }
     var coreUpdates: CoreUpdates!
     var store: LocalStore!
     var runner: CoreRunner!
@@ -141,6 +144,12 @@ final class AppStore: ObservableObject {
             // Keep watching even when the first core start fails because the
             // administrator is still approving or updating the service.
             startRuntimeObservation()
+            serviceSetup = helper.networkSetup
+            if serviceSetup == .update ||
+                (serviceSetup != .ready && (database.settings.tun || database.settings.systemProxy)) {
+                notice = serviceSetup == .update ? "点击“完成更新”，授权后即可继续使用":"点击“启用网络功能”，授权后即可使用系统代理和 TUN"
+                return
+            }
             try await applyConfiguration(settings:database.settings)
         } catch {
             if helper.status != .enabled { serviceFailureMessage = Redactor.clean(error.localizedDescription) }
@@ -204,7 +213,7 @@ final class AppStore: ObservableObject {
     func perform(_ operation: @escaping () async throws -> Void) {
         guard !busy else { return }
         busy = true
-        Task { defer { busy = false }; do { try await operation() } catch { report(error) } }
+        Task { defer { busy = false }; do { try await operation() } catch is CancellationError {} catch { report(error) } }
     }
     func activeSource(_ id: UUID? = nil) throws -> String? {
         guard let id = id ?? database.activeProfileID else { return nil }
@@ -268,6 +277,11 @@ final class AppStore: ObservableObject {
             if let systemProxy { settings.systemProxy = systemProxy }
             let previous = self.database
             guard settings != previous.settings else { return }
+            if (settings.tun || settings.systemProxy),self.helper.networkSetup != .ready {
+                self.pendingServiceSettings = settings
+                try await self.authorizeService(networkReady:true)
+                return
+            }
             if self.coreReady && self.helperActive && settings.isSystemProxyOnlyChange(from:previous.settings) {
                 try await self.saveSystemProxy(settings.systemProxy)
                 return
@@ -362,6 +376,8 @@ final class AppStore: ObservableObject {
     }
     private func observeServiceInstallation() {
         let current = helper.installationState
+        let setup = helper.networkSetup
+        if serviceSetup != setup { serviceSetup = setup }
         if let previous = observedServiceState, previous != current {
             if current.status == .enabled {
                 pendingServiceRefresh = true
@@ -393,7 +409,7 @@ final class AppStore: ObservableObject {
                 coreReady = false
                 helperActive = fullService && status.running
                 serviceRunning = status.running
-                try await applyConfiguration(settings:database.settings,selectionSnapshot:selections)
+                try await applyConfiguration(settings:pendingServiceSettings ?? database.settings,selectionSnapshot:selections)
             }
             // Keep the operation lock while confirming the API and publishing
             // the new nodes; normal periodic refresh resumes after this returns.
@@ -402,12 +418,14 @@ final class AppStore: ObservableObject {
             try Task.checkCancellation()
             guard !shuttingDown else { return }
             proxies = nodes; coreVersion = version; serviceLabel = helper.label
+            if pendingServiceSettings != nil { try store.save(database); pendingServiceSettings = nil }
             recoveryNeeded = false; recoveryAttempts = 0
             serviceInstalling = false; serviceInstallationDeadline = nil
+            serviceSetup = helper.networkSetup
             if error == serviceFailureMessage { error = nil }
             serviceFailureMessage = nil
             serviceRefreshAttempts = 0
-            notice = "后台服务已更新，内核和节点已自动刷新"
+            notice = "已准备就绪，可以继续使用"
             appendLog(source:"后台服务",message:"安装完成，已自动重连内核并刷新节点；网络开关保持原状态")
             serviceLogger.info("Automatic service refresh completed: proxies=\(self.proxies.count) groups=\(self.groups.count)")
         } catch is CancellationError {
@@ -707,6 +725,10 @@ final class AppStore: ObservableObject {
     func saveSettings(_ settings: NetworkSettings) async throws {
         let previous = database
         guard settings != previous.settings else { return }
+        if (settings.tun || settings.systemProxy),helper.networkSetup != .ready {
+            try await authorizeService(networkReady:true)
+            guard helper.networkSetup == .ready,coreReady else { throw LumaError.message("授权尚未完成，请完成授权后再应用设置") }
+        }
         if coreReady && helperActive && settings.isSystemProxyOnlyChange(from:previous.settings) {
             try await saveSystemProxy(settings.systemProxy)
             return
@@ -726,12 +748,34 @@ final class AppStore: ObservableObject {
     }
     func installService(networkReady:Bool = false) {
         guard !serviceInstalling else { return }
-        perform {
-            try self.helper.register(networkReady:networkReady)
-            self.serviceInstalling = true
-            self.serviceInstallationDeadline = Date().addingTimeInterval(600)
-            self.serviceLabel = self.helper.label
-            self.notice = "请在终端完成安装；完成后将自动刷新，无需重启应用"
+        perform { try await self.authorizeService(networkReady:networkReady) }
+    }
+    private func authorizeService(networkReady: Bool) async throws {
+        guard !serviceInstalling else { return }
+        serviceInstalling = true
+        notice = "请在 macOS 授权窗口中确认，完成后会自动连接"
+        let stoppedHelper = helperActive && helper.networkSetup == .ready
+        do {
+            if stoppedHelper {
+                _ = try await helper.send(HelperRequest(action:"stop"))
+                helperActive = false; serviceRunning = false; coreReady = false
+                trafficTask?.cancel(); logTask?.cancel()
+            }
+            try await helper.register(networkReady:networkReady)
+            serviceInstallationDeadline = Date().addingTimeInterval(600)
+            serviceLabel = helper.label; serviceSetup = helper.networkSetup
+            observedServiceState = helper.installationState
+            if helper.status == .enabled {
+                serviceRefreshAttempts = 0; pendingServiceRefresh = true; nextServiceRefresh = .distantPast
+                await refreshInstalledService()
+            } else { notice = "请在系统设置中允许后台服务，完成后会自动连接" }
+        } catch {
+            serviceInstalling = false; serviceInstallationDeadline = nil
+            pendingServiceSettings = nil
+            serviceSetup = helper.networkSetup
+            if stoppedHelper,helper.networkSetup == .ready { try? await applyConfiguration() }
+            if error is CancellationError { notice = "已取消授权，可稍后再试" }
+            throw error
         }
     }
     func checkCoreUpdate() async throws {

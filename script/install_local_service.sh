@@ -6,7 +6,7 @@ JOB='/Library/LaunchDaemons/app.lumaroute.helper.plist'
 LABEL='app.lumaroute.helper'
 MODE="${1:-}"
 if [ "$(id -u)" != 0 ] || [ -z "${SUDO_UID:-}" ] || [ "$SUDO_UID" = 0 ]; then
-  echo '请由当前用户通过 sudo 运行安装器；管理员密码只在终端中输入。' >&2
+  echo '请从 LumaRoute 的管理员授权窗口或通过 sudo 运行安装器。' >&2
   exit 1
 fi
 check_owned() {

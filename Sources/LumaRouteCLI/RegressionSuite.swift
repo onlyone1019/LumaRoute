@@ -42,6 +42,25 @@ enum RegressionSuite {
         try check(parsed["geo-auto-update"] as? Bool == false,"规则数据库更新归事务维护流程管理")
         let oldHelperRequest = try JSONDecoder().decode(HelperRequest.self,from:Data("{\"action\":\"status\"}".utf8))
         try check(oldHelperRequest.coreVersion == nil,"管理员请求的新增版本字段兼容旧消息")
+        try check(NetworkServiceSetup.resolve(installed:false,accepted:false,healthOnly:false) == .install,"未安装服务引导首次授权")
+        try check(NetworkServiceSetup.resolve(installed:true,accepted:false,healthOnly:false) == .update,"应用构建变化引导完成更新")
+        try check(NetworkServiceSetup.resolve(installed:true,accepted:false,healthOnly:true) == .update,"构建身份检查优先于网络权限状态")
+        try check(NetworkServiceSetup.resolve(installed:true,accepted:true,healthOnly:true) == .enableNetwork,"启动验证服务引导启用网络功能")
+        try check(NetworkServiceSetup.resolve(installed:true,accepted:true,healthOnly:false) == .ready,"已经授权的当前构建不重复提示")
+        do {
+            _ = try LocalServiceAuthorization.script(app:URL(fileURLWithPath:"/tmp/LumaRoute.app"),ownerUID:0,networkReady:true)
+            throw LumaError.message("允许 root 冒充普通应用用户")
+        } catch { try check(error.localizedDescription == "应用或用户身份无效","授权命令拒绝无效用户身份") }
+        let authorizationSource = try LocalServiceAuthorization.script(app:URL(fileURLWithPath:"/tmp/LumaRoute \"quoted\" ' $() \\ 中文.app"),ownerUID:501,networkReady:true)
+        let authorizationFile = root.appendingPathComponent("authorization.applescript")
+        try authorizationSource.write(to:authorizationFile,atomically:true,encoding:.utf8)
+        let compiler = Process()
+        compiler.executableURL = URL(fileURLWithPath:"/usr/bin/osacompile")
+        compiler.arguments = ["-o",root.appendingPathComponent("authorization.scpt").path,authorizationFile.path]
+        compiler.standardOutput = FileHandle.nullDevice; compiler.standardError = FileHandle.nullDevice
+        try compiler.run(); compiler.waitUntilExit()
+        try check(compiler.terminationStatus == 0,"含空格、引号和中文路径的系统授权脚本可正确编译")
+        try check(authorizationSource.contains("quoted form of appPath") && authorizationSource.contains("quoted form of installerPath") && !authorizationSource.contains("password "),"路径由 AppleScript 安全转义，应用不传递管理员密码")
         try check(oldHelperRequest.systemProxyEnabled == nil,"系统代理独立请求兼容旧消息")
         let proxyRequestData = try JSONEncoder().encode(HelperRequest(action:"system-proxy",systemProxyEnabled:false))
         let proxyRequest = try JSONSerialization.jsonObject(with:proxyRequestData) as! [String:Any]

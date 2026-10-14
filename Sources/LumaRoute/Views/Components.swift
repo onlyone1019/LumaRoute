@@ -83,6 +83,21 @@ struct RootView:View {
             SidebarView().frame(width:180)
             Divider()
             ZStack(alignment:.topTrailing) {
+                VStack(spacing:14) {
+                if store.serviceSetup != .ready {
+                    Panel {
+                        HStack(spacing:12) {
+                            Image(systemName:"checkmark.shield").foregroundStyle(LumaPalette.accent)
+                            VStack(alignment:.leading,spacing:3) {
+                                Text(store.serviceSetup == .update ? "完成应用更新":"启用网络功能").font(.headline)
+                                Text(store.serviceInstalling ? "等待授权完成，随后自动连接":"授权后自动准备系统代理和 TUN，无需单独安装").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(store.serviceSetupButton) { store.installService(networkReady:true) }
+                                .buttonStyle(LumaPrimaryButtonStyle()).disabled(store.busy || store.serviceInstalling)
+                        }
+                    }
+                }
                 Group {
                     switch store.page {
                     case .overview:OverviewPage()
@@ -93,6 +108,7 @@ struct RootView:View {
                     case .logs:LogsPage()
                     case .settings:SettingsPage()
                     }
+                }
                 }.padding(20)
                 if store.busy { ProgressView().controlSize(.small).padding(12) }
                 if let notice = store.notice {

@@ -11,6 +11,12 @@ public final class SystemNetwork {
            let object = try PropertyListSerialization.propertyList(from:Data(contentsOf:journal),format:nil) as? [String: [String:Any]] { records = object }
     }
     public func apply(settings: NetworkSettings) throws {
+        try apply(settings:settings,includeDNS:true)
+    }
+    public func applySystemProxy(settings: NetworkSettings) throws {
+        try apply(settings:settings,includeDNS:false)
+    }
+    private func apply(settings: NetworkSettings,includeDNS: Bool) throws {
         guard geteuid() == 0 else { throw LumaError.message("网络设置需要管理员授权的后台服务") }
         guard let prefs = SCPreferencesCreate(nil,"LumaRoute" as CFString,nil), SCPreferencesLock(prefs,false) else { throw LumaError.message("其他程序正在修改系统网络设置，请稍后重试") }
         defer { SCPreferencesUnlock(prefs) }
@@ -28,7 +34,7 @@ public final class SystemNetwork {
                 "ProxyAutoConfigEnable":0,"ProxyAutoDiscoveryEnable":0,
                 "ExceptionsList":settings.bypass,"ExcludeSimpleHostnames":1
             ] : nil) { restored.insert(serviceID+":"+(kSCNetworkProtocolTypeProxies as String)) }
-            if try setProtocol(service:service,serviceID:serviceID,type:kSCNetworkProtocolTypeDNS,desired:enabled && settings.tun && settings.dnsHijack ? ["ServerAddresses":["223.6.6.6"]] : nil) { restored.insert(serviceID+":"+(kSCNetworkProtocolTypeDNS as String)) }
+            if includeDNS,try setProtocol(service:service,serviceID:serviceID,type:kSCNetworkProtocolTypeDNS,desired:enabled && settings.tun && settings.dnsHijack ? ["ServerAddresses":["223.6.6.6"]] : nil) { restored.insert(serviceID+":"+(kSCNetworkProtocolTypeDNS as String)) }
         }
         // Journal both the previous and proposed owned value before committing.
         // A crash on either side of SCPreferencesCommitChanges is recoverable.

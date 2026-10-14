@@ -42,6 +42,26 @@ enum RegressionSuite {
         try check(parsed["geo-auto-update"] as? Bool == false,"规则数据库更新归事务维护流程管理")
         let oldHelperRequest = try JSONDecoder().decode(HelperRequest.self,from:Data("{\"action\":\"status\"}".utf8))
         try check(oldHelperRequest.coreVersion == nil,"管理员请求的新增版本字段兼容旧消息")
+        try check(oldHelperRequest.systemProxyEnabled == nil,"系统代理独立请求兼容旧消息")
+        let proxyRequestData = try JSONEncoder().encode(HelperRequest(action:"system-proxy",systemProxyEnabled:false))
+        let proxyRequest = try JSONSerialization.jsonObject(with:proxyRequestData) as! [String:Any]
+        try check(Set(proxyRequest.keys) == ["action","systemProxyEnabled"] && proxyRequest["systemProxyEnabled"] as? Bool == false,"系统代理关闭请求只传开关，不携带配置或端口")
+        var previousNetwork = NetworkSettings(); previousNetwork.tun = true
+        var proxyNetwork = previousNetwork; proxyNetwork.systemProxy = true
+        try check(proxyNetwork.isSystemProxyOnlyChange(from:previousNetwork) && previousNetwork.isSystemProxyOnlyChange(from:proxyNetwork),"保留 TUN 的系统代理开关允许独立处理")
+        try check(!previousNetwork.isSystemProxyOnlyChange(from:previousNetwork),"重复的系统代理设置不触发操作")
+        let beforeProxyConfig = try ConfigComposer.parse(ConfigComposer.compose(source:input,settings:previousNetwork,rules:[],secret:"synthetic"))
+        let afterProxyConfig = try ConfigComposer.parse(ConfigComposer.compose(source:input,settings:proxyNetwork,rules:[],secret:"synthetic"))
+        try check(NSDictionary(dictionary:beforeProxyConfig).isEqual(to:afterProxyConfig),"系统代理开关不改变内核配置")
+        let otherChanges:[(String,(inout NetworkSettings)->Void)] = [
+            ("TUN",{ $0.tun.toggle() }), ("混合端口",{ $0.mixedPort += 1 }),
+            ("控制端口",{ $0.controllerPort += 1 }), ("DNS",{ $0.dnsHijack.toggle() }),
+            ("绕过列表",{ $0.bypass.append("example.org") })
+        ]
+        for (name,change) in otherChanges {
+            var next = proxyNetwork; change(&next)
+            try check(!next.isSystemProxyOnlyChange(from:previousNetwork),"同时修改"+name+"不能走系统代理快捷路径")
+        }
         let strategySource = """
         proxies:
           - {name: 日本节点, type: http, server: 127.0.0.1, port: 18771}

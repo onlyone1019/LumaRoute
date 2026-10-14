@@ -32,6 +32,11 @@ public struct NetworkSettings: Codable, Equatable {
     public var appearance = "system"
     public var updateIntervalHours = 6.0
     public init() {}
+    public func isSystemProxyOnlyChange(from previous: Self) -> Bool {
+        var normalized = self
+        normalized.systemProxy = previous.systemProxy
+        return systemProxy != previous.systemProxy && normalized == previous
+    }
 }
 public struct SubscriptionUsage: Codable, Equatable {
     public var upload: Int64 = 0

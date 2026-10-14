@@ -18,11 +18,13 @@ public struct HelperRequest: Codable {
     public var coreVersion: String?
     public var selections:[GroupSelection]?
     public var ruleSubscriptions: [RuleSubscriptionSnapshot]?
-    public init(action: String, source: String? = nil, rules: [CustomRule]? = nil, settings: NetworkSettings? = nil, secret: String? = nil, strategies: [GroupStrategy]? = nil,coreVersion: String? = nil,selections:[GroupSelection]? = nil,ruleSubscriptions:[RuleSubscriptionSnapshot]? = nil) {
+    public var systemProxyEnabled: Bool?
+    public init(action: String, source: String? = nil, rules: [CustomRule]? = nil, settings: NetworkSettings? = nil, secret: String? = nil, strategies: [GroupStrategy]? = nil,coreVersion: String? = nil,selections:[GroupSelection]? = nil,ruleSubscriptions:[RuleSubscriptionSnapshot]? = nil,systemProxyEnabled:Bool? = nil) {
         self.action = action; self.source = source; self.rules = rules; self.settings = settings; self.secret = secret; self.strategies = strategies
         self.coreVersion = coreVersion
         self.selections = selections
         self.ruleSubscriptions = ruleSubscriptions
+        self.systemProxyEnabled = systemProxyEnabled
     }
 }
 public struct HelperResponse: Codable {

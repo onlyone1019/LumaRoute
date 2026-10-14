@@ -33,6 +33,7 @@ actor HelperController {
     let app: URL
     var runners: [uid_t:CoreRunner] = [:]
     var networks: [uid_t:SystemNetwork] = [:]
+    var appliedSettings: [uid_t:NetworkSettings] = [:]
     var networkOwner: uid_t?
     var startupReady = false
     var operations: Set<uid_t> = []
@@ -125,6 +126,24 @@ actor HelperController {
         case "stop", "restore":
             try await stop(uid:uid)
             return HelperResponse(success:true)
+        case "system-proxy":
+            guard networkOwner == nil || networkOwner == uid else { throw LumaError.message("另一位用户正在使用 LumaRoute 网络接管") }
+            guard !pendingRestores.contains(uid) else { throw LumaError.message("原网络设置仍待恢复，暂不能重新接管") }
+            guard let enabled = request.systemProxyEnabled,
+                  let previous = appliedSettings[uid],let network = networks[uid],
+                  let core = runners[uid],await core.running else { throw LumaError.message("授权内核尚未运行，请先重新检查后台服务") }
+            var settings = previous
+            settings.systemProxy = enabled
+            do { try network.applySystemProxy(settings:settings) }
+            catch {
+                let original = error
+                do { try network.applySystemProxy(settings:previous) }
+                catch { try? await stop(uid:uid) }
+                throw original
+            }
+            appliedSettings[uid] = settings
+            if settings.tun || settings.systemProxy { networkOwner = uid } else if networkOwner == uid { networkOwner = nil }
+            return HelperResponse(success:true,running:await core.running)
         case "start", "apply":
             guard networkOwner == nil || networkOwner == uid else { throw LumaError.message("另一位用户正在使用 LumaRoute 网络接管") }
             guard !pendingRestores.contains(uid) else { throw LumaError.message("原网络设置仍待恢复，暂不能重新接管") }
@@ -166,6 +185,7 @@ actor HelperController {
             }
             catch { let original = error; try? await stop(uid:uid); throw original }
             if changed { try updates.finishSwitch() }
+            appliedSettings[uid] = settings
             if settings.tun || settings.systemProxy { networkOwner = uid } else if networkOwner == uid { networkOwner = nil }
             return HelperResponse(success:true,running:await core.running)
             } catch {
@@ -191,6 +211,7 @@ actor HelperController {
             catch { failure = failure ?? error; pendingRestores.insert(uid); networkOwner = uid }
         }
         runners.removeValue(forKey:uid)
+        appliedSettings.removeValue(forKey:uid)
         if let failure { throw failure }
         pendingRestores.remove(uid)
         if networkOwner == uid { networkOwner = nil }

@@ -87,6 +87,7 @@ final class AppStore: ObservableObject {
     private var serviceInstallationDeadline: Date?
     private var serviceFailureMessage: String?
     private let serviceLogger = Logger(subsystem:"app.lumaroute.desktop",category:"ServiceInstallation")
+    private let systemProxyLogger = Logger(subsystem:"app.lumaroute.desktop",category:"SystemProxy")
     private var pendingLogs:[LogEntry] = []
     private var logFlushTask:Task<Void,Never>?
     var api: MihomoAPI { MihomoAPI(port:database.settings.controllerPort,secret:secret) }
@@ -266,9 +267,35 @@ final class AppStore: ObservableObject {
             if let tun { settings.tun = tun }
             if let systemProxy { settings.systemProxy = systemProxy }
             let previous = self.database
+            guard settings != previous.settings else { return }
+            if self.coreReady && self.helperActive && settings.isSystemProxyOnlyChange(from:previous.settings) {
+                try await self.saveSystemProxy(settings.systemProxy)
+                return
+            }
             do { try await self.applyConfiguration(settings:settings); try self.store.save(self.database) }
             catch { self.database = previous; try? await self.applyConfiguration(); throw error }
         }
+    }
+    private func saveSystemProxy(_ enabled: Bool) async throws {
+        let started = ProcessInfo.processInfo.systemUptime
+        let previous = database
+        let response = try await helper.send(HelperRequest(action:"system-proxy",systemProxyEnabled:enabled))
+        database.settings.systemProxy = enabled
+        serviceRunning = response.running
+        do { try store.save(database) }
+        catch {
+            let original = error
+            do {
+                _ = try await helper.send(HelperRequest(action:"system-proxy",systemProxyEnabled:previous.settings.systemProxy))
+                database = previous
+            } catch {
+                coreReady = false; recoveryNeeded = true
+                throw LumaError.message("系统代理设置保存失败，回退未完成，请重新检查后台服务："+Redactor.clean(error.localizedDescription))
+            }
+            throw original
+        }
+        let milliseconds = Int((ProcessInfo.processInfo.systemUptime-started)*1000)
+        systemProxyLogger.info("System proxy enabled=\(enabled) completed in \(milliseconds) ms")
     }
     func toggleConnection() {
         if connected { setNetwork(tun:false,systemProxy:false) } else { setNetwork(systemProxy:true) }
@@ -679,6 +706,11 @@ final class AppStore: ObservableObject {
     }
     func saveSettings(_ settings: NetworkSettings) async throws {
         let previous = database
+        guard settings != previous.settings else { return }
+        if coreReady && helperActive && settings.isSystemProxyOnlyChange(from:previous.settings) {
+            try await saveSystemProxy(settings.systemProxy)
+            return
+        }
         let wasEnabled = SMAppService.mainApp.status == .enabled
         do {
             try await applyConfiguration(settings:settings)

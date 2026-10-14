@@ -12,7 +12,8 @@
   <p>
     <a href="#功能一览">功能一览</a> ·
     <a href="#界面展示">界面展示</a> ·
-    <a href="#构建与安装">构建与安装</a> ·
+    <a href="#下载安装">下载安装</a> ·
+    <a href="#构建与安装">源码构建</a> ·
     <a href="#快速上手">快速上手</a> ·
     <a href="#常见问题">常见问题</a>
   </p>
@@ -24,7 +25,7 @@
 
 LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihomo](https://github.com/MetaCubeX/mihomo)** 内核处理代理与分流。保留订阅提供的策略组和规则，同时提供本地覆盖、自动选择与菜单栏快捷操作。
 
-> 当前为开发预览版，主要面向本机自行构建使用。默认采用本地 ad-hoc 签名，无需购买 Apple 开发者证书；尚未提供经过 Developer ID 签名与公证的分发包。
+> 当前为开发预览版，提供 Apple Silicon 安装包，也支持本机自行构建。默认采用本地 ad-hoc 签名，无需购买 Apple 开发者证书；安装包未经过 Developer ID 签名与 Apple 公证。
 
 ## 功能一览
 
@@ -65,6 +66,22 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
   <br />
   <img src="docs/images/custom-rules.png" alt="自定义规则演示：类型、匹配内容、目标策略与执行顺序" width="100%" />
 </details>
+
+## 下载安装
+
+**当前预览版：[0.1.0 · Build 17](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.17)** · macOS 14+ · Apple Silicon（M 系列）
+
+| 下载 | 安装方式 |
+| --- | --- |
+| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/LumaRoute-0.1.0-build.17-macos-arm64.dmg) | 打开后将 LumaRoute 拖入 Applications |
+| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/LumaRoute-0.1.0-build.17-macos-arm64.zip) | 解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/SHA256SUMS.txt) | 核对下载文件的完整性 |
+
+更新旧版前先关闭系统代理与 TUN，再退出并替换应用。安装后按[后台服务安装步骤](#安装后台服务)同步授权服务，再启用网络接管。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
+
+这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 17 发布说明](docs/releases/v0.1.0-build.17.md)。
+
+本次安装包仅适用于 Apple Silicon；Intel 用户需在对应机器上从源码构建。
 
 ## 构建与安装
 

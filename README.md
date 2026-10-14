@@ -69,17 +69,17 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ## 下载安装
 
-**当前预览版：[0.1.0 · Build 17](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.17)** · macOS 14+ · Apple Silicon（M 系列）
+**当前预览版：[0.1.0 · Build 19](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.19)** · macOS 14+ · Apple Silicon（M 系列）
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/LumaRoute-0.1.0-build.17-macos-arm64.dmg) | 打开后将 LumaRoute 拖入 Applications |
-| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/LumaRoute-0.1.0-build.17-macos-arm64.zip) | 解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.17/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/LumaRoute-0.1.0-build.19-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
+| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/LumaRoute-0.1.0-build.19-macos-arm64.zip) | 解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
-更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。Build 19 起，重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。当前提供下载的 Build 17 仍使用原有 Terminal 授权方式。
+更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 17 发布说明](docs/releases/v0.1.0-build.17.md)。
+这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 19 发布说明](docs/releases/v0.1.0-build.19.md)。
 
 本次安装包仅适用于 Apple Silicon；Intel 用户需在对应机器上从源码构建。
 

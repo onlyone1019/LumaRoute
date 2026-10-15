@@ -44,7 +44,7 @@ Release 附件包含 Mihomo v1.19.32、Yams 6.1.0 的官方原样源码归档，
 
 完整当前附件摘要以 Release 的 `SHA256SUMS.txt` 为准。旧附件已逐文件备份并校验；标签不移动。
 
-## 当前发布：许可明确的 GEO 规则来源
+## 内置 GEO 规则来源替换（前次发布）
 
 2026-10-15 再次更新同一 Build 29 Release：biliintl / sharepoint 的输入全部改为固定的 V2Ray MIT 与 ACL4SSR CC BY-SA 4.0 来源。直接来源的原始规则、许可证、提交、URL、SHA-256 和选择行已随新输入快照保存。GEO 源码 / 许可补充提交为 `d58b9816b8d5f7580e7a462d9d16975ae41493b3`；应用 Swift 源码、Mihomo、后台服务与原 Build 29 相同，所有 Git 标签对象及目标保留。
 
@@ -64,3 +64,28 @@ Release 附件包含 Mihomo v1.19.32、Yams 6.1.0 的官方原样源码归档，
 当前 `GeoSite.dat` SHA-256 为 `f7bc69233babdfbfdd9337d85ea925b478e2dcb26817fbfd1b0fdd582448eacb`。完整附件摘要见当前 `SHA256SUMS.txt`，GEO 源码附件为 `LumaRoute-GEO-inputs-2026-10-15-licensed-rules.tar.gz`。旧 GEO 源码附件及旧安装包已备份后从当前 Release 替换。
 
 这是安装包内置数据的替换；应用内手动在线 GEO 更新仍由用户自行下载 meta-rules-dat 上游数据，未自动套用本次固定替换，已有运行目录的数据不会被本次发包强制覆盖。未更改或启动本机已安装应用。历史 Git 标签仍指向原提交，新资源对应源码应查看 `source-manifest.json` 中的 `geo_data_source_commit` 及随附 GEO 源码归档。仓库继续私有，依赖安全未在本轮处理。
+
+## 当前发布：在线 GEO 更新与回退的许可保护
+
+应用与后台服务代码来自 `8a8aa1b1d01f99cbca08f81e7feaeeb6f4b81b3a`（[双架构 CI](https://github.com/onlyone1019/LumaRoute/actions/runs/38755328728) 全部通过）；后续验证工具和发布文档的提交不改变应用运行代码。Build 仍为 29，所有 Git 标签对象及目标保留，仓库继续私有。
+
+在线更新现在先验证上游三份文件大小 / SHA-256，再使用随包固定 `GeoSite-policy.json` 完整替换 biliintl / sharepoint，其他字段按原字节保留。处理后的文件由 Mihomo 验证并执行原有事务写入 / 重启。策略 SHA-256 固定在代码中，缺失、修改或数据解析失败时拒绝操作。旧 GEO 快照回退同样先应用这两类规则；原备份保持原字节。GUI 本地内核与后台服务使用同一路径，选择应用外已下载内核时仍从应用资源取得策略。
+
+验证结果：
+
+- arm64 / x86_64 分别通过生产 `updateGeoData()` 入口的真实在线下载、事务写入、内核重启、失败保持原文件、旧版真实 GEO 快照回退与原件保留，12 项集成断言 / 架构。两次联网均使用上游公开发布接口，未注入下载结果。测试使用应用外的内核副本与应用内策略，覆盖后台服务选用已下载内核时的资源路径。
+- 两种架构各通过 14 项离线 GEO 集成断言，包括合法 GeoSite 配合损坏 IP 文件进入事务后被内核拒绝、恢复全部旧文件、原内核继续代理真实回环 HTTP 请求，以及中断事务的恢复。
+- 在线流程及旧快照回退后的实际数据，各通过 14 个正向分流与 6 个反向边界用例；两种架构各 218 项既有回归和隔离冒烟通过。
+- CI 的 14 项 Swift 单元测试覆盖策略篡改、无效 / 重复 protobuf、在线摘要失败、下载失败、旧快照处理及备份保留；11 项 Python 来源与下载测试通过，离线 GEO 重建和全历史秘密扫描通过。本机命令行 SDK 缺 XCTest，单元测试以 GitHub macOS CI 结果为准。
+- 双架构 DMG / ZIP 与当前应用逐文件相同；签名、三种可执行文件架构、全部许可证、策略文件及三份 GEO 摘要通过。GEO 源码附件独立解包重建通过；包内容与 GEO 源码扫描无秘密告警。
+
+测试未修改或启动本机已安装 GUI，也没有触发真实管理员服务 / TUN 接管；Intel 仍使用 Rosetta，未新增 Intel 真机验收。当前数据不会仅因安装包替换被后台强制改写；手动更新或回退成功后应用许可规则。
+
+| 当前安装包 | SHA-256 |
+| --- | --- |
+| LumaRoute-0.1.0-build.29-macos-arm64.dmg | `2ac906816811f40e0992ffeee18a3c7b3fff8dc7ce58c44c2aef27c5e8a5229f` |
+| LumaRoute-0.1.0-build.29-macos-arm64.zip | `873ed49837adcc3e493866b5bacee0992977fd9fa26fe8afd320342a8824bb82` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.dmg | `cfeb1606d146e04db8198850435ea216d6e824a05c3443f180a325615c4223dd` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.zip | `3128950e7c559f8dc17c38c941025408dc07ac8d497e45b8ee56f09554a61aee` |
+
+本次更新应用和后台服务代码、随包策略和说明；内置三份 GEO 数据的摘要不变，GeoSite 仍为 `f7bc69233babdfbfdd9337d85ea925b478e2dcb26817fbfd1b0fdd582448eacb`。Release 增加 `LumaRoute-Build29-source.tar.gz`，提供当前完整应用 / 后台服务源码，避免将未移动的标签源码误认为当前补包源码。对应提交及所有附件摘要见 `source-manifest.json` / `SHA256SUMS.txt`；上方历史摘要不适用于当前包。所有旧附件及 Git 引用已先备份并校验，历次外部备份保留，依赖安全未处理。

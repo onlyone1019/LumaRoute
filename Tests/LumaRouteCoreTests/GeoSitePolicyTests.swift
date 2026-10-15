@@ -38,6 +38,7 @@ final class GeoSitePolicyTests: XCTestCase {
     func testTamperedPolicyAndIncompleteUpdateAreRejected() throws {
         var data = try Data(contentsOf:root.appendingPathComponent("Resources/GeoData/GeoSite-policy.json")); data.append(32)
         XCTAssertThrowsError(try GeoSitePolicy(data:data))
+        XCTAssertThrowsError(try GeoSitePolicy.load(from:root.appendingPathComponent("Resources/GeoData/missing-policy.json")))
         XCTAssertThrowsError(try policy().protect(["GeoSite.dat":stale]))
     }
     func testMalformedAndDuplicateProtobufIsRejected() throws {

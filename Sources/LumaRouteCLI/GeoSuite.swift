@@ -41,6 +41,12 @@ enum GeoSuite {
             try check(after == originals,"更新失败恢复全部旧 GEO 文件")
             _ = try await api.version()
             try check(try await request(port:settings.mixedPort),"失败更新后原内核继续代理真实请求")
+            var invalidIP = files; invalidIP["GeoIP.dat"] = Data("invalid ip database".utf8)
+            var rejectedIP = false
+            do { try await runner.updateGeoData(payloads:invalidIP) } catch { rejectedIP = true }
+            try check(rejectedIP,"内核拒绝已进入事务但无效的 IP 数据")
+            try check(try GeoDataUpdates.names.map { try Data(contentsOf:home.appendingPathComponent($0)) } == originals,"内核校验失败后事务恢复全部原文件")
+            try check(try await request(port:settings.mixedPort),"事务校验失败后原内核继续代理真实请求")
             try await runner.updateGeoData(payloads:files)
             try check(try GeoDataUpdates(home:home).canRollback,"成功更新保存可回退的快照")
             try check(try await request(port:settings.mixedPort),"更新重启后真实请求仍通过")

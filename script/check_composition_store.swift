@@ -41,7 +41,7 @@ import LumaRouteCore
         let rebuilt = try app.activeSource(composite.id,configuration:restored,overrides:contents)
         precondition(rebuilt == old)
         print("PASS restored composition is regenerated from backup member contents")
-        let targets = try app.compositionPolicyTargets(plan)
+        let targets = try await app.compositionPolicyTargets(plan)
         precondition(targets.contains("[B] choice") && targets.contains("聚合节点") && !targets.contains("choice"))
         print("PASS draft composition targets come from member caches rather than the running single profile")
         var unified = composite

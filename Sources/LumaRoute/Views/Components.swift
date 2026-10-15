@@ -98,17 +98,7 @@ struct RootView:View {
                         }
                     }
                 }
-                Group {
-                    switch store.page {
-                    case .overview:OverviewPage()
-                    case .subscriptions:SubscriptionsPage()
-                    case .proxies:ProxiesPage()
-                    case .connections:ConnectionsPage()
-                    case .rules:RulesPage()
-                    case .logs:LogsPage()
-                    case .settings:SettingsPage()
-                    }
-                }
+                PageHostView().frame(maxWidth:.infinity,maxHeight:.infinity)
                 }.padding(20)
                 if store.busy { ProgressView().controlSize(.small).padding(12) }
                 if let notice = store.notice {
@@ -127,7 +117,7 @@ struct SidebarView:View {
     var body:some View {
         VStack(alignment:.leading,spacing:5) {
             ForEach(AppPage.allCases) { page in
-                Button { store.page = page } label: {
+                Button { if store.page != page { store.page = page } } label: {
                     HStack(spacing:12) {
                         Image(systemName:page.icon).font(.system(size:18,weight:.regular)).frame(width:22)
                         Text(page.rawValue).font(.system(size:14,weight:store.page == page ? .medium:.regular))

@@ -75,7 +75,6 @@ struct ConnectionsPage:View {
             }
             HStack { Text("\(items.count) 个连接").font(.caption).foregroundStyle(.secondary); Spacer() }
         }.sheet(item:$routingRule) { RoutingRuleSheet(rule:$0,profileID:store.database.activeProfileID) }
-         .task { await store.refreshConnectionsSnapshot() }
     }
     private func createRule(_ connection: LiveConnection,application: Bool,target: String? = nil) {
         do {

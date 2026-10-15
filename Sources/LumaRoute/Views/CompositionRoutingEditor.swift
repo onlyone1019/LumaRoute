@@ -78,7 +78,7 @@ struct DomainRoutesEditor: View {
             do {
                 let loaded: [String]
                 if let policyLoader { loaded = try await policyLoader(composition) }
-                else { loaded = try store.compositionPolicyTargets(composition) }
+                else { loaded = try await store.compositionPolicyTargets(composition) }
                 guard !Task.isCancelled,key == policyKey else { return }
                 policies = loaded
                 loadedPolicyKey = key

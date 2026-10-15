@@ -2,13 +2,9 @@ import Foundation
 import LumaRouteCore
 
 extension AppStore {
-    func compositionPolicyTargets(_ composition: SubscriptionComposition) throws -> [String] {
+    func compositionPolicyTargets(_ composition: SubscriptionComposition) async throws -> [String] {
         // Derive from candidate members, never from whichever profile is currently running.
-        var candidate = composition; candidate.domainRoutes = []
-        var contents: [UUID:String] = [:]
-        for id in candidate.profileIDs { contents[id] = try store.profileContent(id) }
-        let source = try CompositionComposer.compose(candidate,profiles:database.profiles,contents:contents,settings:database.settings)
-        return (try ConfigComposer.parse(source)["proxy-groups"] as? [[String:Any]] ?? []).compactMap { $0["name"] as? String }.filter { !$0.hasPrefix("订阅 · ") }
+        try await compositionPolicyCache.targets(composition,profiles:database.profiles,settings:database.settings,store:store)
     }
     var routingTargets: [(name:String,label:String)] {
         var result = [(name:"DIRECT",label:"直连"),(name:"REJECT",label:"拒绝连接")]

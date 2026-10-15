@@ -78,6 +78,7 @@ struct DomainRoutingView: View {
     @EnvironmentObject var store: AppStore
     @State private var draft: [SubscriptionDomainRoute] = []
     @State private var failure: String?
+    @State private var initialized = false
     private var composition: SubscriptionComposition? { store.activeProfile?.composition }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
@@ -107,7 +108,10 @@ struct DomainRoutingView: View {
                 EmptyMessage(icon:"arrow.triangle.branch",title:"组合配置的分流规则",detail:"创建组合配置后，可将不同域名分别交给不同订阅。单订阅仍可使用自定义规则选择策略组。")
                 Button("前往订阅") { store.page = .subscriptions }
             }
-        }.onAppear { draft = composition?.domainRoutes ?? [] }
+        }.onAppear { if !initialized { draft = composition?.domainRoutes ?? []; initialized = true } }
          .onChange(of:store.database.activeProfileID) { _,_ in draft = composition?.domainRoutes ?? []; failure = nil }
+         .onChange(of:composition?.domainRoutes) { previous,current in
+             if draft == (previous ?? []) { draft = current ?? [] }
+         }
     }
 }

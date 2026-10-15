@@ -7,6 +7,7 @@ struct RulesPage:View {
     @State private var search=""
     @State private var tab="custom"
     @State private var adding=false
+    @State private var initialized=false
     var body:some View {
         VStack(spacing:18) {
             PageHeader(title:"规则") {
@@ -63,7 +64,7 @@ struct RulesPage:View {
                     TableColumn("目标策略",value:\.proxy).width(180)
                 }
             }
-        }.onAppear { draft=store.currentCustomRules }
+        }.onAppear { if !initialized { draft=store.currentCustomRules; initialized=true } }
          .onChange(of:store.database.activeProfileID) { _,_ in draft=store.currentCustomRules }
          .onChange(of:store.currentCustomRules) { _,rules in draft=rules }
     }

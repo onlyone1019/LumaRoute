@@ -93,6 +93,7 @@ final class AppStore: ObservableObject {
     private var configurationRevision = UUID()
     private var refreshing = false
     private var refreshPending = false
+    private var forceRefreshPending = false
     private var refreshScheduled = false
     private var mainWindowVisible = false
     private var lastNodeRefresh = Date.distantPast
@@ -108,6 +109,7 @@ final class AppStore: ObservableObject {
     private let serviceLogger = Logger(subsystem:"app.lumaroute.desktop",category:"ServiceInstallation")
     private let systemProxyLogger = Logger(subsystem:"app.lumaroute.desktop",category:"SystemProxy")
     private let routingLogger = Logger(subsystem:"app.lumaroute.desktop",category:"RoutingSave")
+    let compositionPolicyCache = CompositionPolicyCache()
     private var pendingLogs:[LogEntry] = []
     private var logFlushTask:Task<Void,Never>?
     var api: MihomoAPI { MihomoAPI(port:database.settings.controllerPort,secret:secret) }
@@ -380,7 +382,7 @@ final class AppStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             self.refreshScheduled = false
-            if self.refreshPending { await self.refresh() }
+            if self.refreshPending { await self.refresh(force:false) }
         }
     }
     func refresh(force: Bool = true,now: Date = Date()) async {
@@ -388,7 +390,7 @@ final class AppStore: ObservableObject {
         if serviceLabel != label { serviceLabel = label }
         observeServiceInstallation()
         guard !busy,!sleeping,!shuttingDown,!refreshing else {
-            if force { refreshPending = true }
+            if force { refreshPending = true; forceRefreshPending = true }
             return
         }
         if pendingServiceRefresh,Date() >= nextServiceRefresh {
@@ -400,8 +402,9 @@ final class AppStore: ObservableObject {
             return
         }
         refreshing = true
-        let immediate = force || refreshPending
+        let immediate = force || forceRefreshPending
         refreshPending = false
+        forceRefreshPending = false
         defer {
             refreshing = false
             if refreshPending { requestRefresh() }
@@ -426,8 +429,7 @@ final class AppStore: ObservableObject {
                 // An XPC timeout alone does not mean a healthy controller died.
                 if let status = try? await helper.send(HelperRequest(action:"status"),responseTimeout:3) {
                     guard !busy,revision == configurationRevision,!shuttingDown else { return }
-                    serviceRunning = status.running
-                    canRollbackGeo = status.canRollbackGeo ?? false
+                    updateServiceSnapshot(running:status.running,canRollbackGeo:status.canRollbackGeo ?? false)
                     confirmedStopped = !status.running
                 }
             } else if let runner,versionError != nil { confirmedStopped = !(await runner.running) }
@@ -491,6 +493,11 @@ final class AppStore: ObservableObject {
             try? await store.saveSettingsAsync(database.settings)
             self.notice = helperActive ? "内核中断，正在确认网络设置恢复":"内核中断，网络接管已停止，正在恢复本机内核"
         }
+    }
+
+    func updateServiceSnapshot(running: Bool,canRollbackGeo: Bool) {
+        if serviceRunning != running { serviceRunning = running }
+        if self.canRollbackGeo != canRollbackGeo { self.canRollbackGeo = canRollbackGeo }
     }
     private func observeServiceInstallation() {
         let current = helper.installationState

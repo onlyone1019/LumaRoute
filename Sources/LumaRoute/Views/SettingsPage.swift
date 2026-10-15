@@ -58,7 +58,7 @@ struct SettingsPage:View {
                         Panel {
                             VStack(alignment:.leading,spacing:14) {
                                 Text("本地备份").font(.headline)
-                                Text("备份包含订阅配置、规则和设置。链接凭据保留在当前 Mac 的钥匙串中。").font(.caption).foregroundStyle(.secondary)
+                                Text("备份包含订阅配置、规则和设置。完整订阅链接和控制密钥留在本机，不包含在备份中。").font(.caption).foregroundStyle(.secondary)
                                 HStack { Button("创建备份") { store.perform { try await store.backup() } }; Button("恢复备份…") { restoring=true } }
                             }
                         }

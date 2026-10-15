@@ -53,7 +53,11 @@ macOS 仍不允许打开时，可从仓库按 README 在本机自行构建。
 同一已授权版本正常重开不会重复安装。管理员密码只在本机 macOS
 授权窗口输入，不要发送到聊天、工单或仓库；应用不会保存密码。
 默认混合端口 19790，控制端口 19791；与其他代理工具共存时避免端口冲突。
-应用数据保存在 ~/Library/Application Support/LumaRoute，订阅链接保存在钥匙串。
+应用业务数据及密钥保存在
+~/Library/Application Support/LumaRoute/lumaroute.sqlite，不再访问钥匙串。
+Build 21 不自动迁移旧 JSON、订阅文件或钥匙串数据，旧文件原样保留；
+首次使用此版本需要重新添加订阅。普通备份不包含完整订阅链接和控制密钥，
+恢复时请选择包含 lumaroute.sqlite 的新版备份目录。
 
 项目：https://github.com/onlyone1019/LumaRoute
 EOF

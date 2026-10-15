@@ -24,7 +24,9 @@ private struct NodeTestResult: Sendable {
 @MainActor
 final class AppStore: ObservableObject {
     @Published var database = AppDatabase()
-    @Published var page: AppPage = .overview
+    @Published var page: AppPage = .overview {
+        didSet { if page != oldValue { requestRefresh() } }
+    }
     @Published var settingsTab = "网络"
     @Published var addingSubscription = false
     @Published var coreReady = false
@@ -45,7 +47,9 @@ final class AppStore: ObservableObject {
     var trafficHistory:[Traffic] { get { runtime.trafficHistory } set { if runtime.trafficHistory != newValue { runtime.trafficHistory = newValue } } }
     var logs:[LogEntry] { get { runtime.logs } set { runtime.logs = newValue } }
     @Published var error: String?
-    @Published var busy = false
+    @Published var busy = false {
+        didSet { if !busy && refreshPending { requestRefresh() } }
+    }
     @Published var serviceLabel = "未安装"
     @Published var serviceRunning = false
     @Published var serviceInstalling = false
@@ -83,6 +87,13 @@ final class AppStore: ObservableObject {
     private var logStreamAvailable = false
     private var configurationRevision = UUID()
     private var refreshing = false
+    private var refreshPending = false
+    private var refreshScheduled = false
+    private var mainWindowVisible = false
+    private var lastNodeRefresh = Date.distantPast
+    private var lastProviderRefresh = Date.distantPast
+    private var lastRuleRefresh = Date.distantPast
+    private var cachedProviders: [String:Provider] = [:]
     private var observedServiceState: HelperClient.InstallationState?
     private var pendingServiceRefresh = false
     private var serviceRefreshAttempts = 0
@@ -172,7 +183,7 @@ final class AppStore: ObservableObject {
         if refreshTask == nil {
             refreshTask = Task { [weak self] in
                 while !Task.isCancelled {
-                    await self?.refresh()
+                    await self?.refresh(force:false)
                     if self?.coreReady == true { await self?.updateDueSubscriptions(); await self?.updateDueRuleSubscriptions() }
                     try? await Task.sleep(nanoseconds:2_000_000_000)
                 }
@@ -221,6 +232,8 @@ final class AppStore: ObservableObject {
     }
     func applyConfiguration(settings: NetworkSettings? = nil,source: String? = nil,rules: [CustomRule]? = nil,strategies: [GroupStrategy]? = nil,profileID: UUID? = nil,selectionSnapshot: [GroupSelection]? = nil,ruleSubscriptions: [RuleSubscriptionSnapshot]? = nil) async throws {
         configurationRevision = UUID()
+        cachedProviders = [:]
+        lastNodeRefresh = .distantPast; lastProviderRefresh = .distantPast; lastRuleRefresh = .distantPast
         cancelTests(); nodeErrors = [:]; testProgress = 0; testTotal = 0
         let keepSelection = (profileID ?? database.activeProfileID) == database.activeProfileID
         let selections:[GroupSelection]
@@ -314,11 +327,30 @@ final class AppStore: ObservableObject {
     func toggleConnection() {
         if connected { setNetwork(tun:false,systemProxy:false) } else { setNetwork(systemProxy:true) }
     }
-    func refresh() async {
+    func setMainWindowVisible(_ visible: Bool) {
+        guard mainWindowVisible != visible else { return }
+        mainWindowVisible = visible
+        if visible { requestRefresh() }
+    }
+    private func requestRefresh() {
+        guard runner != nil || coreReady else { return }
+        refreshPending = true
+        guard !busy,!refreshing,!refreshScheduled,!sleeping,!shuttingDown else { return }
+        refreshScheduled = true
+        Task { [weak self] in
+            guard let self else { return }
+            self.refreshScheduled = false
+            if self.refreshPending { await self.refresh() }
+        }
+    }
+    func refresh(force: Bool = true,now: Date = Date()) async {
         let label = helper.label
         if serviceLabel != label { serviceLabel = label }
         observeServiceInstallation()
-        guard !busy,!sleeping,!shuttingDown,!refreshing else { return }
+        guard !busy,!sleeping,!shuttingDown,!refreshing else {
+            if force { refreshPending = true }
+            return
+        }
         if pendingServiceRefresh,Date() >= nextServiceRefresh {
             await refreshInstalledService()
             return
@@ -328,26 +360,57 @@ final class AppStore: ObservableObject {
             return
         }
         refreshing = true
-        defer { refreshing = false }
+        let immediate = force || refreshPending
+        refreshPending = false
+        defer {
+            refreshing = false
+            if refreshPending { requestRefresh() }
+        }
         let revision = configurationRevision
+        let nodeInterval: TimeInterval = mainWindowVisible && (page == .overview || page == .proxies) ? 2:10
+        let needsNodes = immediate || now.timeIntervalSince(lastNodeRefresh) >= nodeInterval
+        let needsConnections = mainWindowVisible && page == .connections
+        let needsRules = mainWindowVisible && page == .rules && (immediate || now.timeIntervalSince(lastRuleRefresh) >= 30)
         do {
-            async let nodeResult = api.proxies()
-            async let connectionResult = api.connections()
-            let freshProxies = try await nodeResult
-            var availableProxies = freshProxies
-            if let providers = try? await api.providers() {
+            // The lightweight controller and service checks stay on the 2s
+            // heartbeat even when the window is closed or covered.
+            let version = try await api.version()
+            guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            if version != coreVersion { coreVersion = version }
+            if needsNodes {
+                let freshProxies = try await api.proxies()
+                var providers = cachedProviders
+                let refreshProviders = immediate || now.timeIntervalSince(lastProviderRefresh) >= 30
+                var providerResult: [String:Provider]?
+                if refreshProviders { providerResult = try? await api.providers() }
+                if let providerResult { providers = providerResult }
+                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                if providerResult != nil { cachedProviders = providers; lastProviderRefresh = now }
+                var availableProxies = freshProxies
                 for (name, provider) in providers where provider.vehicleType != "Compatible" {
-                    for var node in provider.proxies ?? [] where availableProxies[node.name]?.isGroup != true {
+                    for providerNode in provider.proxies ?? [] where availableProxies[providerNode.name]?.isGroup != true {
+                        // Keep live delay/alive values if /proxies includes the
+                        // node; cached providers only supply missing metadata.
+                        var node = availableProxies[providerNode.name] ?? providerNode
                         node.providerName = name
                         availableProxies[node.name] = node
                     }
                 }
+                if proxies != availableProxies { proxies = availableProxies }
+                lastNodeRefresh = now
             }
-            if proxies != availableProxies { proxies = availableProxies }
-            let response = try await connectionResult
-            connections = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:database.settings.mixedPort)
-            if let rules = try? await api.rules(),rules != liveRules { liveRules = rules }
-            if let version = try? await api.version(),version != coreVersion { coreVersion = version }
+            if needsConnections {
+                let response = try await api.connections()
+                guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
+                let enriched = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:database.settings.mixedPort)
+                guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
+                connections = enriched
+            }
+            if needsRules,let rules = try? await api.rules() {
+                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                if rules != liveRules { liveRules = rules }
+                lastRuleRefresh = now
+            }
             if helperActive {
                 guard !busy,revision == configurationRevision,!shuttingDown else { return }
                 let status = try await helper.send(HelperRequest(action:"status"))
@@ -542,18 +605,16 @@ final class AppStore: ObservableObject {
         let previous = database
         var applied = false
         do {
-            if let address { try await store.secrets.writeAsync(address,key:"subscription-\(profile.id.uuidString)") }
             if previous.activeProfileID == nil { try await applyConfiguration(source:content,profileID:profile.id); applied = true }
             var next = previous; next.settings = database.settings
             next.profiles.append(profile)
             if previous.activeProfileID == nil { next.activeProfileID = profile.id }
-            try store.commit(next,profiles:[profile.id:content])
+            try store.commit(next,profiles:[profile.id:content],subscriptionAddresses:address.map { [profile.id:$0] } ?? [:])
             database = next
             appendLog(source:profile.name,message:"订阅导入成功")
         } catch {
             database = previous
             if applied { try? await applyConfiguration() }
-            if address != nil { try? await store.secrets.deleteAsync("subscription-\(profile.id.uuidString)") }
             throw error
         }
     }
@@ -593,7 +654,7 @@ final class AppStore: ObservableObject {
         var previousSource: String?
         var applied = false
         do {
-            guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在当前钥匙串，请重新导入") }
+            guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在本机数据库，请重新导入") }
             previousSource = try store.profileContent(profile.id)
             let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent)
             try await validateRemoteSource(download.content)
@@ -638,11 +699,9 @@ final class AppStore: ObservableObject {
         next.profiles.removeAll { $0.id == profile.id }
         next.groupStrategies?.removeAll { $0.profileID == profile.id }
         next.ruleSubscriptions?.removeAll { $0.profileID == profile.id }
-        // Commit metadata first; a failed write must not erase a usable source.
-        try store.save(next)
+        try store.commit(next,profiles:[:],removingProfiles:[profile.id])
         database = next
-        do { try await store.secrets.deleteAsync("subscription-\(profile.id.uuidString)"); try store.removeProfileFiles(profile.id) }
-        catch { appendLog(level:"warning",source:"订阅",message:"订阅已从列表移除；本机备份已保留，文件清理失败："+Redactor.clean(error.localizedDescription)) }
+        store.cleanRuleSubscriptionCache(next)
     }
     func select(group: String,node: String) {
         perform {
@@ -725,6 +784,26 @@ final class AppStore: ObservableObject {
     func saveSettings(_ settings: NetworkSettings) async throws {
         let previous = database
         guard settings != previous.settings else { return }
+        if settings.isApplicationOnlyChange(from:previous.settings) {
+            let wasEnabled = SMAppService.mainApp.status == .enabled
+            let changesLogin = settings.autoLaunch != previous.settings.autoLaunch
+            do {
+                if changesLogin {
+                    if settings.autoLaunch && !wasEnabled { try SMAppService.mainApp.register() }
+                    else if !settings.autoLaunch && wasEnabled { try await SMAppService.mainApp.unregister() }
+                }
+                var next = previous; next.settings = settings
+                try store.save(next)
+                database = next
+            } catch {
+                if changesLogin {
+                    if wasEnabled && SMAppService.mainApp.status != .enabled { try? SMAppService.mainApp.register() }
+                    else if !wasEnabled && SMAppService.mainApp.status == .enabled { try? await SMAppService.mainApp.unregister() }
+                }
+                throw error
+            }
+            return
+        }
         if (settings.tun || settings.systemProxy),helper.networkSetup != .ready {
             try await authorizeService(networkReady:true)
             guard helper.networkSetup == .ready,coreReady else { throw LumaError.message("授权尚未完成，请完成授权后再应用设置") }
@@ -893,11 +972,10 @@ final class AppStore: ObservableObject {
         try await runner.validate(file:file)
         let previous = database
         _ = try store.backup(previous)
-        try store.restoreRuleSubscriptionFiles(restored,from:url)
         do {
             database = restored
             try await applyConfiguration(settings:restored.settings,source:source,rules:restored.customRules,strategies:strategies,profileID:restored.activeProfileID,ruleSubscriptions:snapshots)
-            try store.commit(restored,profiles:contents)
+            try store.commitBackup(restored,profiles:contents,from:url)
             database = restored
             notice = "备份已恢复，恢复前版本已保存"
             appendLog(source:"备份",message:"备份已恢复，恢复前版本已保存")

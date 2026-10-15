@@ -32,6 +32,16 @@ public struct NetworkSettings: Codable, Equatable {
     public var appearance = "system"
     public var updateIntervalHours = 6.0
     public init() {}
+    /// Application preferences do not affect YAML or system network settings.
+    public func isApplicationOnlyChange(from previous: Self) -> Bool {
+        var normalized = self
+        normalized.autoLaunch = previous.autoLaunch
+        normalized.connectOnLaunch = previous.connectOnLaunch
+        normalized.testConcurrency = previous.testConcurrency
+        normalized.appearance = previous.appearance
+        normalized.updateIntervalHours = previous.updateIntervalHours
+        return self != previous && normalized == previous
+    }
     public func isSystemProxyOnlyChange(from previous: Self) -> Bool {
         var normalized = self
         normalized.systemProxy = previous.systemProxy

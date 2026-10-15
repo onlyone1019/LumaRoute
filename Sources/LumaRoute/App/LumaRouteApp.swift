@@ -53,6 +53,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     private let windowLogger = Logger(subsystem:"app.lumaroute.desktop",category:"Windowing")
     func configure(store:AppStore,openMainWindow:@escaping ()->Void) {
         self.store = store
+        scheduleVisibilityUpdate()
         createMainWindow = openMainWindow
         if statusMenu == nil { statusMenu = StatusMenuController(store:store,openMainWindow:{ [weak self] in self?.presentMainWindow() }) }
     }
@@ -121,6 +122,9 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
         // Inspect actual registered windows after the event has completed. A
         // queued close must not hide the Dock for an already reopened window.
         let visible = mainWindows.allObjects.filter { $0.isVisible || $0.isMiniaturized }.count
+        store?.setMainWindowVisible(mainWindows.allObjects.contains {
+            $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
+        })
         let policy:NSApplication.ActivationPolicy = visible > 0 || presentationPending ? .regular:.accessory
         if NSApp.activationPolicy() != policy {
             let success = NSApp.setActivationPolicy(policy)

@@ -85,7 +85,7 @@ final class CoreTests:XCTestCase {
         let restored=try store.restoreBackup(backup)
         XCTAssertEqual(restored.customRules.count,1)
         XCTAssertEqual(try store.profileContent(profile.id),source)
-        let attrs=try FileManager.default.attributesOfItem(atPath:store.profileURL(profile.id).path)
+        let attrs=try FileManager.default.attributesOfItem(atPath:store.databaseURL.path)
         XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.intValue,0o600)
     }
 }

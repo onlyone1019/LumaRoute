@@ -4,7 +4,7 @@ import LumaRouteCore
 
 enum RegressionSuite {
     static func run() throws {
-        var passed=0
+        var passed=try SQLiteStoreSuite.run()
         func check(_ condition:Bool,_ name:String)throws {
             guard condition else { throw LumaError.message("验收失败："+name) }
             passed += 1
@@ -80,6 +80,31 @@ enum RegressionSuite {
         for (name,change) in otherChanges {
             var next = proxyNetwork; change(&next)
             try check(!next.isSystemProxyOnlyChange(from:previousNetwork),"同时修改"+name+"不能走系统代理快捷路径")
+        }
+        let preferenceChanges:[(String,(inout NetworkSettings)->Void)] = [
+            ("外观",{ $0.appearance = "dark" }), ("登录启动",{ $0.autoLaunch.toggle() }),
+            ("启动后连接",{ $0.connectOnLaunch.toggle() }), ("测试并发",{ $0.testConcurrency += 1 }),
+            ("默认订阅更新间隔",{ $0.updateIntervalHours += 1 })
+        ]
+        var preferences = previousNetwork
+        for (name,change) in preferenceChanges {
+            var next = previousNetwork; change(&next); change(&preferences)
+            try check(next.isApplicationOnlyChange(from:previousNetwork),name+"可独立保存")
+            let config = try ConfigComposer.parse(ConfigComposer.compose(source:input,settings:next,rules:[],secret:"synthetic"))
+            try check(NSDictionary(dictionary:beforeProxyConfig).isEqual(to:config),name+"不改变内核 YAML")
+        }
+        try check(preferences.isApplicationOnlyChange(from:previousNetwork),"组合修改普通设置仍独立保存")
+        try check(!previousNetwork.isApplicationOnlyChange(from:previousNetwork),"相同设置无需保存")
+        for (name,change) in otherChanges + [
+            ("系统代理",{ $0.systemProxy.toggle() }), ("模式",{ $0.mode = .global }),
+            ("协议栈",{ $0.stack = "system" }), ("自动路由",{ $0.autoRoute.toggle() }),
+            ("网卡检测",{ $0.autoDetectInterface.toggle() }), ("局域网",{ $0.excludeLAN.toggle() }),
+            ("MTU",{ $0.mtu += 1 }), ("Fake IP",{ $0.fakeIP.toggle() }),
+            ("IPv6",{ $0.ipv6.toggle() }), ("测试 URL",{ $0.testURL = "https://example.org" }),
+            ("测试超时",{ $0.testTimeout += 1 })
+        ] {
+            var next = preferences; change(&next)
+            try check(!next.isApplicationOnlyChange(from:previousNetwork),"普通设置同时修改"+name+"仍走原配置流程")
         }
         let strategySource = """
         proxies:
@@ -163,27 +188,19 @@ enum RegressionSuite {
         try store.commit(updated,profiles:[profile.id:input+"\n# updated\n"])
         try check(try store.load().profiles[0].name == "更新后" && store.profileContent(profile.id).hasSuffix("# updated\n"),"配置快照与元数据共同提交")
         try store.commit(db,profiles:[profile.id:input])
-        let databaseFile = root.appendingPathComponent("database.json")
-        func flag(_ value: String) throws {
-            let process = Process(); process.executableURL = URL(fileURLWithPath:"/usr/bin/chflags")
-            process.arguments = [value,databaseFile.path]; process.standardError = FileHandle.nullDevice
-            try process.run(); process.waitUntilExit()
-            guard process.terminationStatus == 0 else { throw LumaError.message("无法设置测试文件标记") }
-        }
-        try flag("uchg")
+        let readOnly = try LocalStore(root:root,readOnly:true)
         var writeRejected = false
-        do { try store.commit(updated,profiles:[profile.id:input+"\n# should roll back\n"]) } catch { writeRejected = true }
-        try flag("nouchg")
-        try check(writeRejected,"真实磁盘写入失败被报告")
+        do { try readOnly.commit(updated,profiles:[profile.id:input+"\n# should roll back\n"]) } catch { writeRejected = true }
+        try check(writeRejected,"只读 SQLite 写入失败被报告")
         try check(try store.load().profiles[0].name == "synthetic" && store.profileContent(profile.id) == input,"元数据写入失败后恢复原配置")
-        try check(!FileManager.default.fileExists(atPath:root.appendingPathComponent("pending-commit.json").path),"恢复完成后清理事务日志")
+        try check(!FileManager.default.fileExists(atPath:root.appendingPathComponent("pending-commit.json").path),"SQLite 事务无需额外配置恢复记录")
         let backup=try store.backup(db)
         db.customRules=[]; try store.save(db)
         let restored=try store.restoreBackup(backup)
         try check(restored.customRules.count == 1,"备份恢复自定义规则")
         try check(try store.profileContent(profile.id) == input,"备份恢复完整订阅内容")
-        let permissions=try FileManager.default.attributesOfItem(atPath:store.profileURL(profile.id).path)
-        try check((permissions[.posixPermissions] as? NSNumber)?.intValue == 0o600,"订阅快照权限为 0600")
+        let permissions=try FileManager.default.attributesOfItem(atPath:store.databaseURL.path)
+        try check((permissions[.posixPermissions] as? NSNumber)?.intValue == 0o600,"业务数据库权限为 0600")
         let ownership: [String:Any] = ["applied":["HTTPEnable":1,"HTTPPort":19790],"previousApplied":["HTTPEnable":1,"HTTPPort":19789]]
         try check(SystemNetwork.owns(["HTTPEnable":1,"HTTPPort":19790],record:ownership),"网络恢复识别已提交的自有设置")
         try check(SystemNetwork.owns(["HTTPEnable":1,"HTTPPort":19789],record:ownership),"网络事务中断可识别提交前的自有设置")

@@ -114,7 +114,7 @@ struct ImportSubscriptionSheet:View {
             Text("添加订阅").font(.title2.bold())
             TextField("名称",text:$name).textFieldStyle(.roundedBorder)
             TextField("订阅链接",text:$address).textFieldStyle(.roundedBorder)
-            Text("订阅链接安全保存在本机钥匙串中").font(.caption).foregroundStyle(.secondary)
+            Text("完整订阅链接仅保存在本机，不随普通备份导出").font(.caption).foregroundStyle(.secondary)
             SubscriptionUserAgentField(value:$userAgent)
             if let failure { SubscriptionFailureMessage(message:failure) }
             HStack { Spacer(); Button("取消") { dismiss() }; Button("导入") {

@@ -33,13 +33,13 @@ extension AppStore {
             let content = try await RuleSubscriptionDownload.fetch(entry)
             // Validate even disabled/inactive sets with the actual kernel before caching.
             try await CoreRunner.validateRuleSubscription(.init(subscription:item,content:content),binary:coreUpdates.currentBinary())
-            item.revision = try store.saveRuleSubscriptionContent(content)
+            let revision = UUID(); item.revision = revision
             item.ruleCount = try await Task.detached { try RuleSubscriptionDownload.payload(content).count }.value
             item.lastUpdated = Date(); item.lastAttempt = Date(); item.lastError = nil
             var next = database; var items = next.ruleSubscriptions ?? []
             if let index = items.firstIndex(where:{$0.id == item.id}) { items[index] = item } else { items.append(item) }
             next.ruleSubscriptions = items
-            try await commitRuleSubscriptions(next,apply:item.profileID == database.activeProfileID && item.enabled)
+            try await commitRuleSubscriptions(next,apply:item.profileID == database.activeProfileID && item.enabled,contents:[revision:content])
             notice = "\(entry.title)已更新 · \(item.ruleCount) 条规则"
             appendLog(source:"规则订阅",message:notice!)
         } catch {
@@ -80,14 +80,14 @@ extension AppStore {
         items.swapAt(indices[position],indices[position+direction]); next.ruleSubscriptions = items
         try await commitRuleSubscriptions(next)
     }
-    private func commitRuleSubscriptions(_ next: AppDatabase, apply: Bool = true) async throws {
+    private func commitRuleSubscriptions(_ next: AppDatabase, apply: Bool = true,contents: [UUID:String] = [:]) async throws {
         let previous = database
         do {
             if apply {
-                let snapshots = try store.ruleSubscriptionSnapshots(next,profileID:next.activeProfileID)
+                let snapshots = try store.ruleSubscriptionSnapshots(next,profileID:next.activeProfileID,pendingContents:contents)
                 try await applyConfiguration(ruleSubscriptions:snapshots)
             }
-            try store.save(next); database = next
+            try store.commit(next,profiles:[:],ruleContents:contents); database = next
             store.cleanRuleSubscriptionCache(next)
         } catch {
             database = previous

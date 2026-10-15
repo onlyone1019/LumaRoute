@@ -69,17 +69,19 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ## 下载安装
 
-**当前预览版：[0.1.0 · Build 19](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.19)** · macOS 14+ · Apple Silicon（M 系列）
+**当前预览版：[0.1.0 · Build 21](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.21)** · macOS 14+ · Apple Silicon（M 系列）
+
+**Build 21 使用全新的 SQLite 业务数据库，不自动迁移旧 JSON、订阅文件或钥匙串数据。旧文件会保留，更新后需要重新添加订阅。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/LumaRoute-0.1.0-build.19-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
-| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/LumaRoute-0.1.0-build.19-macos-arm64.zip) | 解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.19/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/LumaRoute-0.1.0-build.21-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
+| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/LumaRoute-0.1.0-build.21-macos-arm64.zip) | 解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 19 发布说明](docs/releases/v0.1.0-build.19.md)。
+这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 21 发布说明](docs/releases/v0.1.0-build.21.md)。
 
 本次安装包仅适用于 Apple Silicon；Intel 用户需在对应机器上从源码构建。
 
@@ -139,7 +141,7 @@ dist/LumaRoute.app
 
 取消授权后可稍后重试。需要手动同步时，可用 **设置 → 网络 → 管理服务 → 重新同步服务**；当前接管会先暂停，完成后恢复原设置。旧版的 `.command` 安装脚本仍随包提供，作为兼容入口。
 
-安装器本身不会开启网络接管。后台服务仍绑定具体构建；替换或重新编译应用后可能需要一次授权同步，同一已授权版本正常重开不会重复安装。macOS 也可能询问钥匙串访问权限，请在系统弹窗中处理。详见 [Build 19 授权流程验收](docs/service-setup-2026-10-15.md)。
+安装器本身不会开启网络接管。后台服务仍绑定具体构建；替换或重新编译应用后可能需要一次授权同步，同一已授权版本正常重开不会重复安装。Build 21 起业务数据及密钥保存在本机 SQLite 数据库，不再访问钥匙串。详见 [Build 19 授权流程验收](docs/service-setup-2026-10-15.md)。
 
 <details>
   <summary>高级构建选项</summary>
@@ -169,7 +171,7 @@ LUMAROUTE_SIGNING_IDENTITY='Developer ID Application: 你的身份' \
 
 在 **订阅 → 添加订阅** 中填写名称和链接；也可以导入文件，或把配置拖入订阅页的虚线区域。
 
-- 订阅链接保存在本机钥匙串中。
+- 订阅链接保存在本机 SQLite 数据库中。
 - 默认使用 Clash Meta 兼容 User-Agent；可为每个订阅单独指定。
 - 已有订阅可在 **更多 → 订阅设置** 中修改或恢复默认 User-Agent。
 - 导入、更新会经过格式与内核校验；失败时显示原因并保留已有可用配置。
@@ -277,7 +279,7 @@ LUMAROUTE_SIGNING_IDENTITY='Developer ID Application: 你的身份' \
 ~/Library/Application Support/LumaRoute
 ```
 
-订阅链接保存在本机钥匙串。备份包含配置、规则缓存、策略和设置，链接凭据保留在当前 Mac 的钥匙串中。配置文件也可能包含节点认证信息，因此备份应作为私有数据保管。
+Build 21 起，应用业务数据统一保存在 `~/Library/Application Support/LumaRoute/lumaroute.sqlite`，目录权限为 `0700`、数据库为 `0600`。新库从空状态开始，不迁移旧 JSON、订阅文件或钥匙串记录，旧数据原样保留。普通备份使用 SQLite 格式，包含配置、规则缓存、策略和设置，完整订阅链接及控制密钥保留在本机数据库中，不随备份导出。恢复时选择包含 `lumaroute.sqlite` 的新版备份目录。配置文件也可能包含节点认证信息，因此备份应作为私有数据保管。
 
 </details>
 

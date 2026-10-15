@@ -58,7 +58,7 @@ cp script/install_local_service.sh script/install-local-service.command script/i
 chmod +x "$APP_BUNDLE/Contents/Resources/"*.command
 install -m 644 "$SCRATCH_DIR/checkouts/Yams/LICENSE" "$APP_BUNDLE/Contents/Resources/Licenses/Yams-LICENSE"
 mkdir -p "$APP_BUNDLE/Contents/Resources/GeoData"
-cp Resources/GeoData/geoip.metadb Resources/GeoData/GeoIP.dat Resources/GeoData/GeoSite.dat Resources/GeoData/release.json "$APP_BUNDLE/Contents/Resources/GeoData/"
+cp Resources/GeoData/geoip.metadb Resources/GeoData/GeoIP.dat Resources/GeoData/GeoSite.dat Resources/GeoData/GeoSite-policy.json Resources/GeoData/release.json "$APP_BUNDLE/Contents/Resources/GeoData/"
 cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

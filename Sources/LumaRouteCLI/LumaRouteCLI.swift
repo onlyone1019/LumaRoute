@@ -21,6 +21,8 @@ struct LumaRouteCLI {
                 try await RoutingToolsSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
             } else if ["rule-subscription-check","rule-catalog-check"].contains(action),arguments.count==3 {
                 try await RuleSubscriptionSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]),official:action=="rule-catalog-check")
+            } else if action=="geo-online-check",arguments.count==4 {
+                try await GeoOnlineSuite.run(binary:URL(fileURLWithPath:arguments[1]),legacy:URL(fileURLWithPath:arguments[2]),home:URL(fileURLWithPath:arguments[3]))
             } else if action=="geo-check",arguments.count==5 {
                 try await GeoSuite.run(binary:URL(fileURLWithPath:arguments[1]),bundled:URL(fileURLWithPath:arguments[2]),manifest:URL(fileURLWithPath:arguments[3]),home:URL(fileURLWithPath:arguments[4]))
             } else if action=="maintenance-check",arguments.count==5 {

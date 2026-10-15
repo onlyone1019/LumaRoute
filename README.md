@@ -363,3 +363,5 @@ LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICE
 Build 29 提供 Apple Silicon / Intel 两种架构；安装包、校验文件与对应源码材料见上方 Release。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。
 
 Build 17、19、21、28 的 Release 与附件已备份后删除，仅保留 Build 29；所有 Git 标签和外部备份保留。GEO 的第三方声明已补入 Build 29 双架构包与源码附件，此前未明确授权的 biliintl / sharepoint 输入已替换为固定的 V2Ray MIT 与 ACL4SSR CC BY-SA 4.0 来源。
+
+应用内手动在线 GEO 更新与旧快照回退也会保留这两类许可明确的服务规则；下载、策略或内核校验失败则保留当前数据和内核运行状态。

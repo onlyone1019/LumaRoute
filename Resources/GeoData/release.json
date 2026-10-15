@@ -26,5 +26,14 @@
   ],
   "base_repository": "MetaCubeX/meta-rules-dat",
   "repository": "onlyone1019/LumaRoute",
-  "geosite_source_manifest": "rule-sources.json"
+  "geosite_source_manifest": "rule-sources.json",
+  "online_update_policy": {
+    "file": "GeoSite-policy.json",
+    "sha256": "b680dbefd475c3c6ff64db3eebfc679f13c9439d1abb85831898793bea18d0cb",
+    "categories": [
+      "BILIINTL",
+      "SHAREPOINT"
+    ],
+    "behavior": "replace after verifying upstream file digests, before update or rollback transaction"
+  }
 }

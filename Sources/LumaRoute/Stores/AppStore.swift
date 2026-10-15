@@ -1051,7 +1051,7 @@ final class AppStore: ObservableObject {
             try await runner.updateGeoData(rollback:rollback)
             canRollbackGeo = try GeoDataUpdates(home:store.root.appendingPathComponent("runtime")).canRollback
         }
-        notice = rollback ? "规则数据库已回退":"规则数据库已更新，旧版本已备份"
+        notice = rollback ? "规则数据库已回退，已保留许可明确的服务分类":"规则数据库已更新并保留许可明确的服务分类，旧版本已备份"
         appendLog(source:"维护",message:notice!)
     }
     func updateCore() async throws {

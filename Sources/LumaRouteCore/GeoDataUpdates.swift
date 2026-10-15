@@ -21,23 +21,29 @@ public struct GeoAsset {
         guard selected.count == 3,Set(selected.map(\.name)).count == 3,selected.reduce(0,{$0+$1.size}) <= 96*1024*1024 else { throw LumaError.message("官方规则数据库文件不完整或过大") }
         return selected
     }
-    public static func download(session: URLSession = .shared) async throws -> [String:Data] {
+    public static func download(policy: GeoSitePolicy,session: URLSession = .shared) async throws -> [String:Data] {
         let url = URL(string:"https://api.github.com/repos/MetaCubeX/meta-rules-dat/releases/tags/latest")!
         var request = URLRequest(url:url,timeoutInterval:25); request.setValue("LumaRoute/0.1",forHTTPHeaderField:"User-Agent")
         let (manifest,response) = try await session.data(for:request)
         guard (response as? HTTPURLResponse)?.statusCode == 200,manifest.count <= 4*1024*1024 else { throw LumaError.message("无法查询官方规则数据库") }
         let assets = try parse(manifest)
-        var payloads: [String:Data] = [:]
-        for asset in assets {
+        return try await verified(assets,policy:policy) { asset in
             let (file,response) = try await session.download(for:URLRequest(url:asset.url,timeoutInterval:120))
             defer { try? FileManager.default.removeItem(at:file) }
             let size = (try FileManager.default.attributesOfItem(atPath:file.path)[.size] as? NSNumber)?.intValue
             guard (response as? HTTPURLResponse)?.statusCode == 200,size == asset.size else { throw LumaError.message("规则数据库下载失败或大小不匹配") }
             let data = try Data(contentsOf:file)
-            guard CoreUpdates.digest(data) == asset.sha256 else { throw LumaError.message("规则数据库 SHA256 校验失败，当前版本未改变") }
+            return data
+        }
+    }
+    static func verified(_ assets: [GeoAsset],policy: GeoSitePolicy,fetch: (GeoAsset) async throws -> Data) async throws -> [String:Data] {
+        var payloads: [String:Data] = [:]
+        for asset in assets {
+            let data = try await fetch(asset)
+            guard data.count == asset.size,CoreUpdates.digest(data) == asset.sha256 else { throw LumaError.message("规则数据库大小或 SHA256 校验失败，当前版本未改变") }
             payloads[asset.name] = data
         }
-        return payloads
+        return try policy.protect(payloads)
     }
 }
 
@@ -76,9 +82,13 @@ public final class GeoDataUpdates {
         do { try replace(payloads.mapValues(Optional.some)) }
         catch { try? cancel(); throw error }
     }
-    public func beginRollback() throws {
+    public func beginRollback(policy: GeoSitePolicy? = nil) throws {
         guard let previous = try state().previous else { throw LumaError.message("没有可回退的规则数据库") }
-        let files = try readSnapshot(previous)
+        var files = try readSnapshot(previous)
+        if let policy {
+            guard let site = files["GeoSite.dat"] ?? nil else { throw LumaError.message("旧快照缺少 GeoSite 数据，无法安全回退") }
+            files["GeoSite.dat"] = .some(try policy.applying(to:site))
+        }
         try begin()
         do { try replace(files) } catch { try? cancel(); throw error }
     }

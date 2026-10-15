@@ -1,0 +1,51 @@
+{
+  "format": "lumaroute-geosite-policy-v1",
+  "revision": "2026-10-15-licensed-rules",
+  "source_manifest": "inputs/2026-10-15-licensed-rules/rule-sources.json",
+  "groups": {
+    "BILIINTL": [
+      {
+        "type": "Domain",
+        "value": "bilibili.tv"
+      },
+      {
+        "type": "Domain",
+        "value": "biliintl.com"
+      },
+      {
+        "type": "Full",
+        "value": "p-bstarstatic.akamaized.net"
+      },
+      {
+        "type": "Full",
+        "value": "p.bstarstatic.com"
+      },
+      {
+        "type": "Full",
+        "value": "upos-bstar-mirrorakam.akamaized.net"
+      },
+      {
+        "type": "Full",
+        "value": "upos-bstar1-mirrorakam.akamaized.net"
+      },
+      {
+        "type": "Full",
+        "value": "apiintl.biliapi.net"
+      }
+    ],
+    "SHAREPOINT": [
+      {
+        "type": "Domain",
+        "value": "sharepoint.cn"
+      },
+      {
+        "type": "Domain",
+        "value": "sharepoint.com"
+      },
+      {
+        "type": "Domain",
+        "value": "sharepointonline.com"
+      }
+    ]
+  }
+}

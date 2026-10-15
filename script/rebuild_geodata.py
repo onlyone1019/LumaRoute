@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 
-from geosite_sources import verify as verify_sources
+from geosite_sources import verify_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,7 +22,7 @@ def main():
         raise SystemExit("离线重建 GEO 数据需要 Go 1.23 或更新版本；安装后重试。")
     lock = json.loads((ROOT / "Resources/GeoData/release.json").read_text())
     inputs = ROOT / "Resources/GeoData" / lock["input_snapshot"]
-    verify_sources(inputs)
+    verify_policy(inputs, ROOT / "Resources/GeoData/GeoSite-policy.json")
     manifest = json.loads((inputs / "manifest.json").read_text())
     locked = {a["name"]: a["digest"].removeprefix("sha256:") for a in lock["assets"]}
     if manifest["expected_sha256"] != locked:

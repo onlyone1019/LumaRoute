@@ -12,9 +12,11 @@ enum GeoSuite {
         var files: [String:Data] = [:]
         for asset in assets {
             let data = try Data(contentsOf:bundled.appendingPathComponent(asset.name))
-            try check(data.count == asset.size && CoreUpdates.digest(data) == asset.sha256,"官方 \(asset.name) 文件大小与摘要有效")
+            try check(data.count == asset.size && CoreUpdates.digest(data) == asset.sha256,"输入 \(asset.name) 文件大小与摘要有效")
             files[asset.name] = data
         }
+        let policyURL = binary.deletingLastPathComponent().appendingPathComponent("GeoData/GeoSite-policy.json")
+        files = try GeoSitePolicy.load(from:policyURL).protect(files)
         var settings = NetworkSettings(); settings.mixedPort = 19896; settings.controllerPort = 19897; settings.mode = .direct
         let source = """
         geodata-mode: true

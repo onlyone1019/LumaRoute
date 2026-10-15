@@ -20,7 +20,7 @@ def port():
         return connection.getsockname()[1]
 
 
-def run(app, output):
+def run(app, output, geodata=None):
     app = app.resolve()
     output.mkdir(parents=True, exist_ok=False)
     resources = app / "Contents/Resources"
@@ -29,8 +29,9 @@ def run(app, output):
     home.mkdir()
     manifest = json.loads((resources / "GeoData/release.json").read_text())
     for asset in manifest["assets"]:
-        data = (resources / "GeoData" / asset["name"]).read_bytes()
-        assert "sha256:" + hashlib.sha256(data).hexdigest() == asset["digest"]
+        data = ((geodata or resources / "GeoData") / asset["name"]).read_bytes()
+        if geodata is None:
+            assert "sha256:" + hashlib.sha256(data).hexdigest() == asset["digest"]
         (home / asset["name"]).write_bytes(data)
     expected = {
         "bilibili.tv": "Intl", "cdn.bilibili.tv": "Intl",
@@ -149,5 +150,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--geodata", type=Path)
     args = parser.parse_args()
-    run(args.app, args.output)
+    run(args.app, args.output,args.geodata)

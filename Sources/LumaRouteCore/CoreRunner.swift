@@ -11,6 +11,7 @@ public actor CoreRunner {
     private var currentSettings: NetworkSettings?
     private var lastRevisionCleanup = Date.distantPast
     private let lease: CoreProcessLease
+    private let geoPolicyURL: URL?
     private static var coreEnvironment: [String:String] {
         var environment = ProcessInfo.processInfo.environment
         // A proxy can carry IPv6 destinations over an IPv4 uplink. Let the
@@ -19,8 +20,9 @@ public actor CoreRunner {
         return environment
     }
     public var onLog: (@Sendable (String) -> Void)?
-    public init(binary: URL, home: URL, secret: String) {
+    public init(binary: URL, home: URL, secret: String,geoPolicy: URL? = nil) {
         self.binary = binary; self.home = home; self.secret = secret
+        self.geoPolicyURL = geoPolicy
         self.lease = CoreProcessLease(home:home,binary:binary)
     }
     public var running: Bool { process?.isRunning ?? false }
@@ -114,10 +116,13 @@ public actor CoreRunner {
         }
         throw LumaError.message("节点提供器或规则订阅没有完整加载，已保留原配置")
     }
-    private func seedBundledGeoData() throws {
+    private var bundledGeoDirectory: URL? {
         let resources = binary.deletingLastPathComponent()
         let candidates = [resources.appendingPathComponent("GeoData"),resources.deletingLastPathComponent().appendingPathComponent("GeoData"),CoreRunner.bundledBinary().deletingLastPathComponent().appendingPathComponent("GeoData")]
-        guard let bundled = candidates.first(where:{FileManager.default.fileExists(atPath:$0.appendingPathComponent("geoip.metadb").path)}) else { return }
+        return candidates.first(where:{FileManager.default.fileExists(atPath:$0.appendingPathComponent("geoip.metadb").path)})
+    }
+    private func seedBundledGeoData() throws {
+        guard let bundled = bundledGeoDirectory else { return }
         try FileManager.default.createDirectory(at:home,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         for name in ["geoip.metadb","GeoIP.dat","GeoSite.dat"] {
             let destination = home.appendingPathComponent(name)
@@ -301,11 +306,13 @@ public actor CoreRunner {
     }
     public func updateGeoData(payloads: [String:Data]? = nil,rollback: Bool = false) async throws {
         guard let yaml = currentYAML,let settings = currentSettings,running else { throw LumaError.message("请先启动内核再维护规则数据库") }
+        guard let policyURL = geoPolicyURL ?? bundledGeoDirectory?.appendingPathComponent("GeoSite-policy.json") else { throw LumaError.message("缺少 GEO 许可规则，未应用更新") }
+        let policy = try GeoSitePolicy.load(from:policyURL)
         let files = try GeoDataUpdates(home:home)
-        if rollback { try files.beginRollback() }
+        if rollback { try files.beginRollback(policy:policy) }
         else {
             let downloaded: [String:Data]
-            if let payloads { downloaded = payloads } else { downloaded = try await GeoAsset.download() }
+            if let payloads { downloaded = try policy.protect(payloads) } else { downloaded = try await GeoAsset.download(policy:policy) }
             try files.beginUpdate(downloaded)
         }
         let expected = try files.fingerprints()

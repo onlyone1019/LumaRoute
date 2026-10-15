@@ -5,10 +5,12 @@ import hashlib
 import json
 import subprocess
 import sys
+from geosite_sources import verify_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "Resources/GeoData"
 release = json.loads((DEST / "release.json").read_text())
+verify_policy(DEST / release["input_snapshot"], DEST / "GeoSite-policy.json")
 valid = True
 for asset in release["assets"]:
     path = DEST / asset["name"]

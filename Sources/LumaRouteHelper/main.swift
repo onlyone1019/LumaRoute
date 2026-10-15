@@ -177,7 +177,7 @@ actor HelperController {
                     else { artifact = try await updates.stage(CoreRelease.version(version)) }
                 } else { artifact = nil }
             }
-            let core = try runners[uid] ?? CoreRunner(binary:updates.binary(for:artifact),home:directory.appendingPathComponent("runtime"),secret:secret)
+            let core = try runners[uid] ?? CoreRunner(binary:updates.binary(for:artifact),home:directory.appendingPathComponent("runtime"),secret:secret,geoPolicy:app.appendingPathComponent("Contents/Resources/GeoData/GeoSite-policy.json"))
             let network = try networks[uid] ?? SystemNetwork(journal:directory.appendingPathComponent("network-journal.plist"))
             networks[uid] = network
             let (yaml,file) = try await core.prepare(source:request.source,settings:settings,rules:request.rules ?? [],strategies:request.strategies ?? [],ruleSubscriptions:request.ruleSubscriptions ?? [])

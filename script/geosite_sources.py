@@ -49,3 +49,9 @@ def verify(snapshot: Path):
         if actual.get(code) != domains:
             raise ValueError("GEO 分类与已授权来源不一致：" + code)
     return expected
+
+
+def verify_policy(snapshot: Path, policy: Path):
+    document = json.loads(policy.read_text())
+    if document.get("format") != "lumaroute-geosite-policy-v1" or document.get("groups") != verify(snapshot):
+        raise ValueError("在线 GEO 许可规则与捕获来源不一致")

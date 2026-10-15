@@ -50,7 +50,7 @@ struct SettingsPage:View {
                                 }
                                 HStack { Text("切换失败保留当前版本，已成功切换的版本可回退。").font(.caption).foregroundStyle(.secondary); Spacer(); Button("回退上次内核") { store.perform { try await store.rollbackCore() } }.disabled(store.busy || !store.canRollbackCore) }
                                 Divider()
-                                NativeRow(title:"规则数据库",detail:"校验官方 GEO 数据，更新后短暂重启内核") {
+                                NativeRow(title:"规则数据库",detail:"校验在线 GEO 数据，保留已审核的服务分类；更新后短暂重启内核") {
                                     Button("回退") { store.perform { try await store.updateGeoData(rollback:true) } }.disabled(store.busy || !store.coreReady || !store.canRollbackGeo)
                                     Button("更新") { store.perform { try await store.updateGeoData() } }.disabled(store.busy || !store.coreReady)
                                 }

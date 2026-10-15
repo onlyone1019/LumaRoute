@@ -89,3 +89,29 @@ Release 附件包含 Mihomo v1.19.32、Yams 6.1.0 的官方原样源码归档，
 | LumaRoute-0.1.0-build.29-macos-x86_64.zip | `3128950e7c559f8dc17c38c941025408dc07ac8d497e45b8ee56f09554a61aee` |
 
 本次更新应用和后台服务代码、随包策略和说明；内置三份 GEO 数据的摘要不变，GeoSite 仍为 `f7bc69233babdfbfdd9337d85ea925b478e2dcb26817fbfd1b0fdd582448eacb`。Release 增加 `LumaRoute-Build29-source.tar.gz`，提供当前完整应用 / 后台服务源码，避免将未移动的标签源码误认为当前补包源码。对应提交及所有附件摘要见 `source-manifest.json` / `SHA256SUMS.txt`；上方历史摘要不适用于当前包。所有旧附件及 Git 引用已先备份并校验，历次外部备份保留，依赖安全未处理。
+
+
+## 当前发布：GEO 数据与应用源码分开管理
+
+本轮参考 Clash Verge Rev 的构建资源管理方式，从当前源码树移除 GEO 完整输入、生成策略及 GPL 工具 / vendored 依赖；Git 中只保留下载清单、固定摘要、构建 / 校验脚本和许可说明。原有 Git 历史和全部 5 个标签保留，没有重写或清理历史数据。仓库继续私有。
+
+独立附件 `LumaRoute-GEO-inputs-2026-10-15-licensed-rules.tar.gz` 保留原内容、附件 ID 和 SHA-256 `fe12f7c56e65202bb8ad5bf523413453bb28d436b85a53ea8174bde8b3fdbacc`。构建脚本校验完整归档后临时解包，验证许可证 / 捕获来源 / 策略，再校验或离线重建数据；缓存归档放在被 Git 忽略的目录，解包的输入与工具在操作结束后删除。支持私有 GitHub 附件下载及本地离线附件，跨来源重定向剥离凭据，拒绝损坏归档、越界路径和重复文件。
+
+当前应用源码附件不携带 GEO 数据和重建工具；应用 / 后台服务运行源码未改变，内置三份 GEO 和策略摘要未改变，在线更新及旧快照回退继续保留许可保护。应用源码、独立 GEO 材料、Mihomo / Yams 官方源码分别提供，版本和摘要见当前 `source-manifest.json` 与 `SHA256SUMS.txt`。数据管理方式调整不重新授权第三方材料，也不免除适用的 GeoLite 条款。
+
+验证结果：
+
+- [实现提交的双架构 CI](https://github.com/onlyone1019/LumaRoute/actions/runs/38760790203) 全部通过，包括 14 项 Swift 单元测试、17 项 Python 测试、独立 GEO 附件获取、离线重建和全历史秘密扫描。
+- 本机从空缓存实际取得私有 GEO 附件成功；干净应用源码解包后不含数据 / 输入 / 工具，配合独立附件完整重建三份数据并通过 17 项 Python 测试。
+- arm64 / x86_64 各通过 218 项回归、14 项 GEO 事务断言、12 项生产在线更新 / 旧快照回退断言及隔离内核冒烟。
+- 双架构 ZIP / DMG 与应用逐文件一致；三种可执行程序架构、嵌套签名、全部许可、策略及三份 GEO 摘要核验通过。包内容扫描未发现秘密告警。
+- 操作前备份全部 Git 引用和 11 个 Release 附件，校验文件摘要，并实际恢复验证全部 12 个引用。历次外部备份保留，未处理依赖安全。
+
+本轮没有启动或替换本机已安装 GUI，没有新增真实管理员服务 / TUN 或 Intel 真机验收；Intel 继续通过 Rosetta 验证。Build 仍为 29，GitHub 自动生成的标签源码仍是旧版本，应使用更新后的应用源码附件。
+
+| 当前安装包 | SHA-256 |
+| --- | --- |
+| LumaRoute-0.1.0-build.29-macos-arm64.dmg | `0733fabd91195c2355f8174bfe0cff3bd8c28cce91abe46c2ac84a15f9d7dfbf` |
+| LumaRoute-0.1.0-build.29-macos-arm64.zip | `3106853c486114c64f057a89efecef17f819218baad92a289b7765ef0bca229d` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.dmg | `d9d2edc534bfdc5a5a88c9f50812d07b1f78e615d43300e28fa9abe8f028b7be` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.zip | `1e95afb5dd60f65600f92da80569041c8e87e161aa1a82b19272c9279dd09abe` |

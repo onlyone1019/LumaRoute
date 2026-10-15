@@ -1,0 +1,77 @@
+{
+  "Loyalsoldier/geoip": {
+    "ref": "e25248cf0c91b54a853c9eb73c03c60c2ecc670f",
+    "license_file": "Loyalsoldier-geoip-LICENSE.txt",
+    "license_sha256": "5e436ff8ffbb77d8607220e9bce20c8915d860010feeb6c1ebef5a85688e9b39",
+    "license_url": "https://github.com/Loyalsoldier/geoip/tree/e25248cf0c91b54a853c9eb73c03c60c2ecc670f",
+    "evidence_scope": "upstream README license declaration; downloaded geoip.dat revision was not preserved"
+  },
+  "v2fly/domain-list-community": {
+    "ref": "c6adacf29cc4fb05e04651fcf03e00989ef9f797",
+    "license_file": "v2fly-domain-list-community-LICENSE.txt",
+    "license_sha256": "b9d84a22870d3f21c91a4c6e410c9cc51d00902f5233ad0c84011479244bf7d2",
+    "license_url": "https://github.com/v2fly/domain-list-community/tree/c6adacf29cc4fb05e04651fcf03e00989ef9f797",
+    "evidence_scope": "checkout revision recorded in upstream build log"
+  },
+  "Loyalsoldier/domain-list-custom": {
+    "ref": "efacb51b8950ae673ebb6dcb9e7ecdd1decb1b6d",
+    "license_file": "Loyalsoldier-domain-list-custom-LICENSE.txt",
+    "license_sha256": "35f18e0331a1ecd1835400c50e3b367c2ce09f6c13d91c4a0f3cb11f71d3bbc3",
+    "license_url": "https://github.com/Loyalsoldier/domain-list-custom/tree/efacb51b8950ae673ebb6dcb9e7ecdd1decb1b6d",
+    "evidence_scope": "checkout revision recorded in upstream build log"
+  },
+  "felixonmars/dnsmasq-china-list": {
+    "ref": "29582ff9b4675fab5f39fb64950b11ff9f635060",
+    "license_file": "felixonmars-dnsmasq-china-list-LICENSE.txt",
+    "license_sha256": "f9e00539c44942d94e3c6d20f0c90e63e810ea181b10f16a252c93e4ea5cefd7",
+    "license_url": "https://github.com/felixonmars/dnsmasq-china-list/tree/29582ff9b4675fab5f39fb64950b11ff9f635060",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "blackmatrix7/ios_rule_script": {
+    "ref": "19c84682407580056d0ae2f27e406f70db679de1",
+    "license_file": "blackmatrix7-ios_rule_script-LICENSE.txt",
+    "license_sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "license_url": "https://github.com/blackmatrix7/ios_rule_script/tree/19c84682407580056d0ae2f27e406f70db679de1",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "cokebar/gfwlist2dnsmasq": {
+    "ref": "202e52fb5ea2260abc9f162b3a78e58ec9187005",
+    "license_file": "cokebar-gfwlist2dnsmasq-LICENSE.txt",
+    "license_sha256": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2",
+    "license_url": "https://github.com/cokebar/gfwlist2dnsmasq/tree/202e52fb5ea2260abc9f162b3a78e58ec9187005",
+    "evidence_scope": "checkout revision recorded in upstream build log"
+  },
+  "gfwlist/gfwlist": {
+    "ref": "819fb3b0df5531c512b2fed2cf6e73d7fad01d25",
+    "license_file": "gfwlist-gfwlist-LICENSE.txt",
+    "license_sha256": "a9a3b30b43ce18db2dc71339f8429be10f14dafa45cb77895da604b30467e9fb",
+    "license_url": "https://github.com/gfwlist/gfwlist/tree/819fb3b0df5531c512b2fed2cf6e73d7fad01d25",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "xishang0128/rules": {
+    "ref": "8b05b32709735c98c6b2f0d3a00e8ed1fcbc7800",
+    "license_url": "https://github.com/xishang0128/rules/tree/8b05b32709735c98c6b2f0d3a00e8ed1fcbc7800",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "XIU2/TrackersListCollection": {
+    "ref": "00ea7ee520216d04ed1a12712cf6122f421f2d80",
+    "license_file": "XIU2-TrackersListCollection-LICENSE.txt",
+    "license_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "license_url": "https://github.com/XIU2/TrackersListCollection/tree/00ea7ee520216d04ed1a12712cf6122f421f2d80",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "gaoyifan/china-operator-ip": {
+    "ref": "b2b8edc0ddd9cf2bc638ec77587301bbf84b8db9",
+    "license_file": "gaoyifan-china-operator-ip-LICENSE.txt",
+    "license_sha256": "8f4d03a581484143945a9fac471c3b669d5aada68361fd1f25886c3ddbdd786a",
+    "license_url": "https://github.com/gaoyifan/china-operator-ip/tree/b2b8edc0ddd9cf2bc638ec77587301bbf84b8db9",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "crazy-max/WindowsSpyBlocker": {
+    "ref": "87266541e57a5f4332d8fd939f2a03675566e17c",
+    "license_file": "crazy-max-WindowsSpyBlocker-LICENSE.txt",
+    "license_sha256": "2f39b073aeaa8761f239f5b598d8b08acb3188153b2a8c7aa8b10f03a4d74bc3",
+    "license_url": "https://github.com/crazy-max/WindowsSpyBlocker/tree/87266541e57a5f4332d8fd939f2a03675566e17c",
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  }
+}

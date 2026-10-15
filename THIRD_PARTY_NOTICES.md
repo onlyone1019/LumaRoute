@@ -8,7 +8,7 @@ LumaRoute 自行编写的代码、文档与自有素材按根目录 [MIT License
 | --- | --- | --- |
 | [Yams](https://github.com/jpsim/Yams/tree/6.1.0) | YAML 解析；SwiftPM 固定 6.1.0 | MIT，Copyright (c) 2016 JP Simard；见 [Yams-LICENSE](Resources/Licenses/Yams-LICENSE)。源码中 libyaml 文件自身的版权注释保留在上游源码中。 |
 | [Mihomo](https://github.com/MetaCubeX/mihomo/tree/v1.19.32) | 独立运行的代理内核，v1.19.32；通过进程启动和本机 HTTP API 使用，不链接到 Swift 可执行文件 | GNU GPL v3；见 [Mihomo-LICENSE](Resources/Licenses/Mihomo-LICENSE) 及 [上游说明](Resources/Licenses/Mihomo-README.md)。安装包仅进行代码签名，未修改内核功能源码。 |
-| [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | 预置 `GeoIP.dat`、`GeoSite.dat`、`geoip.metadb`；文件名、上游地址、更新时间与 SHA-256 见 [下载清单](Resources/GeoData/release.json) | 上游仓库 GNU GPL v3；见 [许可](Resources/Licenses/Meta-rules-dat-LICENSE) 和 [来源及原始数据项目说明](Resources/Licenses/Meta-rules-dat-README.md)。聚合数据中各来源的权利和声明仍归原作者，不能统一改为 MIT。 |
+| [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | 预置 `GeoIP.dat`、`GeoSite.dat`、`geoip.metadb`；文件名、上游地址、更新时间与 SHA-256 见 [下载清单](Resources/GeoData/release.json) | 聚合仓库 GNU GPL v3；GeoIP 包含 CC BY-SA 4.0 数据，GeoSite 包含 MIT、GPL、LGPL、WTFPL 等不同来源；完整署名、正文及授权边界见 [GEO 专项声明](Resources/Licenses/GeoData-NOTICE.md)。另见 [许可](Resources/Licenses/Meta-rules-dat-LICENSE) 和 [来源及原始数据项目说明](Resources/Licenses/Meta-rules-dat-README.md)。聚合数据中各来源的权利和声明仍归原作者，不能统一改为 MIT。 |
 
 Yams 的源文件中还包含 libyaml，MIT 许可，Copyright (c) 2017-2020 Ingy döt Net、Copyright (c) 2006-2016 Kirill Simonov。另保留 [LibYAML-LICENSE](Resources/Licenses/LibYAML-LICENSE)，具体源码以 Yams 锁定版本内的 CYaml 为准。
 
@@ -19,7 +19,7 @@ Yams 的源文件中还包含 libyaml，MIT 许可，Copyright (c) 2017-2020 Ing
 - GEO 数据：[规范化、可编辑生成输入及证据说明](Resources/GeoData/inputs/2026-10-13-normalized/README.md)、[固定重建工具与完整依赖源码](tools/geodata-snapshot/README.md)，以及随包保留的上游 README 中列出的原始数据项目。该快照由现有产物无损还原；三份重建文件与现有发布数据 SHA-256 完全相同，但它不冒充原始网络采集记录。
 - GEO 重建工具：`tools/geodata-snapshot/` 独立采用 GPL v3，保留 MetaCubeX/geo 固定 revision 的来源及修改说明；vendored 依赖分别保留其原始许可证。它不链接进 LumaRoute 的 Swift 可执行程序，也不改变自有 Swift 代码的 MIT 授权。
 
-通过网络分发 GPL 组件时，发布者仍负责按组件协议提供对应源码获取途径，并维持其可获取性。仅有“使用了开源软件”的文字或许可证副本不能替代该义务。历史 Release 也需要分别保留其使用版本的材料。
+通过网络分发 GPL 组件时，发布者仍负责按组件协议提供对应源码获取途径，并维持其可获取性。仅有“使用了开源软件”的文字或许可证副本不能替代该义务。仍在分发的历史 Release 也需要分别保留其使用版本的材料。Build 17、19、21、28 的 Release 与附件已在仓库外备份后删除，Git 标签及历史素材的来源声明继续保留。
 
 ## 可选下载的规则订阅
 
@@ -31,7 +31,7 @@ Yams 的源文件中还包含 libyaml，MIT 许可，Copyright (c) 2017-2020 Ing
 
 ## 历史 ClashX.Meta 素材
 
-Build 17、19、21、28 的已发布安装包及旧 Git 提交使用 ClashX.Meta 猫形菜单栏素材，按 GNU AGPL v3 保留其原许可。这些旧文件不会因为当前版本采用 MIT 或更换图标而变为 MIT。
+Build 17、19、21、28 曾分发的安装包及旧 Git 提交使用 ClashX.Meta 猫形菜单栏素材，按 GNU AGPL v3 保留其原许可。这些旧文件不会因为当前版本采用 MIT 或更换图标而变为 MIT。
 
 - 来源及固定提交：[ClashX-menu-icon-NOTICE.txt](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
 - 协议正文：[ClashX-Meta-AGPL-3.0.txt](Resources/Licenses/ClashX-Meta-AGPL-3.0.txt)。

@@ -73,23 +73,25 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ## 下载安装
 
-源码 Build 23 新增多订阅组合：在“订阅 → 组合订阅”勾选 2 至 16 个来源，保存并启用后，可在“规则 → 域名分流”选择各个域名使用的订阅。普通订阅的“启用”按钮仍可直接切回单订阅模式。使用说明和实测结果见 [多订阅组合验收记录](docs/subscription-composition-2026-10-15.md)。下方公开安装包仍为 Build 21。
+安装包已包含多订阅组合：在“订阅 → 组合订阅”勾选 2 至 16 个来源，保存并启用后，可在“规则 → 域名分流”选择各个域名使用的订阅。普通订阅的“启用”按钮仍可直接切回单订阅模式。使用说明和实测结果见 [多订阅组合验收记录](docs/subscription-composition-2026-10-15.md)。
 
-源码 Build 24 在此基础上增加“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
+同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前预览版：[0.1.0 · Build 21](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.21)** · macOS 14+ · Apple Silicon（M 系列）
+**当前预览版：[0.1.0 · Build 28](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.28)** · macOS 14+ · Apple Silicon（M 系列）
 
-**Build 21 使用全新的 SQLite 业务数据库，不自动迁移旧 JSON、订阅文件或钥匙串数据。旧文件会保留，更新后需要重新添加订阅。**
+Build 28 优化菜单复用、切页刷新和编辑器缓存，并包含规则保存提速与加载误报修复。详见 [界面响应验收记录](docs/ui-responsiveness-2026-10-15.md)。
+
+**从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/LumaRoute-0.1.0-build.21-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
-| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/LumaRoute-0.1.0-build.21-macos-arm64.zip) | 解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.21/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
+| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.zip) | 解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 21 发布说明](docs/releases/v0.1.0-build.21.md)。
+这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 28 发布说明](docs/releases/v0.1.0-build.28.md)。
 
 本次安装包仅适用于 Apple Silicon；Intel 用户需在对应机器上从源码构建。
 

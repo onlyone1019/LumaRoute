@@ -55,8 +55,9 @@ macOS 仍不允许打开时，可从仓库按 README 在本机自行构建。
 默认混合端口 19790，控制端口 19791；与其他代理工具共存时避免端口冲突。
 应用业务数据及密钥保存在
 ~/Library/Application Support/LumaRoute/lumaroute.sqlite，不再访问钥匙串。
-Build 21 不自动迁移旧 JSON、订阅文件或钥匙串数据，旧文件原样保留；
-首次使用此版本需要重新添加订阅。普通备份不包含完整订阅链接和控制密钥，
+从 Build 21 及以后版本更新会保留现有 SQLite 业务数据。
+从 Build 20 或更早版本更新不自动迁移旧 JSON、订阅文件或钥匙串数据，
+需重新添加订阅，旧文件原样保留。普通备份不包含完整订阅链接和控制密钥，
 恢复时请选择包含 lumaroute.sqlite 的新版备份目录。
 
 项目：https://github.com/onlyone1019/LumaRoute

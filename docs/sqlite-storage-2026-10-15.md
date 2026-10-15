@@ -1,6 +1,6 @@
 # Build 21：应用业务数据统一到 SQLite
 
-默认数据库为 `~/Library/Application Support/LumaRoute/lumaroute.sqlite`，本机路径为 `~/Library/Application Support/LumaRoute/lumaroute.sqlite`。数据目录权限为 `0700`，数据库为 `0600`。继续支持 `LUMAROUTE_DATA_DIR`，用于隔离测试数据。
+默认数据库为 `~/Library/Application Support/LumaRoute/lumaroute.sqlite`。数据目录权限为 `0700`，数据库为 `0600`。继续支持 `LUMAROUTE_DATA_DIR`，用于隔离测试数据。
 
 按本次要求，新库从空状态开始，不迁移旧业务 JSON、订阅文件和钥匙串记录。旧数据原样保留。应用已移除钥匙串的 `SecItem` 调用，控制接口密钥及完整订阅链接均通过 SQLite 读写。
 

@@ -42,7 +42,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private var showSpeed: Bool {
         UserDefaults.standard.object(forKey:"menuBarShowSpeed") as? Bool ?? true
     }
-    private let icon = Bundle.main.url(forResource:"ClashX-menu-icon@2x",withExtension:"png").flatMap(NSImage.init(contentsOf:))
+    private let icon = Bundle.main.url(forResource:"LumaRoute-menu-cat@2x",withExtension:"png").flatMap(NSImage.init(contentsOf:))
 
     init(store:AppStore,openMainWindow:@escaping ()->Void) {
         self.store = store; self.openMainWindow = openMainWindow

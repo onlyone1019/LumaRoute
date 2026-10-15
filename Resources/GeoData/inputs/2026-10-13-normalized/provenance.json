@@ -1,0 +1,26 @@
+{
+  "snapshot_kind": "normalized editable data extracted from shipped artifacts; not recovered raw network acquisition responses",
+  "upstream_repository": "MetaCubeX/meta-rules-dat",
+  "upstream_build_run": "https://github.com/MetaCubeX/meta-rules-dat/actions/runs/38340036553",
+  "upstream_build_created_at": "2026-10-13T03:05:27Z",
+  "upstream_workflow_revision": "4178770badecb1b349fbcd62c737e0d7a2079729",
+  "checkout_revisions": {
+    "MetaCubeX/meta-rules-dat": "4178770badecb1b349fbcd62c737e0d7a2079729",
+    "Loyalsoldier/domain-list-custom": "efacb51b8950ae673ebb6dcb9e7ecdd1decb1b6d",
+    "v2fly/domain-list-community": "c6adacf29cc4fb05e04651fcf03e00989ef9f797",
+    "MetaCubeX/meta-rules-converter": "7dea27841a3579a633189830c98c08a0434e8b79",
+    "cokebar/gfwlist2dnsmasq": "202e52fb5ea2260abc9f162b3a78e58ec9187005"
+  },
+  "geo_converter_revision": "a4db326ccfd7e21276d5d05f4f7e512d14415553",
+  "original_data_updated_at": "2026-10-13T03:08:13Z",
+  "original_outputs_reconstructed_byte_for_byte": true,
+  "normalization_preserves": [
+    "country/category order",
+    "CIDR addresses and prefix lengths",
+    "domain matching types and values",
+    "domain attribute values and presence",
+    "domain and attribute order",
+    "MetaDB original build epoch"
+  ],
+  "raw_acquisition_responses_recovered": false
+}

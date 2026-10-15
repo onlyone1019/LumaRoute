@@ -6,6 +6,9 @@ cd "$ROOT_DIR"
 APP_NAME="LumaRoute"
 BUNDLE_ID="app.lumaroute.desktop"
 APP_BUNDLE="$ROOT_DIR/dist/LumaRoute.app"
+ARCH="${LUMAROUTE_ARCH:-$(uname -m)}"
+case "$ARCH" in arm64|x86_64) ;; *) echo "不支持的构建架构：$ARCH" >&2; exit 1;; esac
+if [ -n "${LUMAROUTE_ARCH:-}" ]; then APP_BUNDLE="$ROOT_DIR/dist/$ARCH/LumaRoute.app"; fi
 if [ "$MODE" != "--build-only" ]; then
   if pgrep -x "$APP_NAME" >/dev/null; then
     pkill -TERM -u "$(id -u)" -x "$APP_NAME" >/dev/null 2>&1 || true
@@ -19,9 +22,8 @@ if [ "$MODE" != "--build-only" ]; then
     fi
   fi
 fi
-ARCH="$(uname -m)"
 if [ ! -x "Resources/Core/mihomo-$ARCH" ]; then python3 script/fetch_core.py; fi
-if [ ! -f Resources/GeoData/geoip.metadb ] || [ ! -f Resources/GeoData/GeoIP.dat ] || [ ! -f Resources/GeoData/GeoSite.dat ]; then python3 script/fetch_geodata.py; fi
+python3 script/fetch_geodata.py
 SDK_PATH="${LUMAROUTE_SDK:-$(xcrun --show-sdk-path)}"
 SDK_PATH="$(cd "$SDK_PATH" && pwd -P)"
 # CLT 27 ships State macros without the SwiftUIMacros plugin. Use the installed
@@ -31,20 +33,32 @@ if [[ "$SDK_PATH" == *MacOSX27* ]] && [ -d /Library/Developer/CommandLineTools/S
 fi
 BUILD_CONFIGURATION="${LUMAROUTE_BUILD_CONFIGURATION:-release}"
 if [ "$MODE" = "--debug" ]; then BUILD_CONFIGURATION=debug; fi
-swift build --configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH"
-BUILD_DIR="$(swift build --configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH" --show-bin-path)"
+BUILD_ARGS=(--configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH")
+SCRATCH_DIR="$ROOT_DIR/.build"
+if [ -n "${LUMAROUTE_ARCH:-}" ]; then
+  SCRATCH_DIR="$ROOT_DIR/.build/$ARCH"
+  BUILD_ARGS+=(--triple "$ARCH-apple-macosx14.0" --scratch-path "$SCRATCH_DIR")
+fi
+swift build "${BUILD_ARGS[@]}"
+BUILD_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+for product in LumaRoute LumaRouteHelper; do
+  [ "$(/usr/bin/lipo -archs "$BUILD_DIR/$product")" = "$ARCH" ] || { echo "构建产物架构不匹配：$product" >&2; exit 1; }
+done
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources/Licenses" "$APP_BUNDLE/Contents/Library/LaunchServices" "$APP_BUNDLE/Contents/Library/LaunchDaemons"
 /bin/bash "$ROOT_DIR/script/build_app_icon.sh" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 cp "$BUILD_DIR/LumaRoute" "$APP_BUNDLE/Contents/MacOS/LumaRoute"
 cp "$BUILD_DIR/LumaRouteHelper" "$APP_BUNDLE/Contents/Library/LaunchServices/LumaRouteHelper"
 cp "Resources/Core/mihomo-$ARCH" "$APP_BUNDLE/Contents/Resources/mihomo"
 cp Resources/Licenses/* "$APP_BUNDLE/Contents/Resources/Licenses/"
-cp Resources/MenuBar/ClashX-menu-icon@2x.png "$APP_BUNDLE/Contents/Resources/"
+cp Resources/MenuBar/LumaRoute-menu-cat*.png "$APP_BUNDLE/Contents/Resources/"
+# Existing output bundles may still contain the historical third-party icon.
+rm -f "$APP_BUNDLE/Contents/Resources/ClashX-menu-icon@2x.png"
+cp LICENSE THIRD_PARTY_NOTICES.md "$APP_BUNDLE/Contents/Resources/Licenses/"
 cp script/install_local_service.sh script/install-local-service.command script/install-local-network-service.command script/uninstall-local-service.command "$APP_BUNDLE/Contents/Resources/"
 chmod +x "$APP_BUNDLE/Contents/Resources/"*.command
-install -m 644 .build/checkouts/Yams/LICENSE "$APP_BUNDLE/Contents/Resources/Licenses/Yams-LICENSE"
+install -m 644 "$SCRATCH_DIR/checkouts/Yams/LICENSE" "$APP_BUNDLE/Contents/Resources/Licenses/Yams-LICENSE"
 mkdir -p "$APP_BUNDLE/Contents/Resources/GeoData"
-cp Resources/GeoData/* "$APP_BUNDLE/Contents/Resources/GeoData/"
+cp Resources/GeoData/geoip.metadb Resources/GeoData/GeoIP.dat Resources/GeoData/GeoSite.dat Resources/GeoData/release.json "$APP_BUNDLE/Contents/Resources/GeoData/"
 cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -56,7 +70,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>28</string>
+<key>CFBundleVersion</key><string>29</string>
+<key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><true/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>

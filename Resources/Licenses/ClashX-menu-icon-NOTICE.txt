@@ -1,4 +1,6 @@
 ClashX menu icon
+Historical material: used in published Builds 17, 19, 21 and 28.
+Current source uses an independently generated LumaRoute cat icon instead.
 Source: https://github.com/MetaCubeX/ClashX.Meta/blob/471b3e04153655374516b8589cacdb6db373d913/ClashX/Resources/menu_icon%402x.png
 Original ClashX by yichengchen and contributors; ClashX.Meta by MetaCubeX and contributors.
 Licensed under GNU AGPL version 3, see ClashX-Meta-AGPL-3.0.txt.

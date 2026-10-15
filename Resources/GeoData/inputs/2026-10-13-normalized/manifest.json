@@ -1,0 +1,10 @@
+{
+  "format": "lumaroute-geodata-inputs-v1",
+  "snapshot_kind": "normalized-editable-inputs-exported-losslessly-from-existing-artifacts",
+  "metadb_build_epoch": 1791860771,
+  "expected_sha256": {
+    "GeoIP.dat": "116cc0f03d48991962f7f9cdbbcf53d45d89777f9c3cd1a663210853e5df6093",
+    "GeoSite.dat": "30b8fe82c220879da1fadf896ec18b26b495091980dab3dca7a11199c74a5773",
+    "geoip.metadb": "e060b447d974e2dde71340c47783f0263d4d4a6656237f4f824c186044647eb3"
+  }
+}

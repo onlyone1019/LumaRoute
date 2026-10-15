@@ -1,0 +1,26 @@
+name: Bug 报告
+description: 报告可复现的问题，请勿填写敏感信息。
+body:
+  - type: markdown
+    attributes:
+      value: "安全漏洞请按 SECURITY.md 私密报告。不要粘贴订阅链接、密码、完整日志或数据库。"
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: LumaRoute 版本、macOS 版本和 arm64 / x86_64。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 使用脱敏或合成数据描述最小复现过程。
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 预期与实际结果
+    validations:
+      required: true

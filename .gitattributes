@@ -1,0 +1,2 @@
+tools/geodata-snapshot/vendor/** linguist-vendored
+Resources/GeoData/inputs/**/*.gz -text -diff

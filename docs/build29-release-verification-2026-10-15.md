@@ -115,3 +115,12 @@ Release 附件包含 Mihomo v1.19.32、Yams 6.1.0 的官方原样源码归档，
 | LumaRoute-0.1.0-build.29-macos-arm64.zip | `3106853c486114c64f057a89efecef17f819218baad92a289b7765ef0bca229d` |
 | LumaRoute-0.1.0-build.29-macos-x86_64.dmg | `d9d2edc534bfdc5a5a88c9f50812d07b1f78e615d43300e28fa9abe8f028b7be` |
 | LumaRoute-0.1.0-build.29-macos-x86_64.zip | `1e95afb5dd60f65600f92da80569041c8e87e161aa1a82b19272c9279dd09abe` |
+
+
+## 原仓库最终历史整理
+
+在完整备份全部引用和 11 个 Release 附件后，直接重写原仓库可控分支 / 标签的历史，移除此前提交过的 `Resources/GeoData/inputs/`。当前应用、后台服务、构建脚本、GEO 数据和策略未修改；安装包沿用此前已验证的原文件，不为历史整理重新构建。Build 17、19、21、28 标签对象不变，Build 29 标签名称保留并指向当前发布源码，GitHub 自动标签源码与本次发布实现一致，原对象及全部历史均保存在仓库外备份中。此前关于标签对象全部不变的段落是历史记录，不适用于本次整理。
+
+应用完整源码附件和 `source-manifest.json` 更新为清理后的提交，当前 SHA-256 以 Release 的 `SHA256SUMS.txt` 为准。GeoLite 官方条款核对见 [GEO 说明](../Resources/GeoData/README.md)。本次没有新建 GitHub 仓库，没有更改可见性，也未处理依赖安全。
+
+GitHub 服务端可能继续保留通过旧 SHA 或 PR 视图访问的旧对象。重写可控引用不等于删除服务端缓存，因此不宣称原个人信息已从 GitHub 所有存储中物理清除；仓库继续私有。

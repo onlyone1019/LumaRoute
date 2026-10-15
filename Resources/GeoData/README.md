@@ -22,4 +22,16 @@ python3 script/rebuild_geodata.py --output work/geodata-rebuilt
 
 应用内手动在线更新及旧快照回退继续应用固定的 biliintl / sharepoint 许可策略；本次管理方式调整不改变现有匹配结果。数据仍按各来源许可提供，不能因未提交 Git 就视为 MIT，也不免除 GeoLite 等适用条款。见 [GEO 专项声明](../Licenses/GeoData-NOTICE.md)。
 
-既有 Git 标签与历史按维护者要求保留，因此仍能找到此前提交过的输入和工具；这是从当前版本开始分离管理，没有重写历史，也不表示历史材料取得额外授权。仓库和已有外部备份继续保持私有。
+最终整理已从原仓库可控分支和标签的可达历史中移除旧 GEO 输入。全部标签名称保留，Build 29 标签指向当前发布源码；原始历史及标签对象保存在仓库外备份中。GitHub 仍可能通过旧 SHA 或 PR 视图保留旧对象，强推不能证明服务端缓存已删除。仓库与备份继续保持私有。
+
+
+## GeoLite 官方条款核对
+
+MaxMind 官方帮助文档明确允许向组织外用户提供使用 GeoLite 数据的应用，前提是保留 MaxMind 署名；并不是只要使用 GeoLite 就必须购买商业许可。官方同时要求分发者向接收方传递相同或实质相同的条款，保持数据更新，并在新版发布后 30 天内删除旧版数据。不得用于定位具体个人、家庭或街道地址。
+
+- 对外提供应用及署名：https://support.maxmind.com/knowledge-base/articles/sell-or-display-data-from-geolite-databases-and-web-services
+- 适用对象及转交条款：https://support.maxmind.com/knowledge-base/articles/who-is-covered-by-the-geolite-end-user-license-agreement
+- 更新及删除旧数据：https://support.maxmind.com/knowledge-base/articles/maintain-up-to-date-data
+- 完整 GeoLite EULA：https://www.maxmind.com/en/geolite/eula
+
+当前安装包及独立 GEO 附件已提供署名、CC BY-SA 正文、EULA 和来源说明。固定摘要用于构建完整性校验，不构成永久保留旧数据的额外授权；后续数据分发仍须按上述要求维护。本次确认的是官方公开条款，没有另行取得定制许可，也没有把人工维护表述为已实现自动清理。

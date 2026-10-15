@@ -240,6 +240,9 @@ public final class LocalStore: @unchecked Sendable {
             contents[profile.id] = content
         }
         if let active = database.activeProfileID,!database.profiles.contains(where:{$0.id == active}) { throw LumaError.message("备份中的活动订阅不存在") }
+        for profile in database.profiles {
+            if let composition = profile.composition { try composition.validate(profiles:database.profiles) }
+        }
         for item in database.ruleSubscriptions ?? [] {
             try item.validate()
             if item.revision != nil { _ = try RuleSubscriptionDownload.payload(source.ruleSubscriptionContent(item)) }

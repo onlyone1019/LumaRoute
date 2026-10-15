@@ -4,6 +4,7 @@ public struct GroupSelection:Codable {
     public var group:String
     public var kind:String
     public var node:String?
+    public init(group: String,kind: String,node: String?) { self.group = group; self.kind = kind; self.node = node }
     public static func capture(_ proxies:[String:ProxyNode])->[Self] {
         proxies.values.compactMap { group in
             if group.type == "Selector",let node = group.now { return Self(group:group.name,kind:group.type,node:node) }

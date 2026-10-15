@@ -9,6 +9,10 @@ struct LumaRouteCLI {
             guard let action=arguments.first else { print("usage: LumaRouteCLI validate <config> <core> | smoke <core> <workdir>"); return }
             if action=="verify" {
                 try RegressionSuite.run()
+            } else if action=="composition-check",arguments.count==3 {
+                try await CompositionSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
+            } else if action=="routing-tools-check",arguments.count==3 {
+                try await RoutingToolsSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
             } else if ["rule-subscription-check","rule-catalog-check"].contains(action),arguments.count==3 {
                 try await RuleSubscriptionSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]),official:action=="rule-catalog-check")
             } else if action=="geo-check",arguments.count==5 {

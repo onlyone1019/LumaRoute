@@ -8,21 +8,23 @@ struct SubscriptionsPage:View {
     @State private var search = ""
     @State private var source = "all"
     @State private var dropping = false
+    @State private var creatingComposition = false
     var profiles:[Profile] {
         store.database.profiles.filter {
             (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)) &&
-            (source == "all" || (source == "remote" ? $0.isRemote:!$0.isRemote))
+            (source == "all" || (source == "composition" ? $0.composition != nil:($0.composition == nil && (source == "remote" ? $0.isRemote:!$0.isRemote))))
         }
     }
     var body:some View {
         VStack(spacing:18) {
-            PageHeader(title:"订阅",subtitle:"\(store.database.profiles.count) 个配置") {
+            PageHeader(title:"订阅",subtitle:"\(store.database.profiles.count) 个配置 · \(store.activeProfile?.composition == nil ? "单订阅模式":"组合模式")") {
+                Button("组合订阅") { creatingComposition = true }.disabled(store.busy)
                 Button("更新全部") { store.perform { try await store.updateAll() } }.disabled(store.busy)
                 Button { store.addingSubscription=true } label:{ Label("添加订阅",systemImage:"plus") }.buttonStyle(LumaPrimaryButtonStyle())
             }
             HStack(spacing:12) {
                 SearchField(placeholder:"搜索订阅",text:$search)
-                Picker("配置来源",selection:$source) { Text("全部").tag("all"); Text("远程订阅").tag("remote"); Text("本地配置").tag("local") }.labelsHidden().pickerStyle(.segmented).frame(width:280)
+                Picker("配置来源",selection:$source) { Text("全部").tag("all"); Text("远程订阅").tag("remote"); Text("本地配置").tag("local"); Text("组合配置").tag("composition") }.labelsHidden().pickerStyle(.segmented).frame(width:340)
                 Button("导入文件") { importing=true }
             }
             if store.database.profiles.isEmpty { EmptyMessage(icon:"doc.badge.plus",title:"添加你的第一个订阅",detail:"粘贴订阅链接，或导入本地配置文件。") }
@@ -59,6 +61,7 @@ struct SubscriptionsPage:View {
                 Spacer(); Button("管理备份") { store.settingsTab = "更新与备份"; store.page = .settings }
             }.padding(.top,6)
         }
+        .sheet(isPresented:$creatingComposition) { CompositionSheet(profiles:store.database.profiles,activeID:store.database.activeProfileID) }
         .sheet(isPresented:$store.addingSubscription) { ImportSubscriptionSheet() }
         .fileImporter(isPresented:$importing,allowedContentTypes:[.yaml,.plainText,.data]) { result in
             switch result { case .success(let url):store.perform { try await store.importFile(url) }; case .failure(let e):store.report(e) }
@@ -68,26 +71,37 @@ struct SubscriptionsPage:View {
 struct ProfileRow:View {
     @EnvironmentObject var store:AppStore
     @State private var showingOptions = false
+    @State private var editingComposition = false
+    @State private var showingChanges = false
     var profile:Profile
     var body:some View {
         Panel(emphasized:store.database.activeProfileID == profile.id) {
             HStack(alignment:.top,spacing:16) {
-                IconBadge(icon:profile.isRemote ? "doc.text":"doc")
+                IconBadge(icon:profile.composition != nil ? "square.stack.3d.up":profile.isRemote ? "doc.text":"doc")
                 VStack(alignment:.leading,spacing:8) {
                     HStack { Text(profile.name).font(.system(size:15,weight:.semibold)).lineLimit(1); if store.database.activeProfileID == profile.id { Text("使用中").font(.caption).padding(.horizontal,8).padding(.vertical,3).background(LumaPalette.accent.opacity(0.1),in:Capsule()).foregroundStyle(LumaPalette.accent).fixedSize() } }
                     Text(profile.displaySource).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     Text((profile.lastUpdated.map { "上次更新 "+$0.formatted(date:.abbreviated,time:.shortened) } ?? "尚未更新")+(profile.isRemote ? " · 每 \(profile.updateHours.formatted()) 小时更新":"")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    if profile.composition != nil { Text("组合配置 · 可按域名选择订阅").font(.caption).foregroundStyle(.secondary) }
                     if profile.userAgent != nil { Label("自定义 User-Agent",systemImage:"slider.horizontal.3").font(.caption).foregroundStyle(.secondary) }
                     if let error=profile.lastError { Label("更新失败，已保留旧配置："+error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).lineLimit(2) }
+                    if let change = profile.lastChange {
+                        Button(change.summary+" · 查看变化") { showingChanges = true }.buttonStyle(.link).font(.caption)
+                        if !change.selectedNodesRemoved.isEmpty { Label("原选中节点已移除，请检查当前出口",systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange) }
+                    }
                 }.frame(maxWidth:.infinity,alignment:.leading)
                 VStack(alignment:.leading,spacing:8) {
-                    if let usage=profile.usage {
+                    if let composition = profile.composition {
+                        Text("参与订阅")
+                        Text(store.subscriptionProfiles.filter { composition.profileIDs.contains($0.id) }.map(\.name).joined(separator:"、")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    } else if let usage=profile.usage {
                         Text("已用 "+Format.bytes(usage.usedBytes)+(usage.total.map { " / "+Format.bytes($0) } ?? ""))
                         if let fraction=usage.usedFraction { ProgressView(value:fraction).frame(width:180) }
                         Text(usage.expire.map { "到期 "+$0.formatted(date:.abbreviated,time:.omitted) } ?? "到期信息未提供").font(.caption).foregroundStyle(.secondary)
                     } else { Text("流量信息未提供").foregroundStyle(.secondary) }
                 }.font(.callout).frame(width:180,alignment:.leading)
                 HStack(spacing:8) {
+                    if profile.composition != nil { Button("编辑组合") { editingComposition = true } }
                     if profile.isRemote { Button("更新") { store.perform { try await store.update(profile) } } }
                     if store.database.activeProfileID != profile.id { Button("启用") { store.perform { try await store.activate(profile) } }.buttonStyle(LumaPrimaryButtonStyle()) }
                     Menu {
@@ -98,7 +112,9 @@ struct ProfileRow:View {
                 }.fixedSize(horizontal:true,vertical:false).disabled(store.busy).controlSize(.regular)
             }
         }
+        .sheet(isPresented:$editingComposition) { CompositionSheet(profile:profile,profiles:store.database.profiles,activeID:store.database.activeProfileID) }
         .sheet(isPresented:$showingOptions) { SubscriptionOptionsSheet(profile:profile) }
+        .sheet(isPresented:$showingChanges) { SubscriptionChangesSheet(profile:profile) }
     }
 }
 struct ImportSubscriptionSheet:View {

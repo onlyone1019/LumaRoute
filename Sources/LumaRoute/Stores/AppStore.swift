@@ -111,6 +111,11 @@ final class AppStore: ObservableObject {
     private var logFlushTask:Task<Void,Never>?
     var api: MihomoAPI { MihomoAPI(port:database.settings.controllerPort,secret:secret) }
     var activeProfile: Profile? { database.profiles.first { $0.id == database.activeProfileID } }
+    var currentCustomRules: [CustomRule] { activeProfile?.composition?.customRules ?? database.customRules }
+    var subscriptionProfiles: [Profile] { database.profiles.filter { $0.composition == nil } }
+    func includesActiveProfile(_ id: UUID) -> Bool {
+        database.activeProfileID == id || activeProfile?.composition?.profileIDs.contains(id) == true
+    }
     var groups: [ProxyNode] {
         let available = proxies.values.filter { $0.isGroup && $0.hidden != true && $0.name != "GLOBAL" }
         let ordered = groupOrder.compactMap { name in available.first { $0.name == name } }
@@ -238,31 +243,48 @@ final class AppStore: ObservableObject {
         busy = true
         Task { defer { busy = false }; do { try await operation() } catch is CancellationError {} catch { report(error) } }
     }
-    func activeSource(_ id: UUID? = nil) throws -> String? {
-        guard let id = id ?? database.activeProfileID else { return nil }
-        return try store.profileContent(id)
+    func activeSource(_ id: UUID? = nil,configuration: AppDatabase? = nil,overrides: [UUID:String] = [:]) throws -> String? {
+        let state = configuration ?? database
+        guard let id = id ?? state.activeProfileID else { return nil }
+        guard let profile = state.profiles.first(where:{$0.id == id}) else { return try overrides[id] ?? store.profileContent(id) }
+        if let composition = profile.composition {
+            var contents: [UUID:String] = [:]
+            for member in composition.profileIDs { contents[member] = try overrides[member] ?? store.profileContent(member) }
+            return try CompositionComposer.compose(composition,profiles:state.profiles,contents:contents,settings:state.settings)
+        }
+        return try overrides[id] ?? store.profileContent(id)
     }
-    func applyConfiguration(settings: NetworkSettings? = nil,source: String? = nil,rules: [CustomRule]? = nil,strategies: [GroupStrategy]? = nil,profileID: UUID? = nil,selectionSnapshot: [GroupSelection]? = nil,ruleSubscriptions: [RuleSubscriptionSnapshot]? = nil) async throws {
+    func applyConfiguration(settings: NetworkSettings? = nil,source: String? = nil,rules: [CustomRule]? = nil,strategies: [GroupStrategy]? = nil,profileID: UUID? = nil,selectionSnapshot: [GroupSelection]? = nil,ruleSubscriptions: [RuleSubscriptionSnapshot]? = nil,configuration: AppDatabase? = nil) async throws {
         try Task.checkCancellation()
         guard !shuttingDown else { throw CancellationError() }
         configurationRevision = UUID(); healthFailures = 0
         cachedProviders = [:]
         lastNodeRefresh = .distantPast; lastProviderRefresh = .distantPast; lastRuleRefresh = .distantPast
         cancelTests(); nodeErrors = [:]; testProgress = 0; testTotal = 0
-        let keepSelection = (profileID ?? database.activeProfileID) == database.activeProfileID
-        let selections:[GroupSelection]
+        var state = configuration ?? database
+        if let settings { state.settings = settings }
+        let targetProfile = state.profiles.first { $0.id == (profileID ?? state.activeProfileID) }
+        let keepSelection = (profileID ?? state.activeProfileID) == database.activeProfileID
+        var selections:[GroupSelection]
         if let selectionSnapshot { selections = selectionSnapshot }
         else if coreReady && keepSelection { selections = GroupSelection.capture((try? await api.proxies()) ?? proxies) }
         else { selections = [] }
         trafficTask?.cancel(); logTask?.cancel()
-        let proposed = settings ?? database.settings
-        let content = try source ?? activeSource()
-        let customRules = rules ?? database.customRules
-        let strategyProfile = profileID ?? database.activeProfileID
-        let groupStrategies = strategies ?? (database.groupStrategies ?? []).filter { $0.profileID == strategyProfile }
-        let ruleSnapshots = try ruleSubscriptions ?? store.ruleSubscriptionSnapshots(database,profileID:strategyProfile)
+        let proposed = settings ?? state.settings
+        let content = try source ?? activeSource(profileID,configuration:state)
+        let customRules = try (rules ?? targetProfile?.composition?.customRules ?? state.customRules) + (targetProfile?.composition?.routingRules(profiles:state.profiles) ?? [])
+        let strategyProfile = profileID ?? state.activeProfileID
+        let groupStrategies = strategies ?? (state.groupStrategies ?? []).filter { $0.profileID == strategyProfile }
+        let ruleSnapshots = try ruleSubscriptions ?? store.ruleSubscriptionSnapshots(state,profileID:strategyProfile)
         let (yaml,file) = try await runner.prepare(source:content,settings:proposed,rules:customRules,strategies:groupStrategies,ruleSubscriptions:ruleSnapshots)
         try await runner.validate(file:file)
+        if selectionSnapshot == nil,!keepSelection {
+            let kinds = ["select":"Selector","url-test":"URLTest","fallback":"Fallback"]
+            selections = ((try ConfigComposer.parse(yaml))["proxy-groups"] as? [[String:Any]] ?? []).compactMap { group in
+                guard let name = group["name"] as? String,let type = group["type"] as? String,let kind = kinds[type] else { return nil }
+                return GroupSelection(group:name,kind:kind,node:state.savedChoices[name])
+            }
+        }
         try Task.checkCancellation()
         guard !shuttingDown else { throw CancellationError() }
         // Keep port ownership stable once the full service is installed. On
@@ -655,10 +677,13 @@ final class AppStore: ObservableObject {
         let previous = database
         var applied = false
         do {
-            if previous.activeProfileID == nil { try await applyConfiguration(source:content,profileID:profile.id); applied = true }
-            var next = previous; next.settings = database.settings
+            var next = previous
             next.profiles.append(profile)
-            if previous.activeProfileID == nil { next.activeProfileID = profile.id }
+            if previous.activeProfileID == nil {
+                next.activeProfileID = profile.id
+                try await applyConfiguration(source:content,profileID:profile.id,configuration:next); applied = true
+            }
+            next.settings = database.settings
             try await store.commitAsync(next,profiles:[profile.id:content],subscriptionAddresses:address.map { [profile.id:$0] } ?? [:])
             database = next
             appendLog(source:profile.name,message:"订阅导入成功")
@@ -688,11 +713,12 @@ final class AppStore: ObservableObject {
     }
     func activate(_ profile: Profile) async throws {
         let previous = database
-        let source = try store.profileContent(profile.id)
+        var next = previous; next.activeProfileID = profile.id
+        let source = try activeSource(configuration:next)
         do {
-            try await applyConfiguration(source:source,profileID:profile.id)
-            database.activeProfileID = profile.id
-            try await store.saveAsync(database)
+            try await applyConfiguration(source:source,profileID:profile.id,configuration:next)
+            next.settings = database.settings
+            try await store.saveAsync(next); database = next
             appendLog(source:"订阅",message:"已启用 \(profile.name)")
         } catch { database = previous; try? await applyConfiguration(); throw error }
     }
@@ -715,7 +741,9 @@ final class AppStore: ObservableObject {
         defer { if ownsLock { busy = false } }
         var previous: AppDatabase?
         var previousSource: String?
-        var applied = false
+        var appliedSource: String?
+        var change: SubscriptionChange?
+        var attemptedApply = false
         do {
             guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在本机数据库，请重新导入") }
             let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent)
@@ -726,29 +754,38 @@ final class AppStore: ObservableObject {
             // Re-read the latest database only after acquiring the lock. Settings,
             // active profile and node choices may have changed during download.
             previous = database
-            previousSource = try store.profileContent(profile.id)
-            let changed = Data(download.content.utf8) != Data(previousSource!.utf8)
+            let priorContent = try store.profileContent(profile.id)
+            let changed = Data(download.content.utf8) != Data(priorContent.utf8)
             if changed {
                 try await validateRemoteSource(download.content)
+                let prefix = activeProfile?.composition?.aliases(profiles:database.profiles)[profile.id].map { "["+$0+"] " } ?? ""
+                let selected = includesActiveProfile(profile.id) ? proxies.values.compactMap(\.now).filter { prefix.isEmpty || $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }:[]
+                change = try await Task.detached(priority:.utility) { try SubscriptionChange.compare(old:priorContent,new:download.content,selectedNodes:selected) }.value
                 try Task.checkCancellation()
                 guard !shuttingDown else { throw CancellationError() }
-                if profile.id == database.activeProfileID {
+                if includesActiveProfile(profile.id) {
                     guard !background || coreReady else { return }
-                    try await applyConfiguration(source:download.content); applied = true
+                    previousSource = try activeSource()
+                    let source = try activeSource(overrides:[profile.id:download.content])
+                    attemptedApply = true
+                    try await applyConfiguration(source:source); appliedSource = source
                 }
             }
             var next = database
             next.profiles[index].usage = download.usage
             if changed { next.profiles[index].nodeCount = try ConfigComposer.nodeCount(download.content) }
+            if let change { next.profiles[index].lastChange = change }
             next.profiles[index].lastUpdated = Date(); next.profiles[index].lastAttempt = Date(); next.profiles[index].lastError = nil
-            try await store.commitAsync(next,profiles:changed ? [profile.id:download.content]:[:])
+            var contents: [UUID:String] = changed ? [profile.id:download.content]:[:]
+            if let activeID = next.activeProfileID,activeProfile?.composition != nil,let appliedSource { contents[activeID] = appliedSource }
+            try await store.commitAsync(next,profiles:contents)
             database = next
             appendLog(source:profile.name,message:changed ? "订阅更新成功":"订阅内容未变化，已刷新用量和更新时间")
         } catch is CancellationError { throw CancellationError() }
         catch {
             if let previous {
                 database = previous
-                if applied,let previousSource { try? await applyConfiguration(source:previousSource) }
+                if attemptedApply,let previousSource { try? await applyConfiguration(source:previousSource) }
             }
             if background && !ownsLock { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
             if let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index] == profile {
@@ -780,6 +817,7 @@ final class AppStore: ObservableObject {
     }
     func deleteProfile(_ profile: Profile) async throws {
         guard database.activeProfileID != profile.id else { throw LumaError.message("请先启用其他配置，再删除当前配置") }
+        guard !database.profiles.contains(where:{$0.composition?.profileIDs.contains(profile.id) == true}) else { throw LumaError.message("此订阅被组合配置使用，请先编辑组合并移除它，再删除") }
         _ = try await store.backupAsync(database,automatic:true)
         var next = database
         next.profiles.removeAll { $0.id == profile.id }
@@ -861,10 +899,26 @@ final class AppStore: ObservableObject {
     }
     func cancelTests() { testTask?.cancel(); testTask = nil; testRunning = false; testGeneration = UUID() }
     func closeConnection(_ id: String?) { perform { try await self.api.closeConnection(id); await self.refresh() } }
+    /// An explicit page entry/refresh is useful even while AppKit reports the
+    /// window as occluded. Periodic polling retains its existing visibility gate.
+    func refreshConnectionsSnapshot() async {
+        guard coreReady,!busy,!shuttingDown else { return }
+        let revision = configurationRevision,port = database.settings.mixedPort
+        guard let response = try? await api.connections() else { return }
+        let enriched = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:port)
+        guard !Task.isCancelled,!busy,!shuttingDown,revision == configurationRevision,page == .connections else { return }
+        connections = enriched
+    }
     func applyRules(_ rules: [CustomRule]) async throws {
         for rule in rules where rule.enabled { try rule.validate() }
         let previous = database
-        do { try await applyConfiguration(rules:rules); database.customRules = rules; try await store.saveAsync(database) }
+        do {
+            try await applyConfiguration(rules:rules)
+            if let index = database.profiles.firstIndex(where:{$0.id == database.activeProfileID}),database.profiles[index].composition != nil {
+                database.profiles[index].composition?.customRules = rules
+            } else { database.customRules = rules }
+            try await store.saveAsync(database)
+        }
         catch { database = previous; try? await applyConfiguration(); throw error }
     }
     func saveSettings(_ settings: NetworkSettings) async throws {
@@ -979,7 +1033,8 @@ final class AppStore: ObservableObject {
         let candidate = CoreRunner(binary:try coreUpdates.binary(for:artifact),home:store.root.appendingPathComponent("runtime"),secret:secret)
         let strategies = (database.groupStrategies ?? []).filter { $0.profileID == database.activeProfileID }
         let snapshots = try store.ruleSubscriptionSnapshots(database,profileID:database.activeProfileID)
-        let (yaml,file) = try await previous.prepare(source:activeSource(),settings:database.settings,rules:database.customRules,strategies:strategies,ruleSubscriptions:snapshots)
+        let rules = try currentCustomRules + (activeProfile?.composition?.routingRules(profiles:database.profiles) ?? [])
+        let (yaml,file) = try await previous.prepare(source:activeSource(),settings:database.settings,rules:rules,strategies:strategies,ruleSubscriptions:snapshots)
         try await candidate.validate(file:file)
         if helperActive {
             trafficTask?.cancel(); logTask?.cancel(); cancelTests()
@@ -1051,16 +1106,18 @@ final class AppStore: ObservableObject {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         let (restored,contents) = try store.readBackup(url)
-        let source = restored.activeProfileID.flatMap { contents[$0] }
+        let source = try activeSource(configuration:restored,overrides:contents)
         let strategies = (restored.groupStrategies ?? []).filter { $0.profileID == restored.activeProfileID }
         let snapshots = try store.ruleSubscriptionSnapshots(restored,profileID:restored.activeProfileID,from:url)
-        let (_,file) = try await runner.prepare(source:source,settings:restored.settings,rules:restored.customRules,strategies:strategies,ruleSubscriptions:snapshots)
+        let profile = restored.profiles.first { $0.id == restored.activeProfileID }
+        let rules = try (profile?.composition?.customRules ?? restored.customRules) + (profile?.composition?.routingRules(profiles:restored.profiles) ?? [])
+        let (_,file) = try await runner.prepare(source:source,settings:restored.settings,rules:rules,strategies:strategies,ruleSubscriptions:snapshots)
         try await runner.validate(file:file)
         let previous = database
         _ = try await store.backupAsync(previous,automatic:true,preserving:url)
         do {
             database = restored
-            try await applyConfiguration(settings:restored.settings,source:source,rules:restored.customRules,strategies:strategies,profileID:restored.activeProfileID,ruleSubscriptions:snapshots)
+            try await applyConfiguration(settings:restored.settings,source:source,strategies:strategies,profileID:restored.activeProfileID,ruleSubscriptions:snapshots,configuration:restored)
             try await store.commitBackupAsync(restored,profiles:contents,from:url)
             database = restored
             notice = "备份已恢复，恢复前版本已保存"
@@ -1085,5 +1142,48 @@ final class AppStore: ObservableObject {
         await runner?.stop()
         helper.disconnect()
     }
+    func saveComposition(_ proposed: Profile,activate: Bool) async throws {
+        guard let composition = proposed.composition else { throw LumaError.message("组合配置无效") }
+        try composition.validate(profiles:database.profiles)
+        let previous = database
+        var next = previous
+        var profile = proposed
+        profile.name = profile.name.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !profile.name.isEmpty,profile.name.count <= 60 else { throw LumaError.message("请填写 1 至 60 个字的组合名称") }
+        profile.isRemote = false; profile.userAgent = nil; profile.usage = nil
+        profile.displaySource = "\(composition.profileIDs.count) 个订阅聚合"
+        profile.lastUpdated = Date()
+        profile.nodeCount = database.profiles.filter { composition.profileIDs.contains($0.id) }.reduce(0) { $0+$1.nodeCount }
+        if let index = next.profiles.firstIndex(where:{$0.id == profile.id}) { next.profiles[index] = profile }
+        else { next.profiles.append(profile) }
+        if activate { next.activeProfileID = profile.id }
+        let source = try activeSource(profile.id,configuration:next)!
+        let applies = next.activeProfileID == profile.id
+        var attemptedApply = false
+        do {
+            if applies { attemptedApply = true; try await applyConfiguration(source:source,profileID:profile.id,configuration:next) }
+            else { try await validateSource(source) }
+            next.settings = database.settings
+            try await store.commitAsync(next,profiles:[profile.id:source]); database = next
+            notice = applies ? "组合配置已启用":"组合配置已保存"
+        } catch {
+            database = previous
+            if attemptedApply { try? await applyConfiguration() }
+            throw error
+        }
+    }
+    func updateActiveSubscriptions() async throws {
+        guard let profile = activeProfile else { return }
+        if let composition = profile.composition {
+            var failures = 0
+            for id in composition.profileIDs {
+                if let member = database.profiles.first(where:{$0.id == id}),member.isRemote {
+                    do { try await update(member) } catch { failures += 1 }
+                }
+            }
+            if failures > 0 { throw LumaError.message("\(failures) 个订阅更新失败，已保留上次可用配置") }
+        } else { try await update(profile) }
+    }
+
 }
 

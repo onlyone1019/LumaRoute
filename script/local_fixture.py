@@ -2,8 +2,8 @@
 """Loopback-only subscription and HTTP proxy fixture for real Mihomo integration tests."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import json, socket, threading, time
-STATE = {"invalid": False, "tokyo_down": False, "osaka_down": False, "slow": False, "slow_timeout": False}
+import json, socket, socketserver, struct, threading, time
+STATE = {"invalid": False, "tokyo_down": False, "osaka_down": False, "slow": False, "slow_timeout": False, "composition_b_tokyo": False, "composition_invalid": False}
 METRICS = {"active": 0, "peak": 0, "started": 0}
 METRICS_LOCK = threading.Lock()
 PROFILE = """proxies:
@@ -31,6 +31,16 @@ SLOW_PROFILE = "proxies:\n" + "".join(
     f"  - {{name: '验收测速 {i:02d}', type: http, server: 127.0.0.1, port: 18771}}\n"
     for i in range(1, 6)
 ) + "proxy-groups:\n  - {name: 验收测速组, type: select, proxies: [验收测速 01, 验收测速 02, 验收测速 03, 验收测速 04, 验收测速 05]}\nrules: ['MATCH,验收测速组']\n"
+def composition_profile(port):
+    return f"""proxies:
+  - {{name: shared-node, type: http, server: 127.0.0.1, port: {port}}}
+proxy-groups:
+  - {{name: shared-group, type: select, include-all: true}}
+rules:
+  - DOMAIN-SUFFIX,base.fixture.test,shared-group
+  - MATCH,shared-group
+"""
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def log_message(self, *args): pass
@@ -94,6 +104,10 @@ class Handler(BaseHTTPRequestHandler):
                 with METRICS_LOCK: payload = json.dumps(METRICS).encode()
                 return self.respond(200, payload)
             if self.path == "/subscription-slow": return self.respond(200, SLOW_PROFILE.encode(), {"Content-Type": "text/yaml"})
+            if self.path in ["/composition-a", "/composition-b"]:
+                is_b = self.path.endswith("-b")
+                content = "<html>invalid</html>" if is_b and STATE["composition_invalid"] else composition_profile(18773 if is_b and not STATE["composition_b_tokyo"] else 18771)
+                return self.respond(200, content.encode(), {"Content-Type": "text/yaml"})
             if self.path == "/provider": return self.respond(200, b"<html>invalid provider</html>" if STATE["invalid"] else PROFILE.split("proxy-groups:", 1)[0].encode())
             if self.path == "/uri": return self.respond(200, b"http://127.0.0.1:18771#fixture-tokyo")
             if self.path != "/subscription":
@@ -135,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.dumps({"fixture": True, "route": "tokyo" if port == 18771 else "osaka" if port == 18773 else "direct", "path": self.path}).encode()
         self.respond(200, payload, {"Content-Type": "application/json"})
     def do_CONNECT(self):
-        if self.path not in ["127.0.0.1:18772", "fixture.test:80", "airport.fixture.test:18772", "other.fixture.test:18772", "unrelated.test:18772"]:
+        if self.path not in ["127.0.0.1:18772", "fixture.test:80", "airport.fixture.test:18772", "other.fixture.test:18772", "unrelated.test:18772", "a.fixture.test:80", "b.fixture.test:80", "child.b.fixture.test:80", "base.fixture.test:80", "other.test:80", "diagnostic.fixture.test:80", "diagnostic.fixture.test:18772"]:
             return self.respond(403, b"Only loopback fixture destinations are allowed.")
         if self.unavailable(): return
         self.send_response(200)
@@ -158,7 +172,29 @@ class Handler(BaseHTTPRequestHandler):
             self.connection.close()
             return True
         return False
+class DNSHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        data, transport = self.request
+        if len(data) < 17: return
+        cursor, labels = 12, []
+        while cursor < len(data) and data[cursor]:
+            size = data[cursor]
+            if size > 63 or cursor + 1 + size >= len(data): return
+            labels.append(data[cursor+1:cursor+1+size].decode('ascii', errors='replace'))
+            cursor += 1 + size
+        if cursor + 5 > len(data): return
+        kind = struct.unpack('!H', data[cursor+1:cursor+3])[0]
+        name = '.'.join(labels)
+        answer = name == 'diagnostic.fixture.test' and kind == 1
+        flags = 0x8180 if name == 'diagnostic.fixture.test' else 0x8183
+        payload = data[:2] + struct.pack('!HHHHH', flags, 1, int(answer), 0, 0) + data[12:cursor+5]
+        if answer: payload += b'\xc0\x0c' + struct.pack('!HHIH', 1, 1, 30, 4) + socket.inet_aton('127.0.0.1')
+        transport.sendto(payload, self.client_address)
+
 servers = []
+dns_server = socketserver.ThreadingUDPServer(('127.0.0.1', 18774), DNSHandler)
+servers.append(dns_server)
+threading.Thread(target=dns_server.serve_forever, daemon=True).start()
 for port in [18770, 18771, 18772, 18773]:
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     servers.append(server)

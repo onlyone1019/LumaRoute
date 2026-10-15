@@ -3,6 +3,7 @@ import LumaRouteCore
 
 struct OverviewPage:View {
     @EnvironmentObject var store:AppStore
+    @State private var showingDiagnostics = false
     private var leafNode:ProxyNode? {
         var next = store.activeNode
         var visited:Set<String> = []
@@ -98,7 +99,7 @@ struct OverviewPage:View {
                             if let updated = store.activeProfile?.lastUpdated { Text("更新于 "+updated.formatted(date:.omitted,time:.shortened)).font(.caption).foregroundStyle(.secondary) }
                             Spacer()
                             Button(store.activeProfile == nil ? "添加订阅":"更新订阅") {
-                                if let p = store.activeProfile { store.perform { try await store.update(p) } }
+                                if store.activeProfile != nil { store.perform { try await store.updateActiveSubscriptions() } }
                                 else { store.page = .subscriptions; store.addingSubscription = true }
                             }.disabled(store.busy)
                         }
@@ -109,11 +110,12 @@ struct OverviewPage:View {
                             Text(store.coreReady ? "内核可访问":"内核尚未就绪").font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             Button("重新检查") { Task { await store.recheck() } }
+                            Button("网络诊断") { showingDiagnostics = true }.disabled(store.busy)
                         }
                     }
                 }
             }.frame(maxWidth:.infinity)
-        }
+        }.sheet(isPresented:$showingDiagnostics) { NetworkDiagnosticsSheet() }
     }
     private func trafficRate(_ title:String,rate:Int64,color:Color)->some View {
         HStack(spacing:7) { Circle().fill(color).frame(width:7,height:7); Text(title); Text(Format.rate(rate)).fontWeight(.medium).monospacedDigit() }.font(.callout).padding(.leading,12)

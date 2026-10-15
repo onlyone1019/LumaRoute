@@ -88,6 +88,8 @@ public struct Profile: Codable, Identifiable, Equatable {
     public var updateHours: Double
     public var nodeCount: Int
     public var userAgent: String?
+    public var composition: SubscriptionComposition?
+    public var lastChange: SubscriptionChange?
     public init(name: String, isRemote: Bool, displaySource: String = "本地配置", updateHours: Double = 6) {
         id = UUID(); self.name = name; self.isRemote = isRemote
         self.displaySource = displaySource; self.updateHours = updateHours
@@ -105,10 +107,12 @@ public struct CustomRule: Codable, Identifiable, Equatable {
     }
     public var yamlRule: String { "\(type),\(payload),\(target)" + (type.hasPrefix("IP-CIDR") ? ",no-resolve" : "") }
     public func validate() throws {
-        guard ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6"].contains(type),
+        guard ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "PROCESS-NAME", "PROCESS-PATH"].contains(type),
               !payload.trimmingCharacters(in: .whitespaces).isEmpty, !target.isEmpty,
-              !payload.contains(","), !payload.contains("\n"), !target.contains(","), !target.contains("\n")
+              !payload.contains(","), !payload.unicodeScalars.contains(where:CharacterSet.controlCharacters.contains), !target.contains(","), !target.unicodeScalars.contains(where:CharacterSet.controlCharacters.contains)
         else { throw LumaError.message("规则类型、匹配内容或目标策略无效") }
+        if type == "PROCESS-PATH",!payload.hasPrefix("/") { throw LumaError.message("应用路径须为完整的可执行文件路径") }
+        if type == "PROCESS-NAME",payload.contains("/") { throw LumaError.message("进程名称不包含路径，请选择完整路径匹配") }
     }
 }
 public struct AppDatabase: Codable {

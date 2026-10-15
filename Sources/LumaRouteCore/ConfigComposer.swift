@@ -63,6 +63,17 @@ public enum ConfigComposer {
             try Data(raw.utf8).write(to: file, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
         }
+        if let rawProviders = config.removeValue(forKey:"_lumaroute_raw_providers") as? [String:String],let resourceRoot {
+            let providers = config["proxy-providers"] as? [String:Any] ?? [:]
+            for (index,name) in providers.keys.sorted().enumerated() {
+                if let content = rawProviders[name] {
+                    let file = resourceRoot.appendingPathComponent("providers/proxy-\(index).yaml")
+                    try FileManager.default.createDirectory(at:file.deletingLastPathComponent(),withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+                    try Data(content.utf8).write(to:file,options:.atomic)
+                    try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
+                }
+            }
+        }
         normalizeProviders(&config, key: "proxy-providers", prefix: "proxy", settings: settings, resourceRoot: resourceRoot)
         normalizeProviders(&config, key: "rule-providers", prefix: "rule", settings: settings, resourceRoot: resourceRoot)
         if config["proxy-groups"] == nil {

@@ -4,7 +4,7 @@ import LumaRouteCore
 
 enum RegressionSuite {
     static func run() throws {
-        var passed=try SQLiteStoreSuite.run()
+        var passed=try SQLiteStoreSuite.run()+CompositionSuite.model()+RoutingToolsSuite.model()
         func check(_ condition:Bool,_ name:String)throws {
             guard condition else { throw LumaError.message("验收失败："+name) }
             passed += 1

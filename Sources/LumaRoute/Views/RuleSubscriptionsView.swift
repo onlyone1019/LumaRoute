@@ -10,7 +10,7 @@ struct RuleSubscriptionsView: View {
         VStack(spacing:14) {
             HStack {
                 VStack(alignment:.leading,spacing:4) {
-                    Text(store.activeProfile.map { "绑定机场配置："+$0.name } ?? "请先启用一个机场配置").font(.headline)
+                    Text(store.activeProfile.map { "绑定配置："+$0.name } ?? "请先启用一个配置").font(.headline)
                     Text("Loyalsoldier / clash-rules · 默认每 24 小时更新 · 下载失败保留旧规则").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -35,7 +35,7 @@ struct RuleSubscriptionsView: View {
             Panel {
                 VStack(alignment:.leading,spacing:6) {
                     Text("机场规则优先，补充规则在兜底前生效").font(.headline)
-                    Text("同一优先级按列表顺序匹配。广告等规则若需优先拦截，可在设置中选择“优先于机场规则”；这会覆盖命中它的机场分流。切换机场时只启用该机场绑定的规则订阅。").font(.caption).foregroundStyle(.secondary)
+                    Text("同一优先级按列表顺序匹配。广告等规则若需优先拦截，可在设置中选择“优先于机场规则”；这会覆盖命中它的机场分流。规则订阅仅对当前配置生效，单订阅和组合配置分别保存。").font(.caption).foregroundStyle(.secondary)
                     Link("查看规则来源与说明",destination:URL(string:"https://github.com/Loyalsoldier/clash-rules")!).font(.caption)
                 }
             }

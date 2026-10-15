@@ -355,9 +355,11 @@ LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICE
 - [Mihomo](https://github.com/MetaCubeX/mihomo)：代理内核，官方许可随应用附带，见 [Mihomo LICENSE](Resources/Licenses/Mihomo-LICENSE)。
 - [Yams](https://github.com/jpsim/Yams)：YAML 解析；构建时将其 LICENSE 复制到应用包。
 - [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules)：可选的在线规则订阅来源。
-- 当前源码使用 [imagegen 生成的原创猫形菜单图标](Resources/MenuBar/README.md)。已发布 Build 17–28 仍包含 ClashX.Meta 历史素材，其 AGPL-3.0 声明见 [NOTICE](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
-- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat)：预置 GEO 数据，保留上游许可与原始数据来源声明。
+- 当前源码使用 [imagegen 生成的原创猫形菜单图标](Resources/MenuBar/README.md)。曾分发的 Build 17–28 包含 ClashX.Meta 历史素材，其 AGPL-3.0 声明见 [NOTICE](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
+- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat)：预置 GEO 数据，逐来源署名、许可正文和授权边界见 [GEO 专项声明](Resources/Licenses/GeoData-NOTICE.md)。
 
 应用图标与早期设计稿保存在本仓库中。第三方代码、资源及规则库分别遵循其自身许可。
 
 Build 29 提供 Apple Silicon / Intel 两种架构；安装包、校验文件与对应源码材料见上方 Release。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。
+
+Build 17、19、21、28 的 Release 与附件已备份后删除，仅保留 Build 29；所有 Git 标签和外部备份保留。GEO 的第三方声明已补入 Build 29 双架构包与源码附件，尚未明确授权的上游输入仍需在公开前确认。

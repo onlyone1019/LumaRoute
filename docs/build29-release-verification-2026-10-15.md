@@ -12,7 +12,7 @@ ARM64 使用刚完成本地安装时生成的 Build 29 文件；Intel 从相同�
 
 本次 Intel 运行使用 Apple Silicon 上的 Rosetta；没有新增 Intel 真机、管理员服务或完整 TUN 验收。隔离验证不启动 GUI，也不修改用户正在使用的应用、数据和网络配置。
 
-## 安装包 SHA-256
+## 首次发布安装包 SHA-256（许可补充前）
 
 | 文件 | SHA-256 |
 | --- | --- |
@@ -27,4 +27,19 @@ Release 附件包含 Mihomo v1.19.32、Yams 6.1.0 的官方原样源码归档，
 
 源码来源、版本和摘要见 `source-manifest.json`，全部附件摘要见 `SHA256SUMS.txt`。Mihomo 上游源码归档保留原始示例及测试资料，不对其做清洗；此前审计对该归档的示例 / 测试告警另行记录，不能与应用包的零告警混为一谈。
 
-包继续使用 ad-hoc 签名、未公证。原 Build 17、19、21、28 安装包和发布材料保留。
+包继续使用 ad-hoc 签名、未公证。原 Build 17、19、21、28 安装包和发布材料仅保留在仓库外私有备份；对应 Release 与附件已按维护者要求删除，所有 Git 标签保留。
+
+## GEO 许可补充后的安装包
+
+2026-10-15 在同一 Build 29 Release 中替换安装包与 GEO 源码附件，增加逐来源署名、许可正文、MaxMind GeoLite 条款及未明确授权输入的说明。所有 Git 标签对象及其目标不变；应用源码仍为上述提交，法律声明补充来自 `2203ac0a69fc2b50589b7ef74d9171e8dfa053df`。
+
+两种架构均仅更新 `Contents/Resources/Licenses/` 并重新 ad-hoc 签名。移除签名后的主程序与首次发布版本逐字节相同，后台服务、Mihomo、图标和 GEO 数据均未改变。新 DMG / ZIP 与对应应用逐文件一致，三种可执行文件架构和严格嵌套签名验证通过。GEO 源码附件再次从独立解包目录离线重建，三份输出摘要不变。本次未重复功能回归；前述 218 项及冒烟记录属于相同应用代码的首次验证。
+
+| 当前文件 | SHA-256 |
+| --- | --- |
+| LumaRoute-0.1.0-build.29-macos-arm64.dmg | `da969b2f78c755819f0b1ed3a79c8ea8408b47f368bfccddd2f8286f0f537352` |
+| LumaRoute-0.1.0-build.29-macos-arm64.zip | `5628b8cdd723278d2ffdfd838d9735689c3f9a00e52384460cf0b5ab199b12bc` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.dmg | `ce030d3ad722ef7efb222602de6faf75956ac9f54b49b53ed12b1b41d6e15317` |
+| LumaRoute-0.1.0-build.29-macos-x86_64.zip | `ec36c60b9e2d1900aa7186084adf6152ede2ca00f4d8f0beeccd3fb0d5e82980` |
+
+完整当前附件摘要以 Release 的 `SHA256SUMS.txt` 为准。旧附件已逐文件备份并校验；标签不移动。

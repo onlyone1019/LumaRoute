@@ -25,7 +25,7 @@
 
 LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihomo](https://github.com/MetaCubeX/mihomo)** 内核处理代理与分流。保留订阅提供的策略组和规则，同时提供本地覆盖、自动选择与菜单栏快捷操作。
 
-> 当前为开发预览版，提供 Apple Silicon 安装包，也支持本机自行构建。默认采用本地 ad-hoc 签名，无需购买 Apple 开发者证书；安装包未经过 Developer ID 签名与 Apple 公证。
+> 当前为开发预览版，提供 Apple Silicon 和 Intel 安装包，也支持本机自行构建。默认采用本地 ad-hoc 签名，无需购买 Apple 开发者证书；安装包未经过 Developer ID 签名与 Apple 公证。
 
 ## 功能一览
 
@@ -77,7 +77,7 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前预览版：[0.1.0 · Build 28](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.28)** · macOS 14+ · Apple Silicon（M 系列）
+**当前预览版：[0.1.0 · Build 28](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.28)** · macOS 14+ · Apple Silicon / Intel
 
 Build 28 优化菜单复用、切页刷新和编辑器缓存，并包含规则保存提速与加载误报修复。详见 [界面响应验收记录](docs/ui-responsiveness-2026-10-15.md)。
 
@@ -85,15 +85,17 @@ Build 28 优化菜单复用、切页刷新和编辑器缓存，并包含规则�
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [DMG 安装包（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.dmg) | 打开后安装到应用程序；更新时替换原位置 |
-| [ZIP 压缩包](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.zip) | 解压后放入“应用程序” |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
 | [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
 这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 28 发布说明](docs/releases/v0.1.0-build.28.md)。
 
-本次安装包仅适用于 Apple Silicon；Intel 用户需在对应机器上从源码构建。
+请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
 ## 构建与安装
 
@@ -101,8 +103,9 @@ Build 28 优化菜单复用、切页刷新和编辑器缓存，并包含规则�
 
 - **macOS 14 或更新版本**。
 - **Xcode 或 Apple Command Line Tools**，提供 Swift 编译器及 macOS SDK。
-- **Python 3**，用于下载并校验官方内核和 GEO 数据。
-- 首次构建需联网访问 GitHub，获取 Yams 依赖、Mihomo 内核与 GEO 数据。
+- **Python 3**，用于取得和校验官方内核、调度 GEO 数据离线重建。
+- **Go 1.23 或更新版本**，首次从源码构建时用于从固定输入离线生成 GEO 数据；安装包用户无需安装 Go。
+- 首次构建需联网访问 GitHub，获取 Yams 依赖与 Mihomo 内核。GEO 数据使用仓库内固定输入离线重建。
 
 脚本根据本机架构选择 `arm64` 或 `x86_64` 内核。现有运行验收在 Apple Silicon Mac 上完成。
 
@@ -120,13 +123,22 @@ cd LumaRoute
 ./script/build_and_run.sh --build-only
 ```
 
-构建脚本会下载所需资源、执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。生成的应用位于：
+构建脚本会取得所需依赖和内核，从固定输入验证或离线重建 GEO 数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 的可编辑输入、固定工具和全部依赖源码已随仓库提供，不依赖会滚动变化的 `latest` 规则；见 [GEO 输入快照](Resources/GeoData/inputs/2026-10-13-normalized/README.md)。生成的应用位于：
 
 ```text
 dist/LumaRoute.app
 ```
 
 如需构建后直接启动，可运行 `./script/build_and_run.sh`。该命令会先退出已运行的 LumaRoute；只构建时使用 `--build-only`。
+
+指定 Intel 架构构建和打包（使用独立的编译目录和应用包）：
+
+```sh
+LUMAROUTE_ARCH=x86_64 ./script/build_and_run.sh --build-only
+./script/package_release.sh dist/x86_64/LumaRoute.app
+```
+
+应用位于 `dist/x86_64/LumaRoute.app`，安装包位于 `dist/releases/<版本标签>/`。同一版本的校验文件包含两种架构已生成的 DMG 和 ZIP；在 Apple Silicon 上运行 Intel 产物需安装 Rosetta。
 
 ### 安装到“应用程序”
 
@@ -338,9 +350,14 @@ Resources/            # 图标、第三方许可及资源下载记录
 
 ## 致谢与第三方许可
 
+LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICENSE)，Copyright (c) 2026 onlyone1019。第三方组件保留原协议，完整范围及源码获取说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
 - [Mihomo](https://github.com/MetaCubeX/mihomo)：代理内核，官方许可随应用附带，见 [Mihomo LICENSE](Resources/Licenses/Mihomo-LICENSE)。
 - [Yams](https://github.com/jpsim/Yams)：YAML 解析；构建时将其 LICENSE 复制到应用包。
 - [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules)：可选的在线规则订阅来源。
-- [ClashX.Meta](https://github.com/MetaCubeX/ClashX.Meta)：菜单栏猫形图标，来源与 AGPL-3.0 许可见 [NOTICE](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
+- 当前源码使用 [imagegen 生成的原创猫形菜单图标](Resources/MenuBar/README.md)。已发布 Build 17–28 仍包含 ClashX.Meta 历史素材，其 AGPL-3.0 声明见 [NOTICE](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
+- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat)：预置 GEO 数据，保留上游许可与原始数据来源声明。
 
 应用图标与早期设计稿保存在本仓库中。第三方代码、资源及规则库分别遵循其自身许可。
+
+本地 Build 29 为开源准备版本，尚未上传 Release；上方下载入口仍指向已发布的 Build 28。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。

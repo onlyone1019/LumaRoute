@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
-APP="$ROOT_DIR/dist/LumaRoute.app"
+APP="${1:-$ROOT_DIR/dist/LumaRoute.app}"
 [ -d "$APP" ] || { echo '请先运行 ./script/build_and_run.sh --build-only' >&2; exit 1; }
 /usr/bin/codesign --verify --deep --strict "$APP"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
@@ -66,6 +66,7 @@ EOF
 /usr/bin/hdiutil create -volname "LumaRoute $VERSION" -srcfolder "$STAGING" -fs HFS+ -format UDZO -imagekey zlib-level=9 "$OUTPUT/$STEM.dmg"
 (
   cd "$OUTPUT"
-  /usr/bin/shasum -a 256 "$STEM.dmg" "$STEM.zip" > SHA256SUMS.txt
+  /usr/bin/shasum -a 256 "LumaRoute-$VERSION-build.$BUILD-macos-"*.dmg "LumaRoute-$VERSION-build.$BUILD-macos-"*.zip > "$STAGING/SHA256SUMS.txt"
+  mv "$STAGING/SHA256SUMS.txt" SHA256SUMS.txt
 )
 echo "Release artifacts: $OUTPUT"

@@ -6,8 +6,11 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "script"))
+from geodata_distribution import distribution, release
 spec = importlib.util.spec_from_file_location("geosite_sources", ROOT / "script/geosite_sources.py")
 sources = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sources)
@@ -18,10 +21,12 @@ class GeoSiteSourcesTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.snapshot = Path(self.temp.name)
-        current = ROOT / "Resources/GeoData/inputs/2026-10-15-licensed-rules"
-        for name in ("rule-sources.json", "geosite.json.gz"):
-            shutil.copyfile(current / name, self.snapshot / name)
-        shutil.copytree(current / "sources", self.snapshot / "sources")
+        lock = release()
+        with distribution(lock) as source:
+            current = source / lock["source_distribution"]["input_snapshot"]
+            for name in ("rule-sources.json", "geosite.json.gz"):
+                shutil.copyfile(current / name, self.snapshot / name)
+            shutil.copytree(current / "sources", self.snapshot / "sources")
 
     def test_captured_licensed_sources_reproduce_both_categories(self):
         groups = sources.verify(self.snapshot)

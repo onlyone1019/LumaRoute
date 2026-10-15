@@ -5,6 +5,9 @@ Resources/Core/mihomo-*
 Resources/GeoData/*.metadb
 Resources/GeoData/*.dat
 Resources/GeoData/*.partial
+Resources/GeoData/GeoSite-policy.json
+Resources/GeoData/inputs/
+tools/geodata-snapshot/
 .DS_Store
 *.xcuserstate
 __pycache__/

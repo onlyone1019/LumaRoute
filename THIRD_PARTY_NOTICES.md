@@ -16,8 +16,8 @@ Yams 的源文件中还包含 libyaml，MIT 许可，Copyright (c) 2017-2020 Ing
 
 - Mihomo v1.19.32：[源码目录](https://github.com/MetaCubeX/mihomo/tree/v1.19.32)、[源码归档](https://github.com/MetaCubeX/mihomo/archive/refs/tags/v1.19.32.tar.gz)。上游构建脚本、Go 模块清单和依赖锁定文件包含在源码中；内核原始文件校验值见 [Core/release.json](Resources/Core/release.json)。
 - Yams 6.1.0：[源码归档](https://github.com/jpsim/Yams/archive/refs/tags/6.1.0.tar.gz)，具体 SwiftPM revision 见 [Package.resolved](Package.resolved)。
-- GEO 数据：[规范化、可编辑生成输入及证据说明](Resources/GeoData/inputs/2026-10-15-licensed-rules/README.md)、[固定重建工具与完整依赖源码](tools/geodata-snapshot/README.md)，以及随包保留的上游 README 中列出的原始数据项目。基础快照从现有产物无损还原，当前快照及应用内在线更新 / 回退共同使用 V2Ray MIT / ACL4SSR CC BY-SA 4.0 的固定来源替换 biliintl 和 sharepoint；GeoIP / MetaDB 未改变，GeoSite 已更新。新来源原始文件与许可均已捕获，其他基础数据不冒充原始网络采集记录。
-- GEO 重建工具：`tools/geodata-snapshot/` 独立采用 GPL v3，保留 MetaCubeX/geo 固定 revision 的来源及修改说明；vendored 依赖分别保留其原始许可证。它不链接进 LumaRoute 的 Swift 可执行程序，也不改变自有 Swift 代码的 MIT 授权。
+- GEO 数据：[独立分发及离线重建说明](Resources/GeoData/README.md)。完整规范化输入、固定工具、捕获来源和全部依赖源码放在 Release 的独立 GEO 附件中，不提交到当前应用源码树。基础快照从现有产物无损还原，当前快照及应用内在线更新 / 回退共同使用 V2Ray MIT / ACL4SSR CC BY-SA 4.0 的固定来源替换 biliintl 和 sharepoint；其他基础数据不冒充原始网络采集记录。应用源码附件与 GEO 附件分别提供，摘要由 `source-manifest.json` 和 `SHA256SUMS.txt` 指定。
+- GEO 重建工具：独立 GEO 附件中的 `tools/geodata-snapshot/` 采用 GPL v3，保留 MetaCubeX/geo 固定 revision 的来源及修改说明；vendored 依赖分别保留其原始许可证。它不链接进 LumaRoute 的 Swift 可执行程序，也不改变自有 Swift 代码的 MIT 授权。
 
 通过网络分发 GPL 组件时，发布者仍负责按组件协议提供对应源码获取途径，并维持其可获取性。仅有“使用了开源软件”的文字或许可证副本不能替代该义务。仍在分发的历史 Release 也需要分别保留其使用版本的材料。Build 17、19、21、28 的 Release 与附件已在仓库外备份后删除，Git 标签及历史素材的来源声明继续保留。
 

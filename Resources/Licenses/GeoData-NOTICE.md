@@ -37,7 +37,7 @@
 
 上游未归档全部原始网络响应；本声明不是完整权利链证明。原 xishang0128/rules 提供的两类输入已从当前快照与安装包中替换；旧版记录按维护者要求保留在 Git 标签与私有备份中，不代表旧材料取得额外授权。GeoLite EULA 对持续分发和旧数据处置的要求，仍不能通过保留一个固定快照自动解决。仓库目前保持私有。
 
-当前直接来源的原始文件、固定提交、许可及选定行保存在 `Resources/GeoData/inputs/2026-10-15-licensed-rules/`。V2Ray 原始署名和 MIT 正文保留；ACL4SSR 材料及混合分类的改编贡献按 CC BY-SA 4.0 提供，不改为 LumaRoute 的 MIT。
+当前直接来源的原始文件、固定提交、许可及选定行保存在独立 GEO 附件内的 `Resources/GeoData/inputs/2026-10-15-licensed-rules/`，不再随当前应用源码树提交。完整输入、固定 GPL 工具与 vendored 依赖仍可从同一 Release 取得，归档 SHA-256 固定在 `Resources/GeoData/release.json`；应用源码与数据材料分别提供。V2Ray 原始署名和 MIT 正文保留；ACL4SSR 材料及混合分类的改编贡献按 CC BY-SA 4.0 提供，不改为 LumaRoute 的 MIT。数据独立分发不改变各来源的许可或 GeoLite 适用条款，也不会清除按要求保留的 Git 历史。
 
 ## 在线更新及旧快照回退
 

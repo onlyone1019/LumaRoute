@@ -123,7 +123,7 @@ cd LumaRoute
 ./script/build_and_run.sh --build-only
 ```
 
-构建脚本会取得所需依赖和内核，从固定输入验证或离线重建 GEO 数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 的可编辑输入、固定工具和全部依赖源码已随仓库提供，不依赖会滚动变化的 `latest` 规则；见 [GEO 输入快照](Resources/GeoData/inputs/2026-10-15-licensed-rules/README.md)。生成的应用位于：
+构建脚本会取得所需依赖和内核，从独立 GEO 附件验证或离线重建数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 数据、可编辑输入、固定工具和完整依赖源码与应用源码分开管理，下载版本及 SHA-256 固定在清单中；私有仓库需提供 `GH_TOKEN` 或本地附件，见 [GEO 独立分发说明](Resources/GeoData/README.md)。生成的应用位于：
 
 ```text
 dist/LumaRoute.app

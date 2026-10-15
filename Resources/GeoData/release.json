@@ -1,5 +1,4 @@
 {
-  "input_snapshot": "inputs/2026-10-15-licensed-rules",
   "rebuild_script": "script/rebuild_geodata.py",
   "snapshot_kind": "normalized-base-with-licensed-category-replacements",
   "assets": [
@@ -19,8 +18,7 @@
       "name": "GeoSite.dat",
       "digest": "sha256:f7bc69233babdfbfdd9337d85ea925b478e2dcb26817fbfd1b0fdd582448eacb",
       "updated_at": "2026-10-15T14:32:20Z",
-      "distribution": "rebuilt offline from the locked local snapshot",
-      "source_snapshot": "inputs/2026-10-15-licensed-rules",
+      "distribution": "rebuilt offline from the separately distributed, SHA-256-pinned GEO source archive",
       "upstream_original_url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
     }
   ],
@@ -35,5 +33,13 @@
       "SHAREPOINT"
     ],
     "behavior": "replace after verifying upstream file digests, before update or rollback transaction"
+  },
+  "source_distribution": {
+    "name": "LumaRoute-GEO-inputs-2026-10-15-licensed-rules.tar.gz",
+    "url": "https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/LumaRoute-GEO-inputs-2026-10-15-licensed-rules.tar.gz",
+    "api_url": "https://api.github.com/repos/onlyone1019/LumaRoute/releases/assets/644232250",
+    "sha256": "fe12f7c56e65202bb8ad5bf523413453bb28d436b85a53ea8174bde8b3fdbacc",
+    "input_snapshot": "Resources/GeoData/inputs/2026-10-15-licensed-rules",
+    "policy": "Resources/GeoData/GeoSite-policy.json"
   }
 }

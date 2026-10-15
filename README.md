@@ -77,23 +77,23 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前预览版：[0.1.0 · Build 28](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.28)** · macOS 14+ · Apple Silicon / Intel
+**当前预览版：[0.1.0 · Build 29](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.29)** · macOS 14+ · Apple Silicon / Intel
 
-Build 28 优化菜单复用、切页刷新和编辑器缓存，并包含规则保存提速与加载误报修复。详见 [界面响应验收记录](docs/ui-responsiveness-2026-10-15.md)。
+Build 29 增加 MIT 署名与完整第三方许可、原创猫形菜单图标，以及可离线重建的 GEO 输入和完整生成依赖，并修复云端构建兼容性。详见 [Build 29 发布与验证记录](docs/build29-release-verification-2026-10-15.md)。
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/LumaRoute-0.1.0-build.28-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.28/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/LumaRoute-0.1.0-build.29-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/LumaRoute-0.1.0-build.29-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/LumaRoute-0.1.0-build.29-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/LumaRoute-0.1.0-build.29-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.0-build.29/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 28 发布说明](docs/releases/v0.1.0-build.28.md)。
+这是未公证的本地签名预览包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [Build 29 发布说明](docs/releases/v0.1.0-build.29.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
@@ -360,4 +360,4 @@ LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICE
 
 应用图标与早期设计稿保存在本仓库中。第三方代码、资源及规则库分别遵循其自身许可。
 
-本地 Build 29 为开源准备版本，尚未上传 Release；上方下载入口仍指向已发布的 Build 28。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。
+Build 29 提供 Apple Silicon / Intel 两种架构；安装包、校验文件与对应源码材料见上方 Release。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。

@@ -78,6 +78,10 @@ import LumaRouteCore
         app.setMainWindowVisible(false)
         app.database.settings.controllerPort = 1
         await app.refresh(force:false)
+        precondition(app.coreReady)
+        await app.refresh(force:false)
+        precondition(app.coreReady)
+        await app.refresh(force:false)
         precondition(!app.coreReady)
         print("PASS background health failure still detects a stopped core")
         #endif

@@ -8,6 +8,7 @@ public actor CoreRunner {
     private var outputPipe: Pipe?
     private var currentYAML: String?
     private var currentSettings: NetworkSettings?
+    private var lastRevisionCleanup = Date.distantPast
     private let lease: CoreProcessLease
     private static var coreEnvironment: [String:String] {
         var environment = ProcessInfo.processInfo.environment
@@ -26,6 +27,9 @@ public actor CoreRunner {
     public func prepare(source: String?, settings: NetworkSettings, rules: [CustomRule], strategies: [GroupStrategy] = [], ruleSubscriptions: [RuleSubscriptionSnapshot] = []) throws -> (String, URL) {
         _ = try GeoDataUpdates(home:home)
         try seedBundledGeoData()
+        if Date().timeIntervalSince(lastRevisionCleanup) >= 300 {
+            pruneRevisions(); lastRevisionCleanup = Date()
+        }
         let directory = home.appendingPathComponent("revisions/\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories:true, attributes:[.posixPermissions:0o700])
         let yaml = try ConfigComposer.compose(source:source, settings:settings, rules:rules, secret:secret, resourceRoot:directory,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
@@ -34,6 +38,41 @@ public actor CoreRunner {
         try Data(yaml.utf8).write(to:file, options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600], ofItemAtPath:file.path)
         return (yaml,file)
+    }
+    /// Retain active references, the newest 20 revisions and all work from the
+    /// last hour (validation/in-flight applies). Unknown directories are untouched.
+    public func pruneRevisions(now: Date = Date()) {
+        let root = home.appendingPathComponent("revisions").standardizedFileURL
+        var protected: Set<String> = []
+        var yamls = [currentYAML].compactMap { $0 }
+        let active = home.appendingPathComponent("active.yaml")
+        if FileManager.default.fileExists(atPath:active.path) {
+            guard let yaml = try? String(contentsOf:active,encoding:.utf8) else { return }
+            yamls.append(yaml)
+        }
+        func inspect(_ value: Any) {
+            if let string = value as? String,string.hasPrefix(root.path+"/") {
+                let name = String(string.dropFirst(root.path.count+1).split(separator:"/").first ?? "")
+                protected.insert(name)
+            } else if let dictionary = value as? [String:Any] { for child in dictionary.values { inspect(child) } }
+            else if let array = value as? [Any] { for child in array { inspect(child) } }
+        }
+        for yaml in yamls {
+            // If references cannot be established, do not risk active caches.
+            guard let parsed = try? ConfigComposer.parse(yaml) else { return }
+            inspect(parsed)
+        }
+        let keys: Set<URLResourceKey> = [.isDirectoryKey,.isSymbolicLinkKey,.contentModificationDateKey]
+        guard let entries = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:Array(keys)) else { return }
+        let candidates: [(URL,Date)] = entries.compactMap { entry in
+            guard UUID(uuidString:entry.lastPathComponent) != nil,
+                  let values = try? entry.resourceValues(forKeys:keys),values.isDirectory == true,values.isSymbolicLink != true,
+                  let date = values.contentModificationDate else { return nil }
+            return (entry,date)
+        }.sorted { $0.1 > $1.1 }
+        for (entry,date) in candidates.dropFirst(20) where !protected.contains(entry.lastPathComponent) && now.timeIntervalSince(date) > 3600 {
+            try? FileManager.default.removeItem(at:entry)
+        }
     }
     private func seedProviderCaches(for yaml: String) throws {
         let previous = currentYAML ?? (try? String(contentsOf:home.appendingPathComponent("active.yaml"),encoding:.utf8))
@@ -90,7 +129,7 @@ public actor CoreRunner {
     public func validate(file: URL) async throws {
         let binary = self.binary; let home = self.home
         guard FileManager.default.isExecutableFile(atPath:binary.path) else { throw LumaError.message("尚未找到随应用打包的 Mihomo 内核") }
-        try await Task.detached {
+        let validation = Task.detached {
             let task = Process()
             let log = home.appendingPathComponent("validation-\(UUID().uuidString).log")
             FileManager.default.createFile(atPath:log.path,contents:nil,attributes:[.posixPermissions:0o600])
@@ -121,7 +160,10 @@ public actor CoreRunner {
                 }.joined(separator:"\n")
                 throw LumaError.message("配置校验失败：\n"+Redactor.clean(String(details.prefix(600))))
             }
-        }.value
+        }
+        try await withTaskCancellationHandler {
+            try await validation.value
+        } onCancel: { validation.cancel() }
     }
     public func start(yaml: String, settings: NetworkSettings) async throws {
         guard !settings.tun || geteuid() == 0 else { throw LumaError.message("TUN 需要通过已授权的后台服务运行") }

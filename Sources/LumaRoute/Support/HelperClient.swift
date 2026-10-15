@@ -93,7 +93,7 @@ final class HelperClient {
     func openApproval() {
         SMAppService.openSystemSettingsLoginItems()
     }
-    func send(_ request: HelperRequest) async throws -> HelperResponse {
+    func send(_ request: HelperRequest,responseTimeout: TimeInterval? = nil) async throws -> HelperResponse {
         try requireAvailableService()
         guard status == .enabled else { throw LumaError.message("请先在设置中安装并授权后台服务") }
         if connection == nil {
@@ -118,7 +118,7 @@ final class HelperClient {
             proxy.perform(data) { result in
                 do { gate.finish(try JSONDecoder().decode(HelperResponse.self,from:result)) } catch { gate.fail(error) }
             }
-            let timeout: TimeInterval = ["start","geo-update"].contains(request.action) ? 480:45
+            let timeout: TimeInterval = responseTimeout ?? (["start","geo-update"].contains(request.action) ? 480:45)
             DispatchQueue.global().asyncAfter(deadline:.now()+timeout) { gate.fail(LumaError.message("后台服务请求超时")) }
         }
         guard response.success else { throw LumaError.message(response.message) }

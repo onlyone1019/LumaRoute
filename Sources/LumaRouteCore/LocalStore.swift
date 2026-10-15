@@ -1,6 +1,7 @@
 import Foundation
 
-public final class LocalStore {
+public final class LocalStore: @unchecked Sendable {
+    private let ioQueue = DispatchQueue(label:"app.lumaroute.storage",qos:.userInitiated)
     public let root: URL
     public let databaseURL: URL
     public let secrets: SecretStore
@@ -47,25 +48,70 @@ public final class LocalStore {
     private func records<T: Decodable>(_ type: T.Type,table: String) throws -> [T] {
         try sqlite.rows("SELECT payload FROM \(table) ORDER BY ordinal").map { try JSONDecoder().decode(type,from:$0[0]) }
     }
+    private func encoded<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(value)
+    }
     private func replaceRecords<T: Encodable>(_ records: [T],table: String,id: (T)->String) throws {
-        try sqlite.execute("DELETE FROM \(table)")
+        var existing = Set(try sqlite.rows("SELECT id FROM \(table)").map { String(decoding:$0[0],as:UTF8.self) })
+        var incoming: Set<String> = []
         for (ordinal,record) in records.enumerated() {
-            try sqlite.execute("INSERT INTO \(table)(id,ordinal,payload) VALUES(?,?,?)",[.text(id(record)),.integer(ordinal),.blob(try JSONEncoder().encode(record))])
+            let key = id(record)
+            guard incoming.insert(key).inserted else { throw LumaError.message("业务记录标识重复，已保留原数据") }
+            existing.remove(key)
+            try sqlite.execute("INSERT INTO \(table)(id,ordinal,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET ordinal=excluded.ordinal,payload=excluded.payload WHERE ordinal<>excluded.ordinal OR payload<>excluded.payload",[.text(key),.integer(ordinal),.blob(try encoded(record))])
         }
+        for key in existing { try sqlite.execute("DELETE FROM \(table) WHERE id=?",[.text(key)]) }
     }
     private func writeDatabase(_ database: AppDatabase) throws {
         let state = State(settings:database.settings,activeProfileID:database.activeProfileID,hasStrategies:database.groupStrategies != nil,hasRuleSubscriptions:database.ruleSubscriptions != nil)
-        try sqlite.execute("INSERT INTO app_state(id,payload) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",[.blob(try JSONEncoder().encode(state))])
+        try sqlite.execute("INSERT INTO app_state(id,payload) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload WHERE payload<>excluded.payload",[.blob(try encoded(state))])
         try replaceRecords(database.profiles,table:"profiles",id:{$0.id.uuidString})
         try replaceRecords(database.customRules,table:"custom_rules",id:{$0.id.uuidString})
         try replaceRecords(database.groupStrategies ?? [],table:"group_strategies",id:{$0.profileID.uuidString+"/"+$0.group})
         try replaceRecords(database.ruleSubscriptions ?? [],table:"rule_subscriptions",id:{$0.id.uuidString})
-        try sqlite.execute("DELETE FROM choices")
+        var existing = Set(try sqlite.rows("SELECT name FROM choices").map { String(decoding:$0[0],as:UTF8.self) })
         for (name,node) in database.savedChoices {
-            try sqlite.execute("INSERT INTO choices(name,node) VALUES(?,?)",[.text(name),.text(node)])
+            existing.remove(name)
+            try sqlite.execute("INSERT INTO choices(name,node) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET node=excluded.node WHERE node<>excluded.node",[.text(name),.text(node)])
         }
+        for name in existing { try sqlite.execute("DELETE FROM choices WHERE name=?",[.text(name)]) }
     }
     public func save(_ database: AppDatabase) throws { try sqlite.transaction { try writeDatabase(database) } }
+    // A private serial executor keeps SQLite lock waits and encoding off MainActor.
+    // Whole compound operations still use the same connection transaction lock.
+    private func io<T>(_ operation: @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            ioQueue.async { continuation.resume(with:Result { try operation() }) }
+        }
+    }
+    public func saveAsync(_ database: AppDatabase) async throws { try await io { try self.save(database) } }
+    public func saveSettingsAsync(_ settings: NetworkSettings) async throws {
+        try await io {
+            try self.sqlite.transaction {
+                let data = try self.sqlite.rows("SELECT payload FROM app_state WHERE id=1").first?.first
+                var state = try data.map { try JSONDecoder().decode(State.self,from:$0) } ?? State(settings:settings,hasStrategies:false,hasRuleSubscriptions:false)
+                state.settings = settings
+                try self.sqlite.execute("INSERT INTO app_state(id,payload) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload WHERE payload<>excluded.payload",[.blob(try self.encoded(state))])
+            }
+        }
+    }
+    public func saveChoiceAsync(group: String,node: String?) async throws {
+        try await io {
+            if let node {
+                try self.sqlite.execute("INSERT INTO choices(name,node) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET node=excluded.node WHERE node<>excluded.node",[.text(group),.text(node)])
+            } else { try self.sqlite.execute("DELETE FROM choices WHERE name=?",[.text(group)]) }
+        }
+    }
+    public func commitAsync(_ database: AppDatabase,profiles: [UUID:String],subscriptionAddresses: [UUID:String] = [:],ruleContents: [UUID:String] = [:],removingProfiles: [UUID] = []) async throws {
+        try await io { try self.commit(database,profiles:profiles,subscriptionAddresses:subscriptionAddresses,ruleContents:ruleContents,removingProfiles:removingProfiles) }
+    }
+    public func backupAsync(_ database: AppDatabase,automatic: Bool = false,preserving: URL? = nil) async throws -> URL {
+        try await io { try self.backup(database,automatic:automatic,preserving:preserving) }
+    }
+    public func commitBackupAsync(_ database: AppDatabase,profiles: [UUID:String],from backup: URL) async throws {
+        try await io { try self.commitBackup(database,profiles:profiles,from:backup) }
+    }
     public func profileContent(_ id: UUID) throws -> String {
         guard let data = try sqlite.rows("SELECT content FROM profile_contents WHERE profile_id=? AND version='current'",[.text(id.uuidString)]).first?.first else {
             throw LumaError.message("订阅配置不存在，请重新导入")
@@ -74,6 +120,8 @@ public final class LocalStore {
     }
     private func writeProfile(_ content: String,id: UUID) throws {
         guard content.utf8.count <= 8*1024*1024 else { throw LumaError.message("配置超过 8 MB") }
+        if let current = try sqlite.rows("SELECT content FROM profile_contents WHERE profile_id=? AND version='current'",[.text(id.uuidString)]).first?.first,
+           current == Data(content.utf8) { return }
         try sqlite.execute("INSERT INTO profile_contents(profile_id,version,content) SELECT profile_id,'previous',content FROM profile_contents WHERE profile_id=? AND version='current' ON CONFLICT(profile_id,version) DO UPDATE SET content=excluded.content",[.text(id.uuidString)])
         try sqlite.execute("INSERT INTO profile_contents(profile_id,version,content) VALUES(?,'current',?) ON CONFLICT(profile_id,version) DO UPDATE SET content=excluded.content",[.text(id.uuidString),.text(content)])
     }
@@ -107,6 +155,9 @@ public final class LocalStore {
         }
         return String(decoding:data,as:UTF8.self)
     }
+    public func cleanRuleSubscriptionCacheAsync(_ database: AppDatabase) async {
+        _ = try? await io { self.cleanRuleSubscriptionCache(database) }
+    }
     public func cleanRuleSubscriptionCache(_ database: AppDatabase) {
         let keep = Set((database.ruleSubscriptions ?? []).compactMap(\.revision).map(\.uuidString))
         try? sqlite.transaction {
@@ -127,8 +178,8 @@ public final class LocalStore {
         try data.write(to:url,options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:url.path)
     }
-    public func backup(_ database: AppDatabase) throws -> URL {
-        let destination = root.appendingPathComponent("backups/\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString.prefix(6))")
+    public func backup(_ database: AppDatabase,automatic: Bool = false,preserving: URL? = nil) throws -> URL {
+        let destination = root.appendingPathComponent("backups/\(automatic ? "auto-":"")\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString.prefix(6))")
         let staging = root.appendingPathComponent("backups/.pending-\(UUID().uuidString)")
         let target = try LocalStore(root:staging)
         do {
@@ -146,8 +197,28 @@ public final class LocalStore {
                 }
             }
             try FileManager.default.moveItem(at:staging,to:destination)
+            if automatic { pruneAutomaticBackups(keeping:destination,preserving:preserving) }
             return destination
         } catch { try? FileManager.default.removeItem(at:staging); throw error }
+    }
+    private func pruneAutomaticBackups(keeping destination: URL,preserving: URL?) {
+        let parent = root.appendingPathComponent("backups")
+        guard let entries = try? FileManager.default.contentsOfDirectory(at:parent,includingPropertiesForKeys:[.isDirectoryKey,.isSymbolicLinkKey]) else { return }
+        var protected = Set([destination.lastPathComponent])
+        if let preserving,preserving.deletingLastPathComponent().standardizedFileURL.path == parent.standardizedFileURL.path {
+            protected.insert(preserving.lastPathComponent)
+        }
+        let automatic = entries.filter {
+            let parts = $0.lastPathComponent.split(separator:"-")
+            guard parts.count == 3,parts[0] == "auto",Int(parts[1]) != nil,parts[2].count == 6,
+                  let values = try? $0.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey]) else { return false }
+            return values.isDirectory == true && values.isSymbolicLink != true && FileManager.default.fileExists(atPath:$0.appendingPathComponent("lumaroute.sqlite").path)
+        }.filter { !protected.contains($0.lastPathComponent) }.sorted {
+            let first = (try? $0.resourceValues(forKeys:[.creationDateKey]).creationDate) ?? .distantPast
+            let second = (try? $1.resourceValues(forKeys:[.creationDateKey]).creationDate) ?? .distantPast
+            return first > second
+        }
+        for entry in automatic.dropFirst(max(0,10-protected.count)) { try? FileManager.default.removeItem(at:entry) }
     }
     private func ruleContentsFor(_ database: AppDatabase) throws -> [UUID:String] {
         var contents: [UUID:String] = [:]
@@ -186,7 +257,7 @@ public final class LocalStore {
     }
     public func restoreBackup(_ backup: URL) throws -> AppDatabase {
         let (database,contents) = try readBackup(backup)
-        _ = try self.backup(load())
+        _ = try self.backup(load(),automatic:true,preserving:backup)
         try commitBackup(database,profiles:contents,from:backup)
         return database
     }

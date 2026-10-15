@@ -21,6 +21,9 @@ import LumaRouteCore
               !store.busy, !store.helperActive else { throw LumaError.message("实际 AppStore 到期调度未完成") }
         print("PASS actual AppStore scheduler downloads and commits due rule subscription")
         let revision = updated.revision
+        try await store.updateRuleSubscription(updated)
+        guard store.database.ruleSubscriptions?.first?.revision == revision else { throw LumaError.message("相同规则内容被重复创建版本") }
+        print("PASS unchanged rule subscription refreshes metadata without replacing its revision")
         await store.updateDueRuleSubscriptions()
         guard store.database.ruleSubscriptions?.first?.revision == revision else { throw LumaError.message("未到期的规则被重复更新") }
         print("PASS actual scheduler does not redownload before next interval")

@@ -48,6 +48,10 @@ enum SQLiteStoreSuite {
         try check(try reloaded.profileContent(profile.id) == input && reloaded.ruleSubscriptionContent(rule) == content,"订阅与规则原文保存在 SQLite")
         try check(try reloaded.secrets.read(key) == url && reloaded.secrets.read("controller-secret") == "synthetic-controller","订阅凭据和控制密钥重开后读取一致")
         try check(!FileManager.default.fileExists(atPath:root.appendingPathComponent("profiles").path) && !FileManager.default.fileExists(atPath:root.appendingPathComponent("rule-subscriptions").path),"业务保存不再生成订阅和规则文件目录")
+        var duplicates = database; duplicates.profiles.append(profile)
+        var duplicateRejected = false
+        do { try store.save(duplicates) } catch { duplicateRejected = true }
+        try check(duplicateRejected && (try store.load()).profiles == database.profiles,"增量保存拒绝重复业务标识并回滚事务")
         let attributes = try FileManager.default.attributesOfItem(atPath:store.databaseURL.path)
         let directoryAttributes = try FileManager.default.attributesOfItem(atPath:root.path)
         try check((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600 && (directoryAttributes[.posixPermissions] as? NSNumber)?.intValue == 0o700,"数据库 0600，数据目录 0700")
@@ -65,6 +69,39 @@ enum SQLiteStoreSuite {
         try check(rejected && cleanError,"事务末尾失败会报告错误，错误不包含 SQL 凭据")
         try check(try store.load().settings == database.settings && store.load().profiles == database.profiles && store.profileContent(profile.id) == input && store.secrets.read(key) == url && store.ruleSubscriptionContent(rule) == content,"失败回滚内容、元数据、设置、规则缓存和订阅链接")
         try store.commit(database,profiles:[profile.id:input+"# second\n"])
+        // Repeated identical content must preserve the meaningful prior version.
+        let meaningful = root.appendingPathComponent("meaningful")
+        let history = try LocalStore(root:meaningful)
+        try history.commit(database,profiles:[profile.id:input],ruleContents:[rule.revision!:content])
+        try history.commit(database,profiles:[profile.id:input+"# changed\n"])
+        try history.commit(database,profiles:[profile.id:input+"# changed\n"])
+        let historyBackup = try history.backup(database)
+        var previous: OpaquePointer?
+        sqlite3_open(historyBackup.appendingPathComponent("lumaroute.sqlite").path,&previous)
+        var statement: OpaquePointer?
+        sqlite3_prepare_v2(previous,"SELECT content FROM profile_contents WHERE version='previous'",-1,&statement,nil)
+        let hasPrior = sqlite3_step(statement) == SQLITE_ROW
+        let prior = hasPrior ? String(cString:sqlite3_column_text(statement,0)):""
+        sqlite3_finalize(statement); sqlite3_close(previous)
+        try check(prior == input,"重复订阅内容不覆盖上一个有效版本")
+        // SQL triggers prove unchanged domain tables are not rewritten.
+        for table in ["profiles","custom_rules","group_strategies","rule_subscriptions","choices"] {
+            for operation in ["UPDATE","DELETE"] {
+                try sql("CREATE TRIGGER no_\(table)_\(operation) AFTER \(operation) ON \(table) BEGIN SELECT RAISE(ABORT,'unexpected rewrite'); END",at:history.databaseURL)
+            }
+        }
+        var preferenceOnly = database; preferenceOnly.settings.appearance = "light"
+        try history.save(preferenceOnly)
+        try check(try history.load().settings == preferenceOnly.settings,"普通设置保存不重写订阅、规则、策略和节点记录")
+        let manual = try history.backup(preferenceOnly)
+        for _ in 0..<12 { _ = try history.backup(preferenceOnly,automatic:true) }
+        let retained = try FileManager.default.contentsOfDirectory(atPath:meaningful.appendingPathComponent("backups").path)
+        try check(retained.filter { $0.hasPrefix("auto-") }.count == 10 && FileManager.default.fileExists(atPath:manual.path),"自动备份保留最近十份，手动备份不删除")
+        let oldest = try FileManager.default.contentsOfDirectory(at:meaningful.appendingPathComponent("backups"),includingPropertiesForKeys:[.creationDateKey]).filter { $0.lastPathComponent.hasPrefix("auto-") }.sorted {
+            ((try? $0.resourceValues(forKeys:[.creationDateKey]).creationDate) ?? .distantPast) < ((try? $1.resourceValues(forKeys:[.creationDateKey]).creationDate) ?? .distantPast)
+        }.first!
+        _ = try history.restoreBackup(oldest)
+        try check(FileManager.default.fileExists(atPath:oldest.path),"恢复最旧自动备份时保留源备份，不被新建恢复前备份清理")
         let backup = try store.backup(database)
         let exported = try LocalStore(root:backup,readOnly:true)
         try check(try exported.secrets.read(key) == nil && exported.secrets.read("controller-secret") == nil,"SQLite 备份排除链接和控制密钥")

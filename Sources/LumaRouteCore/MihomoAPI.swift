@@ -40,8 +40,8 @@ public struct MihomoAPI {
     public func providers() async throws -> [String: Provider] { try await decode(ProvidersResponse.self, ["providers","proxies"]).providers }
     public func connections() async throws -> ConnectionsResponse { try await decode(ConnectionsResponse.self, ["connections"]) }
     public func rules() async throws -> [LiveRule] { try await decode(RulesResponse.self, ["rules"]).rules }
-    public func version() async throws -> String {
-        let object = try JSONSerialization.jsonObject(with: await data(["version"])) as? [String: Any]
+    public func version(timeout: TimeInterval = 12) async throws -> String {
+        let object = try JSONSerialization.jsonObject(with: await data(["version"],timeout:timeout)) as? [String: Any]
         return object?["version"] as? String ?? "未知"
     }
     public func select(group: String, node: String) async throws { _ = try await data(["proxies",group], method: "PUT", body: ["name":node]) }

@@ -30,10 +30,11 @@ public extension SecretStore {
         else { try delete(key) }
     }
 }
-public final class MemorySecrets: SecretStore {
+public final class MemorySecrets: SecretStore, @unchecked Sendable {
+    private let lock = NSLock()
     private var values: [String: String] = [:]
     public init() {}
-    public func read(_ key: String) throws -> String? { values[key] }
-    public func write(_ value: String,key: String) throws { values[key] = value }
-    public func delete(_ key: String) throws { values.removeValue(forKey:key) }
+    public func read(_ key: String) throws -> String? { lock.lock(); defer { lock.unlock() }; return values[key] }
+    public func write(_ value: String,key: String) throws { lock.lock(); defer { lock.unlock() }; values[key] = value }
+    public func delete(_ key: String) throws { lock.lock(); defer { lock.unlock() }; values.removeValue(forKey:key) }
 }

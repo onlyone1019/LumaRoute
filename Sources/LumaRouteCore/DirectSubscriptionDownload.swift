@@ -4,7 +4,7 @@ import Foundation
 /// macOS versions still consults system proxies despite per-session proxy disables.
 enum DirectSubscriptionDownload {
     static func fetch(_ url: URL, userAgent: String) async throws -> (Data, URLResponse) {
-        try await Task.detached {
+        let download = Task.detached {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("LumaRoute-download-"+UUID().uuidString)
             try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
             defer { try? FileManager.default.removeItem(at:directory) }
@@ -45,6 +45,9 @@ enum DirectSubscriptionDownload {
             }
             guard let response = HTTPURLResponse(url:url,statusCode:status,httpVersion:nil,headerFields:fields) else { throw LumaError.message("订阅响应无法解析") }
             return (data,response as URLResponse)
-        }.value
+        }
+        return try await withTaskCancellationHandler {
+            try await download.value
+        } onCancel: { download.cancel() }
     }
 }

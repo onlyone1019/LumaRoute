@@ -74,6 +74,11 @@ final class AppStore: ObservableObject {
     var trafficTask: Task<Void,Never>?
     var logTask: Task<Void,Never>?
     var testTask: Task<Void,Never>?
+    private var subscriptionTask: Task<Void,Never>?
+    var updatingProfiles: Set<UUID> = []
+    var updatingRuleSubscriptions: Set<UUID> = []
+    private var streamGeneration = UUID()
+    private var healthFailures = 0
     private var testGeneration = UUID()
     var shuttingDown = false
     private var sleeping = false
@@ -184,7 +189,14 @@ final class AppStore: ObservableObject {
             refreshTask = Task { [weak self] in
                 while !Task.isCancelled {
                     await self?.refresh(force:false)
-                    if self?.coreReady == true { await self?.updateDueSubscriptions(); await self?.updateDueRuleSubscriptions() }
+                    if let self,self.coreReady,self.subscriptionTask == nil {
+                        self.subscriptionTask = Task { [weak self] in
+                            guard let self else { return }
+                            defer { self.subscriptionTask = nil }
+                            await self.updateDueSubscriptions()
+                            if !Task.isCancelled { await self.updateDueRuleSubscriptions() }
+                        }
+                    }
                     try? await Task.sleep(nanoseconds:2_000_000_000)
                 }
             }
@@ -231,7 +243,9 @@ final class AppStore: ObservableObject {
         return try store.profileContent(id)
     }
     func applyConfiguration(settings: NetworkSettings? = nil,source: String? = nil,rules: [CustomRule]? = nil,strategies: [GroupStrategy]? = nil,profileID: UUID? = nil,selectionSnapshot: [GroupSelection]? = nil,ruleSubscriptions: [RuleSubscriptionSnapshot]? = nil) async throws {
-        configurationRevision = UUID()
+        try Task.checkCancellation()
+        guard !shuttingDown else { throw CancellationError() }
+        configurationRevision = UUID(); healthFailures = 0
         cachedProviders = [:]
         lastNodeRefresh = .distantPast; lastProviderRefresh = .distantPast; lastRuleRefresh = .distantPast
         cancelTests(); nodeErrors = [:]; testProgress = 0; testTotal = 0
@@ -249,6 +263,8 @@ final class AppStore: ObservableObject {
         let ruleSnapshots = try ruleSubscriptions ?? store.ruleSubscriptionSnapshots(database,profileID:strategyProfile)
         let (yaml,file) = try await runner.prepare(source:content,settings:proposed,rules:customRules,strategies:groupStrategies,ruleSubscriptions:ruleSnapshots)
         try await runner.validate(file:file)
+        try Task.checkCancellation()
+        guard !shuttingDown else { throw CancellationError() }
         // Keep port ownership stable once the full service is installed. On
         // macOS, root-owned closing TCP sockets can prevent a user-owned core
         // from rebinding even after the old process has exited.
@@ -268,6 +284,7 @@ final class AppStore: ObservableObject {
         }
         database.settings = proposed
         groupOrder = ((try ConfigComposer.parse(yaml))["proxy-groups"] as? [[String:Any]] ?? []).compactMap { $0["name"] as? String }
+        guard !shuttingDown else { throw CancellationError() }
         coreReady = true
         restartStreams()
         await refresh()
@@ -278,7 +295,7 @@ final class AppStore: ObservableObject {
             do {
                 try await self.api.patch(["mode":mode.rawValue])
                 self.database.settings.mode = mode
-                try self.store.save(self.database)
+                try await self.store.saveSettingsAsync(self.database.settings)
                 self.appendLog(source:"代理",message:"已切换为\(mode.label)模式")
             } catch { self.database = previous; try? await self.api.patch(["mode":previous.settings.mode.rawValue]); throw error }
         }
@@ -299,7 +316,7 @@ final class AppStore: ObservableObject {
                 try await self.saveSystemProxy(settings.systemProxy)
                 return
             }
-            do { try await self.applyConfiguration(settings:settings); try self.store.save(self.database) }
+            do { try await self.applyConfiguration(settings:settings); try await self.store.saveSettingsAsync(self.database.settings) }
             catch { self.database = previous; try? await self.applyConfiguration(); throw error }
         }
     }
@@ -309,7 +326,7 @@ final class AppStore: ObservableObject {
         let response = try await helper.send(HelperRequest(action:"system-proxy",systemProxyEnabled:enabled))
         database.settings.systemProxy = enabled
         serviceRunning = response.running
-        do { try store.save(database) }
+        do { try await store.saveSettingsAsync(database.settings) }
         catch {
             let original = error
             do {
@@ -374,11 +391,34 @@ final class AppStore: ObservableObject {
         do {
             // The lightweight controller and service checks stay on the 2s
             // heartbeat even when the window is closed or covered.
-            let version = try await api.version()
+            var versionError: Error?
+            do {
+                let version = try await api.version(timeout:3)
+                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                if version != coreVersion { coreVersion = version }
+            } catch { versionError = error }
             guard !busy,revision == configurationRevision,!shuttingDown else { return }
-            if version != coreVersion { coreVersion = version }
-            if needsNodes {
-                let freshProxies = try await api.proxies()
+            var confirmedStopped = false
+            if helperActive {
+                // An XPC timeout alone does not mean a healthy controller died.
+                if let status = try? await helper.send(HelperRequest(action:"status"),responseTimeout:3) {
+                    guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                    serviceRunning = status.running
+                    canRollbackGeo = status.canRollbackGeo ?? false
+                    confirmedStopped = !status.running
+                }
+            } else if let runner,versionError != nil { confirmedStopped = !(await runner.running) }
+            guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            if confirmedStopped { throw LumaError.message("后台内核已退出") }
+            if let versionError {
+                healthFailures += 1
+                // Bound uncertain controller failures to three 2s heartbeats.
+                // A confirmed process exit above still restores networking now.
+                if healthFailures < 3 { return }
+                throw versionError
+            }
+            healthFailures = 0
+            if needsNodes,let freshProxies = try? await api.proxies() {
                 var providers = cachedProviders
                 let refreshProviders = immediate || now.timeIntervalSince(lastProviderRefresh) >= 30
                 var providerResult: [String:Provider]?
@@ -399,8 +439,7 @@ final class AppStore: ObservableObject {
                 if proxies != availableProxies { proxies = availableProxies }
                 lastNodeRefresh = now
             }
-            if needsConnections {
-                let response = try await api.connections()
+            if needsConnections,let response = try? await api.connections() {
                 guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
                 let enriched = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:database.settings.mixedPort)
                 guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
@@ -411,19 +450,12 @@ final class AppStore: ObservableObject {
                 if rules != liveRules { liveRules = rules }
                 lastRuleRefresh = now
             }
-            if helperActive {
-                guard !busy,revision == configurationRevision,!shuttingDown else { return }
-                let status = try await helper.send(HelperRequest(action:"status"))
-                guard !busy,revision == configurationRevision,!shuttingDown else { return }
-                if serviceRunning != status.running { serviceRunning = status.running }
-                let rollback = status.canRollbackGeo ?? false
-                if canRollbackGeo != rollback { canRollbackGeo = rollback }
-                guard serviceRunning else { throw LumaError.message("后台内核已退出") }
-            }
         } catch {
             // An observation started before a configuration change is stale.
             // It must never stop the new core or undo the user's new settings.
             guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            busy = true
+            defer { busy = false }
             coreReady = false
             recoveryNeeded = true; recoveryAttempts = 0; nextRecovery = Date().addingTimeInterval(1)
             trafficTask?.cancel(); logTask?.cancel()
@@ -433,7 +465,7 @@ final class AppStore: ObservableObject {
                 catch { appendLog(level:"error",source:"网络恢复",message:"后台服务恢复尚未确认，将重试："+Redactor.clean(error.localizedDescription)) }
             }
             database.settings.tun = false; database.settings.systemProxy = false
-            try? store.save(database)
+            try? await store.saveSettingsAsync(database.settings)
             self.notice = helperActive ? "内核中断，正在确认网络设置恢复":"内核中断，网络接管已停止，正在恢复本机内核"
         }
     }
@@ -481,7 +513,7 @@ final class AppStore: ObservableObject {
             try Task.checkCancellation()
             guard !shuttingDown else { return }
             proxies = nodes; coreVersion = version; serviceLabel = helper.label
-            if pendingServiceSettings != nil { try store.save(database); pendingServiceSettings = nil }
+            if pendingServiceSettings != nil { try await store.saveSettingsAsync(database.settings); pendingServiceSettings = nil }
             recoveryNeeded = false; recoveryAttempts = 0
             serviceInstalling = false; serviceInstallationDeadline = nil
             serviceSetup = helper.networkSetup
@@ -508,7 +540,8 @@ final class AppStore: ObservableObject {
     }
     private func recoverLocalCore() async {
         guard runner != nil,!recovering,recoveryAttempts < 3,Date() >= nextRecovery else { return }
-        recovering = true; defer { recovering = false }
+        recovering = true; busy = true
+        defer { recovering = false; busy = false }
         recoveryAttempts += 1
         do {
             if helperActive {
@@ -518,7 +551,7 @@ final class AppStore: ObservableObject {
             await runner.stop()
             var settings = database.settings; settings.tun = false; settings.systemProxy = false
             try await applyConfiguration(settings:settings)
-            try store.save(database)
+            try await store.saveSettingsAsync(database.settings)
             recoveryNeeded = false; recoveryAttempts = 0
             notice = "本机内核已恢复；网络接管保持关闭"
             appendLog(source:"恢复",message:"内核已恢复，可手动重新连接")
@@ -559,26 +592,43 @@ final class AppStore: ObservableObject {
     }
     func restartStreams() {
         trafficTask?.cancel(); logTask?.cancel()
+        let generation = UUID(); streamGeneration = generation
+        logStreamAvailable = false
+        guard coreReady,!sleeping,!shuttingDown else { return }
         let client = api
-        trafficTask = Task { [weak self] in
+        trafficTask = Task { [weak self] in await self?.observeStream("traffic",client:client,generation:generation) }
+        logTask = Task { [weak self] in await self?.observeStream("logs",client:client,generation:generation) }
+    }
+    private func observeStream(_ endpoint: String,client: MihomoAPI,generation: UUID) async {
+        var delay: UInt64 = 1
+        var disconnected = false
+        func current() -> Bool { !Task.isCancelled && coreReady && !sleeping && !shuttingDown && streamGeneration == generation }
+        while current() {
+            let began = ProcessInfo.processInfo.systemUptime
             do {
-                try await client.stream("traffic") { data in
-                    guard let sample = try? JSONDecoder().decode(Traffic.self,from:data) else { return }
+                try await client.stream(endpoint) { [weak self] data in
                     await MainActor.run {
-                        self?.traffic = sample; self?.trafficHistory.append(Traffic(up:sample.up,down:sample.down))
-                        if (self?.trafficHistory.count ?? 0) > 60 { self?.trafficHistory.removeFirst() }
+                        guard let self,!Task.isCancelled,self.coreReady,!self.sleeping,!self.shuttingDown,self.streamGeneration == generation else { return }
+                        if endpoint == "traffic",let sample = try? JSONDecoder().decode(Traffic.self,from:data) {
+                            self.traffic = sample; self.trafficHistory.append(sample)
+                            if self.trafficHistory.count > 60 { self.trafficHistory.removeFirst() }
+                        } else if endpoint == "logs",let object = try? JSONSerialization.jsonObject(with:data) as? [String:String],let text = object["payload"] {
+                            self.logStreamAvailable = true
+                            self.appendLog(level:object["type"] ?? "info",source:"内核",message:text)
+                        }
                     }
                 }
-            } catch { if !Task.isCancelled { self?.appendLog(level:"warning",source:"流量",message:"状态流已断开") } }
-        }
-        logTask = Task { [weak self] in
-            self?.logStreamAvailable = true
-            do {
-                try await client.stream("logs") { data in
-                    guard let object = try? JSONSerialization.jsonObject(with:data) as? [String:String],let text = object["payload"] else { return }
-                    await MainActor.run { self?.appendLog(level:object["type"] ?? "info",source:"内核",message:text) }
-                }
-            } catch { if !Task.isCancelled { self?.logStreamAvailable = false; self?.appendLog(level:"warning",source:"日志",message:"日志流已断开") } }
+            } catch is CancellationError { return }
+            catch { if !current() { return } }
+            guard current() else { return }
+            if endpoint == "logs" { logStreamAvailable = false }
+            if !disconnected {
+                appendLog(level:"warning",source:endpoint == "traffic" ? "流量":"日志",message:"状态流已断开，正在自动重连")
+                disconnected = true
+            }
+            if ProcessInfo.processInfo.systemUptime-began >= 10 { delay = 1; disconnected = false }
+            do { try await Task.sleep(nanoseconds:delay*1_000_000_000) } catch { return }
+            delay = min(delay*2,16)
         }
     }
     func importRemote(name: String,url: String,userAgent: String = "") async throws {
@@ -609,7 +659,7 @@ final class AppStore: ObservableObject {
             var next = previous; next.settings = database.settings
             next.profiles.append(profile)
             if previous.activeProfileID == nil { next.activeProfileID = profile.id }
-            try store.commit(next,profiles:[profile.id:content],subscriptionAddresses:address.map { [profile.id:$0] } ?? [:])
+            try await store.commitAsync(next,profiles:[profile.id:content],subscriptionAddresses:address.map { [profile.id:$0] } ?? [:])
             database = next
             appendLog(source:profile.name,message:"订阅导入成功")
         } catch {
@@ -628,12 +678,12 @@ final class AppStore: ObservableObject {
         catch is CancellationError { throw CancellationError() }
         catch { throw SubscriptionError.configuration(error.localizedDescription) }
     }
-    func saveSubscriptionOptions(_ profile: Profile,userAgent: String) throws {
+    func saveSubscriptionOptions(_ profile: Profile,userAgent: String) async throws {
         let agent = try SubscriptionFetcher.normalizedUserAgent(userAgent)
         guard let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index].isRemote else { throw LumaError.message("此远程订阅已不存在") }
         var next = database
         next.profiles[index].userAgent = agent
-        try store.save(next)
+        try await store.saveAsync(next)
         database = next
     }
     func activate(_ profile: Profile) async throws {
@@ -642,38 +692,70 @@ final class AppStore: ObservableObject {
         do {
             try await applyConfiguration(source:source,profileID:profile.id)
             database.activeProfileID = profile.id
-            try store.save(database)
+            try await store.saveAsync(database)
             appendLog(source:"订阅",message:"已启用 \(profile.name)")
         } catch { database = previous; try? await applyConfiguration(); throw error }
     }
-    func update(_ profile: Profile) async throws {
-        guard profile.isRemote else { return }
-        guard let index = database.profiles.firstIndex(where:{$0.id == profile.id}) else { return }
-        let profile = database.profiles[index]
-        let previous = database
+    // Only automatic downloads release the operation lock. Manual operations
+    // retain their existing perform() ownership; both serialize apply + commit.
+    func waitForSubscriptionCommit() async throws {
+        while busy || sleeping {
+            try Task.checkCancellation()
+            guard !shuttingDown else { throw CancellationError() }
+            try await Task.sleep(nanoseconds:100_000_000)
+        }
+        try Task.checkCancellation()
+        guard !shuttingDown else { throw CancellationError() }
+    }
+    func update(_ proposed: Profile,background: Bool = false) async throws {
+        guard let profile = database.profiles.first(where:{$0.id == proposed.id}),profile.isRemote,
+              updatingProfiles.insert(profile.id).inserted else { return }
+        defer { updatingProfiles.remove(profile.id) }
+        var ownsLock = false
+        defer { if ownsLock { busy = false } }
+        var previous: AppDatabase?
         var previousSource: String?
         var applied = false
         do {
             guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在本机数据库，请重新导入") }
-            previousSource = try store.profileContent(profile.id)
             let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent)
-            try await validateRemoteSource(download.content)
-            if profile.id == database.activeProfileID { try await applyConfiguration(source:download.content); applied = true }
-            var next = previous; next.settings = database.settings
+            if background { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
+            try Task.checkCancellation()
+            guard !shuttingDown,let index = database.profiles.firstIndex(where:{$0.id == profile.id}),
+                  database.profiles[index] == profile else { return }
+            // Re-read the latest database only after acquiring the lock. Settings,
+            // active profile and node choices may have changed during download.
+            previous = database
+            previousSource = try store.profileContent(profile.id)
+            let changed = Data(download.content.utf8) != Data(previousSource!.utf8)
+            if changed {
+                try await validateRemoteSource(download.content)
+                try Task.checkCancellation()
+                guard !shuttingDown else { throw CancellationError() }
+                if profile.id == database.activeProfileID {
+                    guard !background || coreReady else { return }
+                    try await applyConfiguration(source:download.content); applied = true
+                }
+            }
+            var next = database
             next.profiles[index].usage = download.usage
-            next.profiles[index].nodeCount = try ConfigComposer.nodeCount(download.content)
-            next.profiles[index].lastUpdated = Date()
-            next.profiles[index].lastAttempt = Date()
-            next.profiles[index].lastError = nil
-            try store.commit(next,profiles:[profile.id:download.content])
+            if changed { next.profiles[index].nodeCount = try ConfigComposer.nodeCount(download.content) }
+            next.profiles[index].lastUpdated = Date(); next.profiles[index].lastAttempt = Date(); next.profiles[index].lastError = nil
+            try await store.commitAsync(next,profiles:changed ? [profile.id:download.content]:[:])
             database = next
-            appendLog(source:profile.name,message:"订阅更新成功")
-        } catch {
-            database = previous
-            if applied, let previousSource { try? await applyConfiguration(source:previousSource) }
-            database.profiles[index].lastAttempt = Date()
-            database.profiles[index].lastError = Redactor.clean(error.localizedDescription)
-            try? store.save(database)
+            appendLog(source:profile.name,message:changed ? "订阅更新成功":"订阅内容未变化，已刷新用量和更新时间")
+        } catch is CancellationError { throw CancellationError() }
+        catch {
+            if let previous {
+                database = previous
+                if applied,let previousSource { try? await applyConfiguration(source:previousSource) }
+            }
+            if background && !ownsLock { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
+            if let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index] == profile {
+                database.profiles[index].lastAttempt = Date()
+                database.profiles[index].lastError = Redactor.clean(error.localizedDescription)
+                try? await store.saveAsync(database)
+            }
             appendLog(level:"warning",source:profile.name,message:"更新失败，已保留上次可用配置")
             throw error
         }
@@ -689,25 +771,29 @@ final class AppStore: ObservableObject {
             $0.isRemote && Date().timeIntervalSince($0.lastAttempt ?? $0.lastUpdated ?? $0.created) >= $0.updateHours*3600
         }
         guard !due.isEmpty else { return }
-        busy = true; defer { busy = false }
-        for profile in due { try? await update(profile) }
+        for profile in due {
+            if Task.isCancelled || shuttingDown { return }
+            guard let current = database.profiles.first(where:{$0.id == profile.id}),current.isRemote,
+                  Date().timeIntervalSince(current.lastAttempt ?? current.lastUpdated ?? current.created) >= current.updateHours*3600 else { continue }
+            try? await update(current,background:true)
+        }
     }
     func deleteProfile(_ profile: Profile) async throws {
         guard database.activeProfileID != profile.id else { throw LumaError.message("请先启用其他配置，再删除当前配置") }
-        _ = try store.backup(database)
+        _ = try await store.backupAsync(database,automatic:true)
         var next = database
         next.profiles.removeAll { $0.id == profile.id }
         next.groupStrategies?.removeAll { $0.profileID == profile.id }
         next.ruleSubscriptions?.removeAll { $0.profileID == profile.id }
-        try store.commit(next,profiles:[:],removingProfiles:[profile.id])
+        try await store.commitAsync(next,profiles:[:],removingProfiles:[profile.id])
         database = next
-        store.cleanRuleSubscriptionCache(next)
+        await store.cleanRuleSubscriptionCacheAsync(next)
     }
     func select(group: String,node: String) {
         perform {
             try await self.api.select(group:group,node:node)
             self.database.savedChoices[group] = node
-            try self.store.save(self.database)
+            try await self.store.saveChoiceAsync(group:group,node:node)
             self.proxies = try await self.api.proxies()
         }
     }
@@ -726,7 +812,7 @@ final class AppStore: ObservableObject {
             if strategy.mode != .subscription { try await api.clearFixed(group:strategy.group) }
             database.groupStrategies = next
             database.savedChoices.removeValue(forKey:strategy.group)
-            try store.save(database)
+            try await store.saveAsync(database)
             await refresh()
             appendLog(source:"策略",message:"\(strategy.group)：\(strategy.mode.label)")
         } catch {
@@ -739,7 +825,7 @@ final class AppStore: ObservableObject {
         perform {
             try await self.api.clearFixed(group:group)
             self.database.savedChoices.removeValue(forKey:group)
-            try self.store.save(self.database)
+            try await self.store.saveChoiceAsync(group:group,node:nil)
             self.proxies = try await self.api.proxies()
         }
     }
@@ -778,7 +864,7 @@ final class AppStore: ObservableObject {
     func applyRules(_ rules: [CustomRule]) async throws {
         for rule in rules where rule.enabled { try rule.validate() }
         let previous = database
-        do { try await applyConfiguration(rules:rules); database.customRules = rules; try store.save(database) }
+        do { try await applyConfiguration(rules:rules); database.customRules = rules; try await store.saveAsync(database) }
         catch { database = previous; try? await applyConfiguration(); throw error }
     }
     func saveSettings(_ settings: NetworkSettings) async throws {
@@ -793,7 +879,7 @@ final class AppStore: ObservableObject {
                     else if !settings.autoLaunch && wasEnabled { try await SMAppService.mainApp.unregister() }
                 }
                 var next = previous; next.settings = settings
-                try store.save(next)
+                try await store.saveSettingsAsync(settings)
                 database = next
             } catch {
                 if changesLogin {
@@ -817,7 +903,7 @@ final class AppStore: ObservableObject {
             try await applyConfiguration(settings:settings)
             if settings.autoLaunch && !wasEnabled { try SMAppService.mainApp.register() }
             else if !settings.autoLaunch && wasEnabled { try await SMAppService.mainApp.unregister() }
-            try store.save(database)
+            try await store.saveSettingsAsync(database.settings)
         } catch {
             database = previous; try? await applyConfiguration()
             if wasEnabled && SMAppService.mainApp.status != .enabled { try? SMAppService.mainApp.register() }
@@ -951,13 +1037,13 @@ final class AppStore: ObservableObject {
                 self.helperActive = false; self.serviceRunning = false; self.coreReady = false
                 self.database.settings.tun = false; self.database.settings.systemProxy = false
                 self.trafficTask?.cancel(); self.logTask?.cancel()
-                try self.store.save(self.database)
+                try await self.store.saveAsync(self.database)
             }
             try await self.helper.unregister(); self.serviceLabel = self.helper.label
         }
     }
     func backup() async throws {
-        let path = try store.backup(database)
+        let path = try await store.backupAsync(database)
         NSWorkspace.shared.activateFileViewerSelecting([path])
         notice = "本地备份已创建"
     }
@@ -971,11 +1057,11 @@ final class AppStore: ObservableObject {
         let (_,file) = try await runner.prepare(source:source,settings:restored.settings,rules:restored.customRules,strategies:strategies,ruleSubscriptions:snapshots)
         try await runner.validate(file:file)
         let previous = database
-        _ = try store.backup(previous)
+        _ = try await store.backupAsync(previous,automatic:true,preserving:url)
         do {
             database = restored
             try await applyConfiguration(settings:restored.settings,source:source,rules:restored.customRules,strategies:strategies,profileID:restored.activeProfileID,ruleSubscriptions:snapshots)
-            try store.commitBackup(restored,profiles:contents,from:url)
+            try await store.commitBackupAsync(restored,profiles:contents,from:url)
             database = restored
             notice = "备份已恢复，恢复前版本已保存"
             appendLog(source:"备份",message:"备份已恢复，恢复前版本已保存")
@@ -991,7 +1077,8 @@ final class AppStore: ObservableObject {
     }
     func shutdown() async {
         guard !shuttingDown else { return }; shuttingDown = true
-        refreshTask?.cancel(); trafficTask?.cancel(); logTask?.cancel(); testTask?.cancel()
+        refreshTask?.cancel(); subscriptionTask?.cancel(); trafficTask?.cancel(); logTask?.cancel(); testTask?.cancel()
+        if let subscriptionTask { await subscriptionTask.value }
         flushLogs()
         pathMonitor?.cancel()
         if helperActive { _ = try? await helper.send(HelperRequest(action:"stop")); helperActive = false }

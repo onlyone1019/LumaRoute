@@ -149,8 +149,10 @@ struct SubscriptionOptionsSheet:View {
                 Spacer()
                 Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("保存") {
-                    do { try store.saveSubscriptionOptions(profile,userAgent:userAgent); dismiss() }
-                    catch { failure=Redactor.clean(error.localizedDescription) }
+                    store.perform {
+                        do { try await store.saveSubscriptionOptions(profile,userAgent:userAgent); dismiss() }
+                        catch { failure=Redactor.clean(error.localizedDescription) }
+                    }
                 }.buttonStyle(LumaPrimaryButtonStyle()).keyboardShortcut(.defaultAction)
             }
         }.padding(26).frame(width:520).disabled(store.busy)

@@ -22,6 +22,8 @@ jobs:
           persist-credentials: false
       - name: Check scripts
         run: for script in script/*.sh script/*.command; do bash -n "$script"; done
+      - name: Test locked core downloads
+        run: python3 -m unittest discover -s Tests/Scripts -p 'test_*.py'
       - name: Run host unit tests
         run: swift test
       - name: Set up pinned Go toolchain

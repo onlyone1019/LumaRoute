@@ -149,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.dumps({"fixture": True, "route": "tokyo" if port == 18771 else "osaka" if port == 18773 else "direct", "path": self.path}).encode()
         self.respond(200, payload, {"Content-Type": "application/json"})
     def do_CONNECT(self):
-        if self.path not in ["127.0.0.1:18772", "fixture.test:80", "airport.fixture.test:18772", "other.fixture.test:18772", "unrelated.test:18772", "a.fixture.test:80", "b.fixture.test:80", "child.b.fixture.test:80", "base.fixture.test:80", "other.test:80", "diagnostic.fixture.test:80", "diagnostic.fixture.test:18772"]:
+        if self.path not in ["127.0.0.1:18772", "[2001:db8::1]:80", "fixture.test:80", "airport.fixture.test:18772", "other.fixture.test:18772", "unrelated.test:18772", "a.fixture.test:80", "b.fixture.test:80", "child.b.fixture.test:80", "base.fixture.test:80", "other.test:80", "diagnostic.fixture.test:80", "diagnostic.fixture.test:18772"]:
             return self.respond(403, b"Only loopback fixture destinations are allowed.")
         if self.unavailable(): return
         self.send_response(200)
@@ -185,16 +185,18 @@ class DNSHandler(socketserver.BaseRequestHandler):
         if cursor + 5 > len(data): return
         kind = struct.unpack('!H', data[cursor+1:cursor+3])[0]
         name = '.'.join(labels)
-        answer = name == 'diagnostic.fixture.test' and kind == 1
-        flags = 0x8180 if name == 'diagnostic.fixture.test' else 0x8183
+        recognized = self.server.server_address[1] == 18774 and name in ['diagnostic.fixture.test', 'node-b.fixture.test']
+        answer = recognized and kind == 1
+        flags = 0x8180 if recognized else 0x8183
         payload = data[:2] + struct.pack('!HHHHH', flags, 1, int(answer), 0, 0) + data[12:cursor+5]
         if answer: payload += b'\xc0\x0c' + struct.pack('!HHIH', 1, 1, 30, 4) + socket.inet_aton('127.0.0.1')
         transport.sendto(payload, self.client_address)
 
 servers = []
-dns_server = socketserver.ThreadingUDPServer(('127.0.0.1', 18774), DNSHandler)
-servers.append(dns_server)
-threading.Thread(target=dns_server.serve_forever, daemon=True).start()
+for dns_port in [18774, 18775]:
+    dns_server = socketserver.ThreadingUDPServer(('127.0.0.1', dns_port), DNSHandler)
+    servers.append(dns_server)
+    threading.Thread(target=dns_server.serve_forever, daemon=True).start()
 for port in [18770, 18771, 18772, 18773]:
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     servers.append(server)

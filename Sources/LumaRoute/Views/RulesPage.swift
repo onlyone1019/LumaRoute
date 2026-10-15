@@ -12,7 +12,7 @@ struct RulesPage:View {
             PageHeader(title:"规则") {
                 if tab == "custom" { Button("添加规则") { draft.append(CustomRule()); tab="custom" }.buttonStyle(LumaPrimaryButtonStyle()) }
             }
-            HStack { SearchField(placeholder:"搜索域名、IP、应用或策略",text:$search); Picker("",selection:$tab) { Text("自定义规则").tag("custom"); Text("域名分流").tag("domains"); Text("应用分流").tag("apps"); Text("规则订阅").tag("providers"); Text("生效规则").tag("live") }.pickerStyle(.segmented).frame(width:500) }
+            HStack { SearchField(placeholder:"搜索域名、IP、应用或策略",text:$search); Picker("",selection:$tab) { Text("自定义规则").tag("custom"); Text("组合分流").tag("domains"); Text("应用分流").tag("apps"); Text("规则订阅").tag("providers"); Text("生效规则").tag("live") }.pickerStyle(.segmented).frame(width:500) }
             if tab == "custom" {
                 HStack { Text("启用").frame(width:45); Text("类型").frame(width:140); Text("匹配内容").frame(maxWidth:.infinity,alignment:.leading); Text("目标策略").frame(width:180); Spacer().frame(width:45) }.foregroundStyle(.secondary)
                 List {
@@ -41,7 +41,7 @@ struct RulesPage:View {
                 Panel {
                     VStack(alignment:.leading,spacing:12) {
                         Text("规则执行顺序").font(.headline)
-                        Text(store.activeProfile?.composition != nil ? "自定义规则 → 域名分流 → 优先规则订阅 → 基础订阅规则 → 补充规则订阅 → 兜底出口":"自定义规则 → 优先规则订阅 → 机场原规则 → 补充规则订阅 → 机场兜底规则")
+                        Text(store.activeProfile?.composition != nil ? "自定义规则 → 组合分流 → 优先规则订阅 → 基础订阅规则 → 补充规则订阅 → 兜底出口":"自定义规则 → 优先规则订阅 → 机场原规则 → 补充规则订阅 → 机场兜底规则")
                         Text("首个匹配生效。规则订阅默认只在机场原规则未匹配时补充；自定义规则和规则订阅会在机场更新后保留。").font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -53,7 +53,7 @@ struct RulesPage:View {
             } else if tab == "domains" {
                 DomainRoutingView()
             } else if tab == "apps" {
-                ApplicationRoutingView()
+                ApplicationRoutingView(onShowComposition:{ tab = "domains" })
             } else if tab == "providers" {
                 RuleSubscriptionsView(search:search)
             } else {

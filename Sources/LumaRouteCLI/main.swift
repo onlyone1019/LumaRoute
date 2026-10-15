@@ -11,6 +11,12 @@ struct LumaRouteCLI {
                 try RegressionSuite.run()
             } else if action=="composition-check",arguments.count==3 {
                 try await CompositionSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
+            } else if action=="routing-save-check",arguments.count==3 {
+                try await RoutingSaveSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
+            } else if action=="composition-routing-check",arguments.count==3 {
+                try await CompositionRoutingSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
+            } else if action=="composition-dns-check",arguments.count==3 {
+                try await CompositionDNSSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
             } else if action=="routing-tools-check",arguments.count==3 {
                 try await RoutingToolsSuite.run(binary:URL(fileURLWithPath:arguments[1]),home:URL(fileURLWithPath:arguments[2]))
             } else if ["rule-subscription-check","rule-catalog-check"].contains(action),arguments.count==3 {

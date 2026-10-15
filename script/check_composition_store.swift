@@ -41,6 +41,20 @@ import LumaRouteCore
         let rebuilt = try app.activeSource(composite.id,configuration:restored,overrides:contents)
         precondition(rebuilt == old)
         print("PASS restored composition is regenerated from backup member contents")
+        let targets = try app.compositionPolicyTargets(plan)
+        precondition(targets.contains("[B] choice") && targets.contains("聚合节点") && !targets.contains("choice"))
+        print("PASS draft composition targets come from member caches rather than the running single profile")
+        var unified = composite
+        let additions = try CompositionRouting.batch("DOMAIN-KEYWORD,video\nIP-CIDR,192.168.1.1/16\nIP-CIDR6,2001:db8::/32\nPROCESS-NAME,curl\nPROCESS-PATH,/usr/bin/curl",type:"DOMAIN",profileID:nil,target:"DIRECT",existing:plan.domainRoutes)
+        unified.composition?.domainRoutes += additions
+        try await app.saveComposition(unified,activate:false)
+        let persisted = try LocalStore(root:root).load().profiles.first { $0.id == composite.id }!
+        precondition(persisted.composition?.domainRoutes == unified.composition?.domainRoutes && app.database.activeProfileID == a.id)
+        print("PASS new match types and direct exits persist through actual AppStore save and SQLite reopen")
+        var missing = unified; missing.composition?.domainRoutes[1].target = "[missing] group"
+        do { try await app.saveComposition(missing,activate:false); fatalError("missing group accepted") } catch {}
+        precondition(app.database.profiles.first { $0.id == composite.id }?.composition == unified.composition)
+        print("PASS invalid policy group candidate preserves saved composition and active subscription")
         app.store = try LocalStore(root:root,readOnly:true)
         var changed = app.database.profiles.first(where:{$0.id == composite.id})!
         changed.name = "不得保存"

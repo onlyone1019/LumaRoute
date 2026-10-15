@@ -47,8 +47,8 @@ public struct MihomoAPI {
     public func select(group: String, node: String) async throws { _ = try await data(["proxies",group], method: "PUT", body: ["name":node]) }
     public func clearFixed(group: String) async throws { _ = try await data(["proxies",group], method: "DELETE") }
     public func patch(_ fields: [String: Any]) async throws { _ = try await data(["configs"], method:"PATCH", body: fields) }
-    public func reload(yaml: String) async throws {
-        _ = try await data(["configs"], method: "PUT", query: [URLQueryItem(name:"force",value:"true")], body: ["payload":yaml], timeout:30)
+    public func reload(yaml: String,force: Bool = true) async throws {
+        _ = try await data(["configs"], method: "PUT", query: [URLQueryItem(name:"force",value:String(force))], body: ["payload":yaml], timeout:30)
     }
     public func closeConnection(_ id: String?) async throws {
         _ = try await data(id.map { ["connections",$0] } ?? ["connections"], method:"DELETE")

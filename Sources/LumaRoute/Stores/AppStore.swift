@@ -107,6 +107,7 @@ final class AppStore: ObservableObject {
     private var serviceFailureMessage: String?
     private let serviceLogger = Logger(subsystem:"app.lumaroute.desktop",category:"ServiceInstallation")
     private let systemProxyLogger = Logger(subsystem:"app.lumaroute.desktop",category:"SystemProxy")
+    private let routingLogger = Logger(subsystem:"app.lumaroute.desktop",category:"RoutingSave")
     private var pendingLogs:[LogEntry] = []
     private var logFlushTask:Task<Void,Never>?
     var api: MihomoAPI { MihomoAPI(port:database.settings.controllerPort,secret:secret) }
@@ -909,17 +910,49 @@ final class AppStore: ObservableObject {
         guard !Task.isCancelled,!busy,!shuttingDown,revision == configurationRevision,page == .connections else { return }
         connections = enriched
     }
+    func applyRoutingConfiguration(source: String? = nil,rules: [CustomRule]? = nil,configuration: AppDatabase? = nil) async throws {
+        try Task.checkCancellation()
+        guard !shuttingDown else { throw CancellationError() }
+        let state = configuration ?? database
+        guard coreReady else {
+            try await applyConfiguration(source:source,rules:rules,configuration:state)
+            return
+        }
+        guard state.activeProfileID == database.activeProfileID else { throw LumaError.message("当前配置已切换，请重新保存规则") }
+        let content = try source ?? activeSource(configuration:state)
+        let profile = state.profiles.first { $0.id == state.activeProfileID }
+        let effectiveRules = try (rules ?? profile?.composition?.customRules ?? state.customRules) + (profile?.composition?.routingRules(profiles:state.profiles) ?? [])
+        let strategies = (state.groupStrategies ?? []).filter { $0.profileID == state.activeProfileID }
+        let snapshots = try store.ruleSubscriptionSnapshots(state,profileID:state.activeProfileID)
+        configurationRevision = UUID()
+        if helperActive {
+            let result = try await helper.send(HelperRequest(action:"apply-routing",source:content,rules:effectiveRules,settings:state.settings,secret:secret,strategies:strategies,coreVersion:coreUpdates.activationVersion(),ruleSubscriptions:snapshots))
+            serviceRunning = result.running
+        } else {
+            try await runner.updateRouting(source:content,settings:state.settings,rules:effectiveRules,strategies:strategies,ruleSubscriptions:snapshots)
+        }
+        healthFailures = 0
+        lastRuleRefresh = .distantPast
+        // Keep traffic/log streams, node measurements and provider metadata alive.
+        if page == .rules,let fresh = try? await api.rules() { liveRules = fresh; lastRuleRefresh = Date() }
+    }
     func applyRules(_ rules: [CustomRule]) async throws {
         for rule in rules where rule.enabled { try rule.validate() }
         let previous = database
+        var applied = false
         do {
-            try await applyConfiguration(rules:rules)
+            try await applyRoutingConfiguration(rules:rules)
+            applied = true
             if let index = database.profiles.firstIndex(where:{$0.id == database.activeProfileID}),database.profiles[index].composition != nil {
                 database.profiles[index].composition?.customRules = rules
             } else { database.customRules = rules }
             try await store.saveAsync(database)
         }
-        catch { database = previous; try? await applyConfiguration(); throw error }
+        catch {
+            database = previous
+            if applied { try? await applyRoutingConfiguration(configuration:previous) }
+            throw error
+        }
     }
     func saveSettings(_ settings: NetworkSettings) async throws {
         let previous = database
@@ -1143,6 +1176,7 @@ final class AppStore: ObservableObject {
         helper.disconnect()
     }
     func saveComposition(_ proposed: Profile,activate: Bool) async throws {
+        let started = ContinuousClock.now
         guard let composition = proposed.composition else { throw LumaError.message("组合配置无效") }
         try composition.validate(profiles:database.profiles)
         let previous = database
@@ -1159,16 +1193,29 @@ final class AppStore: ObservableObject {
         if activate { next.activeProfileID = profile.id }
         let source = try activeSource(profile.id,configuration:next)!
         let applies = next.activeProfileID == profile.id
+        var oldPlan = previous.profiles.first { $0.id == profile.id }?.composition
+        var newPlan = composition
+        oldPlan?.domainRoutes = []; oldPlan?.customRules = []
+        newPlan.domainRoutes = []; newPlan.customRules = []
+        let onlyRules = coreReady && previous.activeProfileID == profile.id && oldPlan == newPlan
         var attemptedApply = false
+        var appliedRouting = false
         do {
-            if applies { attemptedApply = true; try await applyConfiguration(source:source,profileID:profile.id,configuration:next) }
+            if applies && onlyRules {
+                try await applyRoutingConfiguration(source:source,configuration:next)
+                appliedRouting = true
+            } else if applies { attemptedApply = true; try await applyConfiguration(source:source,profileID:profile.id,configuration:next) }
             else { try await validateSource(source) }
             next.settings = database.settings
             try await store.commitAsync(next,profiles:[profile.id:source]); database = next
+            let elapsed = started.duration(to:.now)
+            let milliseconds = Int(elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000)
+            routingLogger.info("Composition saved in \(milliseconds) ms; routingOnly=\(onlyRules && applies)")
             notice = applies ? "组合配置已启用":"组合配置已保存"
         } catch {
             database = previous
-            if attemptedApply { try? await applyConfiguration() }
+            if appliedRouting { try? await applyRoutingConfiguration(configuration:previous) }
+            else if attemptedApply { try? await applyConfiguration() }
             throw error
         }
     }

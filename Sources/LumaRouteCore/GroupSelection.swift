@@ -17,7 +17,10 @@ public struct GroupSelection:Codable {
         let available = try await api.proxies()
         for selection in selections {
             guard let group = available[selection.group],group.type == selection.kind else { continue }
-            if let node = selection.node,group.all?.contains(node) == true { try await api.select(group:selection.group,node:node) }
+            if let node = selection.node,group.all?.contains(node) == true {
+                let alreadySelected = selection.kind == "Selector" ? group.now == node:group.fixed == node
+                if !alreadySelected { try await api.select(group:selection.group,node:node) }
+            }
             else if selection.node == nil,["URLTest","Fallback"].contains(group.type),group.fixed?.isEmpty == false { try await api.clearFixed(group:selection.group) }
         }
     }

@@ -144,6 +144,21 @@ actor HelperController {
             appliedSettings[uid] = settings
             if settings.tun || settings.systemProxy { networkOwner = uid } else if networkOwner == uid { networkOwner = nil }
             return HelperResponse(success:true,running:await core.running)
+        case "apply-routing":
+            guard networkOwner == nil || networkOwner == uid,!pendingRestores.contains(uid),
+                  let settings = request.settings,let previous = appliedSettings[uid],
+                  RoutingUpdatePolicy.networkUnchanged(settings,from:previous),
+                  let core = runners[uid],await core.running,request.secret == (await core.secret),
+                  (request.source?.utf8.count ?? 0) <= 8*1024*1024 else {
+                throw LumaError.message("后台运行或网络参数已变化，请重新打开分流编辑器")
+            }
+            let selection = try coreUpdates(directory).selection()
+            guard selection.active?.release.version == request.coreVersion else { throw LumaError.message("内核版本已变化，请重新保存分流规则") }
+            try networks[uid]?.verifyOwnership()
+            try PrivilegedConfigurationPolicy.validate(request.source)
+            try await core.updateRouting(source:request.source,settings:settings,rules:request.rules ?? [],strategies:request.strategies ?? [],ruleSubscriptions:request.ruleSubscriptions ?? [])
+            appliedSettings[uid] = settings
+            return HelperResponse(success:true,running:await core.running)
         case "start", "apply":
             guard networkOwner == nil || networkOwner == uid else { throw LumaError.message("另一位用户正在使用 LumaRoute 网络接管") }
             guard !pendingRestores.contains(uid) else { throw LumaError.message("原网络设置仍待恢复，暂不能重新接管") }

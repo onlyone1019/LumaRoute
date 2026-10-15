@@ -61,6 +61,8 @@ struct RoutingRuleSheet: View {
 }
 
 struct ApplicationRoutingView: View {
+    var onShowComposition: (() -> Void)? = nil
+    private var compositionRuleCount: Int { store.activeProfile?.composition?.domainRoutes.filter { $0.type.hasPrefix("PROCESS-") }.count ?? 0 }
     @EnvironmentObject var store: AppStore
     @State private var editing: CustomRule?
     private var rules: [CustomRule] { store.currentCustomRules.filter { $0.type.hasPrefix("PROCESS-") } }
@@ -80,7 +82,13 @@ struct ApplicationRoutingView: View {
             if store.database.settings.mode != .rule {
                 HStack { Text("当前不是规则模式，应用分流暂不生效。").foregroundStyle(.orange); Button("切换规则模式") { store.setMode(.rule) }.disabled(store.busy) }
             }
-            if rules.isEmpty { EmptyMessage(icon:"app.badge.checkmark",title:"暂无应用分流",detail:"选择一个应用，或从连接列表为实际进程创建规则。") }
+            if compositionRuleCount > 0 {
+                HStack {
+                    Text("当前组合另有 \(compositionRuleCount) 条应用规则，在组合分流中管理。").font(.caption).foregroundStyle(.secondary)
+                    if let onShowComposition { Button("管理组合规则",action:onShowComposition) }
+                }
+            }
+            if rules.isEmpty { EmptyMessage(icon:"app.badge.checkmark",title:compositionRuleCount > 0 ? "暂无自定义应用规则":"暂无应用分流",detail:"选择一个应用，或从连接列表为实际进程创建规则。") }
             else {
                 List(rules) { rule in
                     HStack {

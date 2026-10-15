@@ -11,6 +11,7 @@ public enum CompositionComposer {
         var mergedProviders: [String:Any] = [:], rawProviders: [String:String] = [:]
         var base: [String:Any] = [:]
         var allNodes: [String] = [], allProviders: [String] = []
+        var memberNodeDNS: [String:[String]] = [:],baseNodeHosts: Set<String> = []
         for id in composition.profileIDs {
             guard let source = contents[id] else { throw LumaError.message("组合中的订阅缓存不存在，请先更新订阅") }
             let parsed = try ConfigComposer.parse(source)
@@ -50,6 +51,12 @@ public enum CompositionComposer {
             }
             let nodeNames = nodes.compactMap { ($0["name"] as? String).map(reference) }
             let providerNames = providers.keys.sorted().map { prefix+$0 }
+            if id == composition.baseProfileID {
+                baseNodeHosts = Set(nodes.compactMap { ($0["server"] as? String).flatMap(CompositionNodeDNS.host) })
+            } else if let dns = parsed["dns"] {
+                let policies = CompositionNodeDNS.policies(nodes:nodes,dns:dnsReferences(dns) as? [String:Any] ?? [:])
+                for (domain,servers) in policies where memberNodeDNS[domain] == nil { memberNodeDNS[domain] = servers }
+            }
             for node in nodes {
                 guard let name = node["name"] as? String else { throw LumaError.message("订阅节点缺少名称") }
                 var next = references(node) as! [String:Any]; next["name"] = reference(name)
@@ -107,10 +114,26 @@ public enum CompositionComposer {
         }
         mergedGroups.append(["name":SubscriptionComposition.automaticGroup,"type":"url-test","proxies":allNodes,"use":allProviders,"url":settings.testURL,"timeout":settings.testTimeout,"interval":300,"lazy":true,"empty-fallback":"REJECT","exclude-type":"Direct|Reject|Pass"])
         mergedGroups.append(["name":SubscriptionComposition.aggregateGroup,"type":"select","proxies":[SubscriptionComposition.automaticGroup]+allNodes,"use":allProviders,"empty-fallback":"REJECT"])
+        let targets = Set(mergedGroups.compactMap { $0["name"] as? String } + ["DIRECT","REJECT"])
+        for route in composition.domainRoutes where route.enabled {
+            if let target = route.target,!targets.contains(target) { throw LumaError.message("分流规则的目标策略组已不存在，请重新选择或停用规则") }
+        }
         let primary = [SubscriptionComposition.aggregateGroup,SubscriptionComposition.automaticGroup] + composition.profileIDs.map { composition.group(for:$0,profiles:profiles) }
         let ordered = primary.compactMap { name in mergedGroups.first { $0["name"] as? String == name } } + mergedGroups.filter { !primary.contains($0["name"] as? String ?? "") }
         base["proxies"] = mergedNodes; base["proxy-groups"] = ordered; base["proxy-providers"] = mergedProviders
         base.removeValue(forKey:"_lumaroute_raw_provider")
+        let scoped = memberNodeDNS.filter { !baseNodeHosts.contains($0.key) }
+        if !scoped.isEmpty {
+            var dns = base["dns"] as? [String:Any] ?? [:]
+            var policy = dns["proxy-server-nameserver-policy"] as? [String:Any] ?? [:]
+            for (domain,servers) in scoped { policy[domain] = servers }
+            dns["proxy-server-nameserver-policy"] = policy
+            // Mihomo only enables this policy when bootstrap DNS is nonempty.
+            if CompositionNodeDNS.servers(dns["proxy-server-nameserver"]) == nil {
+                dns["proxy-server-nameserver"] = CompositionNodeDNS.servers(dns["nameserver"]) ?? ["https://dns.alidns.com/dns-query","https://doh.pub/dns-query"]
+            }
+            base["dns"] = dns
+        }
         if !rawProviders.isEmpty { base["_lumaroute_raw_providers"] = rawProviders }
         let yaml = try Yams.dump(object:base,allowUnicode:true,sortKeys:true)
         guard yaml.utf8.count <= 8*1024*1024 else { throw LumaError.message("组合配置超过 8 MB，请减少参与的订阅") }

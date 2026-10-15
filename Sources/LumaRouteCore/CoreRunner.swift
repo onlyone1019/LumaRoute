@@ -1,4 +1,5 @@
 import Foundation
+import Yams
 
 public actor CoreRunner {
     public let binary: URL
@@ -130,13 +131,26 @@ public actor CoreRunner {
         let binary = self.binary; let home = self.home
         guard FileManager.default.isExecutableFile(atPath:binary.path) else { throw LumaError.message("尚未找到随应用打包的 Mihomo 内核") }
         let validation = Task.detached {
+            // The live core owns cache.db. A validator using the same -d waits
+            // for its lock before timing out, even when the YAML is valid.
+            let isolated = home.appendingPathComponent("validation-"+UUID().uuidString)
+            try FileManager.default.createDirectory(at:isolated,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+            defer { try? FileManager.default.removeItem(at:isolated) }
+            for name in ["geoip.metadb","GeoIP.dat","GeoSite.dat"] {
+                let resource = home.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath:resource.path) {
+                    try FileManager.default.createSymbolicLink(at:isolated.appendingPathComponent(name),withDestinationURL:resource)
+                }
+            }
             let task = Process()
             let log = home.appendingPathComponent("validation-\(UUID().uuidString).log")
             FileManager.default.createFile(atPath:log.path,contents:nil,attributes:[.posixPermissions:0o600])
             let output = try FileHandle(forWritingTo:log)
             defer { try? output.close(); try? FileManager.default.removeItem(at:log) }
-            task.executableURL = binary; task.arguments = ["-t","-d",home.path,"-f",file.path]
-            task.environment = Self.coreEnvironment
+            task.executableURL = binary; task.arguments = ["-t","-d",isolated.path,"-f",file.path]
+            var environment = Self.coreEnvironment
+            environment["SAFE_PATHS"] = home.path
+            task.environment = environment
             task.standardOutput = output; task.standardError = output
             try task.run()
             let deadline = Date().addingTimeInterval(30)
@@ -206,7 +220,7 @@ public actor CoreRunner {
         await stop()
         throw LumaError.message("内核控制接口未就绪")
     }
-    public func apply(yaml: String, settings: NetworkSettings) async throws {
+    public func apply(yaml: String, settings: NetworkSettings,force: Bool = true) async throws {
         if !running { try await start(yaml:yaml,settings:settings); return }
         if let previousSettings = currentSettings,
            previousSettings.controllerPort != settings.controllerPort || previousSettings.mixedPort != settings.mixedPort {
@@ -222,7 +236,7 @@ public actor CoreRunner {
         let api = MihomoAPI(port:settings.controllerPort,secret:secret)
         let previous = currentYAML
         do {
-            try await api.reload(yaml:yaml)
+            try await api.reload(yaml:yaml,force:force)
             _ = try await api.version()
             try await verifyProviders(yaml:yaml,api:api)
             let file = home.appendingPathComponent("active.yaml")
@@ -231,7 +245,38 @@ public actor CoreRunner {
             currentYAML = yaml
             currentSettings = settings
         } catch {
-            if let previous { try? await api.reload(yaml:previous) }
+            if let previous { try? await api.reload(yaml:previous,force:force) }
+            throw error
+        }
+    }
+    /// A running core may replace rules without restarting listeners or streams.
+    /// Validate the complete candidate once, and reject non-rule changes before reload.
+    public func updateRouting(source: String?,settings: NetworkSettings,rules: [CustomRule],strategies: [GroupStrategy] = [],ruleSubscriptions: [RuleSubscriptionSnapshot] = []) async throws {
+        try Task.checkCancellation()
+        guard running,let previous = currentYAML,let previousSettings = currentSettings,
+              previousSettings.mixedPort == settings.mixedPort,previousSettings.controllerPort == settings.controllerPort else {
+            throw LumaError.message("内核运行状态已变化，请重新打开分流编辑器")
+        }
+        let pid = process?.processIdentifier
+        let api = MihomoAPI(port:settings.controllerPort,secret:secret)
+        let live = try JSONSerialization.jsonObject(with:await api.data(["configs"])) as? [String:Any]
+        guard live?["mode"] as? String == settings.mode.rawValue else { throw LumaError.message("代理模式已改变，请重新保存分流规则") }
+        let (yaml,file) = try prepare(source:source,settings:settings,rules:rules,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
+        try RoutingUpdatePolicy.validate(previous:previous,candidate:yaml,home:home)
+        try await validate(file:file)
+        let selections = GroupSelection.capture(try await api.proxies())
+        guard running,process?.processIdentifier == pid,currentYAML == previous else { throw LumaError.message("校验期间内核运行状态已改变，请重新保存规则") }
+        // Mode can have been patched since the last YAML apply. Roll back to
+        // the actual mode, rather than the stale mode in that YAML snapshot.
+        var rollback = try ConfigComposer.parse(previous); rollback["mode"] = settings.mode.rawValue
+        let rollbackYAML = try Yams.dump(object:rollback,allowUnicode:true,sortKeys:true)
+        try Task.checkCancellation()
+        do {
+            try await apply(yaml:yaml,settings:settings,force:false)
+            try await GroupSelection.restore(selections,api:api)
+        } catch {
+            try? await apply(yaml:rollbackYAML,settings:settings,force:false)
+            try? await GroupSelection.restore(selections,api:api)
             throw error
         }
     }

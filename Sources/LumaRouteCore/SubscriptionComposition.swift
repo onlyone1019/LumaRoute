@@ -6,8 +6,11 @@ public struct SubscriptionDomainRoute: Codable, Equatable, Identifiable {
     public var type = "DOMAIN-SUFFIX"
     public var domain = ""
     public var profileID: UUID?
+    /// Nil preserves the original subscription binding in older saved profiles.
+    public var target: String?
     public init(profileID: UUID? = nil) { self.profileID = profileID }
     public func normalizedDomain() throws -> String {
+        if type != "DOMAIN" && type != "DOMAIN-SUFFIX" { return try CompositionRouting.normalized(type:type,payload:domain) }
         var value = domain.trimmingCharacters(in:.whitespacesAndNewlines).lowercased()
         if value.hasSuffix(".") { value.removeLast() }
         guard ["DOMAIN","DOMAIN-SUFFIX"].contains(type),!value.isEmpty,value.utf8.count <= 253,
@@ -39,12 +42,16 @@ public struct SubscriptionComposition: Codable, Equatable {
               let baseProfileID,members.contains(baseProfileID),fallbackProfileID.map({members.contains($0)}) ?? true else {
             throw LumaError.message("请选择 2 至 16 个不同订阅，并从中选择基础配置和默认出口；组合不能引用另一个组合")
         }
-        guard domainRoutes.count <= 256 else { throw LumaError.message("每个组合最多添加 256 条域名分流") }
+        guard domainRoutes.count <= 256 else { throw LumaError.message("每个组合最多添加 256 条分流规则") }
         var seen: Set<String> = []
         for route in domainRoutes where route.enabled {
             let domain = try route.normalizedDomain()
-            guard let id = route.profileID,members.contains(id) else { throw LumaError.message("域名分流的目标订阅已移出组合，请重新选择或停用这条规则") }
-            guard seen.insert(route.type+":"+domain).inserted else { throw LumaError.message("域名分流存在重复匹配，请合并或停用重复规则") }
+            if let target = route.target {
+                try CustomRule(type:route.type,payload:domain,target:target).validate()
+            } else {
+                guard let id = route.profileID,members.contains(id) else { throw LumaError.message("分流规则的目标订阅已移出组合，请重新选择或停用这条规则") }
+            }
+            guard seen.insert(CompositionRouting.matchKey(type:route.type,payload:domain)).inserted else { throw LumaError.message("分流存在重复匹配，请合并或停用重复规则") }
         }
     }
     public func aliases(profiles: [Profile]) -> [UUID:String] {
@@ -63,7 +70,9 @@ public struct SubscriptionComposition: Codable, Equatable {
     public func routingRules(profiles: [Profile]) throws -> [CustomRule] {
         try validate(profiles:profiles)
         return try domainRoutes.filter(\.enabled).map {
-            CustomRule(type:$0.type,payload:try $0.normalizedDomain(),target:group(for:$0.profileID!,profiles:profiles))
+            var rule = CustomRule(type:$0.type,payload:try $0.normalizedDomain(),target:$0.target ?? group(for:$0.profileID!,profiles:profiles))
+            rule.id = $0.id
+            return rule
         }
     }
 }

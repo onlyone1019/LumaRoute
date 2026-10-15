@@ -10,7 +10,7 @@
 cd tools/geodata-snapshot
 GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local go build -mod=vendor -trimpath -o ../../work/geodata-snapshot .
 cd ../..
-work/geodata-snapshot rebuild Resources/GeoData/inputs/2026-10-13-normalized work/geodata-rebuilt
+work/geodata-snapshot rebuild Resources/GeoData/inputs/2026-10-15-licensed-rules work/geodata-rebuilt
 ```
 
 从现有数据建立新的审计快照可使用 `dump <existing-data-dir> <snapshot-dir>`。`rebuild` 必须对全部三份目标 SHA-256 校验通过才成功；项目通常通过 `script/rebuild_geodata.py` 在临时目录生成、复核，再写入输出。

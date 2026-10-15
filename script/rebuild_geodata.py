@@ -9,8 +9,9 @@ import shutil
 import subprocess
 import tempfile
 
+from geosite_sources import verify as verify_sources
+
 ROOT = Path(__file__).resolve().parents[1]
-INPUTS = ROOT / "Resources/GeoData/inputs/2026-10-13-normalized"
 
 
 def main():
@@ -19,8 +20,10 @@ def main():
     args = parser.parse_args()
     if not shutil.which("go"):
         raise SystemExit("离线重建 GEO 数据需要 Go 1.23 或更新版本；安装后重试。")
-    manifest = json.loads((INPUTS / "manifest.json").read_text())
     lock = json.loads((ROOT / "Resources/GeoData/release.json").read_text())
+    inputs = ROOT / "Resources/GeoData" / lock["input_snapshot"]
+    verify_sources(inputs)
+    manifest = json.loads((inputs / "manifest.json").read_text())
     locked = {a["name"]: a["digest"].removeprefix("sha256:") for a in lock["assets"]}
     if manifest["expected_sha256"] != locked:
         raise SystemExit("GEO 输入快照与应用锁定清单不一致，未写入任何数据。")
@@ -32,7 +35,7 @@ def main():
         subprocess.run(["go", "build", "-mod=vendor", "-trimpath", "-o", str(binary), "."],
                        cwd=ROOT / "tools/geodata-snapshot", env=env, check=True)
         output = work / "rebuilt"
-        subprocess.run([str(binary), "rebuild", str(INPUTS), str(output)], env=env, check=True)
+        subprocess.run([str(binary), "rebuild", str(inputs), str(output)], env=env, check=True)
         for name, expected in locked.items():
             if hashlib.sha256((output / name).read_bytes()).hexdigest() != expected:
                 raise SystemExit("GEO 重建校验失败，未写入任何数据：" + name)

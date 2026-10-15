@@ -123,7 +123,7 @@ cd LumaRoute
 ./script/build_and_run.sh --build-only
 ```
 
-构建脚本会取得所需依赖和内核，从固定输入验证或离线重建 GEO 数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 的可编辑输入、固定工具和全部依赖源码已随仓库提供，不依赖会滚动变化的 `latest` 规则；见 [GEO 输入快照](Resources/GeoData/inputs/2026-10-13-normalized/README.md)。生成的应用位于：
+构建脚本会取得所需依赖和内核，从固定输入验证或离线重建 GEO 数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 的可编辑输入、固定工具和全部依赖源码已随仓库提供，不依赖会滚动变化的 `latest` 规则；见 [GEO 输入快照](Resources/GeoData/inputs/2026-10-15-licensed-rules/README.md)。生成的应用位于：
 
 ```text
 dist/LumaRoute.app
@@ -362,4 +362,4 @@ LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICE
 
 Build 29 提供 Apple Silicon / Intel 两种架构；安装包、校验文件与对应源码材料见上方 Release。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。
 
-Build 17、19、21、28 的 Release 与附件已备份后删除，仅保留 Build 29；所有 Git 标签和外部备份保留。GEO 的第三方声明已补入 Build 29 双架构包与源码附件，尚未明确授权的上游输入仍需在公开前确认。
+Build 17、19、21、28 的 Release 与附件已备份后删除，仅保留 Build 29；所有 Git 标签和外部备份保留。GEO 的第三方声明已补入 Build 29 双架构包与源码附件，此前未明确授权的 biliintl / sharepoint 输入已替换为固定的 V2Ray MIT 与 ACL4SSR CC BY-SA 4.0 来源。

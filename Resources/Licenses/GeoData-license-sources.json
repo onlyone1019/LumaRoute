@@ -51,7 +51,8 @@
   "xishang0128/rules": {
     "ref": "8b05b32709735c98c6b2f0d3a00e8ed1fcbc7800",
     "license_url": "https://github.com/xishang0128/rules/tree/8b05b32709735c98c6b2f0d3a00e8ed1fcbc7800",
-    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+    "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream",
+    "status": "historical only; both categories replaced in current snapshot; not an active input"
   },
   "XIU2/TrackersListCollection": {
     "ref": "00ea7ee520216d04ed1a12712cf6122f421f2d80",
@@ -73,5 +74,12 @@
     "license_sha256": "2f39b073aeaa8761f239f5b598d8b08acb3188153b2a8c7aa8b10f03a4d74bc3",
     "license_url": "https://github.com/crazy-max/WindowsSpyBlocker/tree/87266541e57a5f4332d8fd939f2a03675566e17c",
     "evidence_scope": "license evidence revision; dynamic downloaded data revision was not preserved upstream"
+  },
+  "ACL4SSR/ACL4SSR": {
+    "ref": "802e3abf065f8609e7d9073ba506158dbe2ba6e7",
+    "license_file": "ACL4SSR-LICENSE.txt",
+    "license_sha256": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
+    "license_url": "https://github.com/ACL4SSR/ACL4SSR/blob/802e3abf065f8609e7d9073ba506158dbe2ba6e7/LICENCE",
+    "evidence_scope": "captured raw rule and license files pinned to this exact revision; CC-BY-SA-4.0"
   }
 }

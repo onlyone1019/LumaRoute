@@ -1,6 +1,6 @@
 # GEO 数据版权、许可与来源
 
-本声明适用于 `Resources/GeoData/release.json` 锁定的 2026-10-13 数据，以及从这些产物无损还原的规范化输入。LumaRoute 的根目录 MIT 不重新授权第三方规则、IP 数据或生成工具。版权属于下列作者及各项目贡献者；各许可按其适用材料分别保留，不能把整套聚合数据笼统标为 MIT 或仅标为 GPL。
+本声明适用于 `Resources/GeoData/release.json` 锁定的当前数据：2026-10-13 基础 GeoIP / MetaDB，以及 2026-10-15 替换两个分类后的 GeoSite 输入。LumaRoute 的根目录 MIT 不重新授权第三方规则、IP 数据或生成工具。版权属于下列作者及各项目贡献者；各许可按其适用材料分别保留，不能把整套聚合数据笼统标为 MIT 或仅标为 GPL。
 
 ## GeoIP / MetaDB
 
@@ -15,11 +15,11 @@
 
 ## GeoSite
 
-下列来源由固定上游工作流使用。源码 checkout revision 和取得许可声明时的 revision 记录于 `GeoData-license-sources.json`；后者不冒充已丢失的动态数据下载 revision。
+下列来源包含固定上游工作流的基础数据来源，以及当前替换分类的直接来源。源码 checkout revision 和取得许可声明时的 revision 记录于 `GeoData-license-sources.json`；后者不冒充已丢失的动态数据下载 revision。
 
 | 来源 / 作者 | 使用范围 | 保留的许可文件 |
 | --- | --- | --- |
-| [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/c6adacf29cc4fb05e04651fcf03e00989ef9f797)，Copyright (c) 2018-2019 V2Ray | 基础域名分类 | MIT，`v2fly-domain-list-community-LICENSE.txt` |
+| [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/c6adacf29cc4fb05e04651fcf03e00989ef9f797)，Copyright (c) 2018-2019 V2Ray | 基础域名分类，以及当前 biliintl 主要域名和 sharepoint 全部规则 | MIT，`v2fly-domain-list-community-LICENSE.txt` |
 | [Loyalsoldier/domain-list-custom](https://github.com/Loyalsoldier/domain-list-custom/tree/efacb51b8950ae673ebb6dcb9e7ecdd1decb1b6d)，Copyright (c) 2020 Loyalsoldier | 自定义规则及生成程序 | MIT，`Loyalsoldier-domain-list-custom-LICENSE.txt` |
 | [blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script) / blackmatrix7 与贡献者 | ChinaMax、SteamCN、OneDrive、PrivateTracker、BlockHttpDNS | 上游 GPL v2 正文，`blackmatrix7-ios_rule_script-LICENSE.txt` |
 | [felixonmars/dnsmasq-china-list](https://github.com/felixonmars/dnsmasq-china-list)，Copyright © 2013 Felix Yan | Apple / Google 中国域名 | WTFPL v2，`felixonmars-dnsmasq-china-list-LICENSE.txt` |
@@ -27,14 +27,14 @@
 | [gfwlist/gfwlist](https://github.com/gfwlist/gfwlist) / GFWList contributors | 代理域名输入 | LGPL v2.1 正文，`gfwlist-gfwlist-LICENSE.txt` |
 | [cokebar/gfwlist2dnsmasq](https://github.com/cokebar/gfwlist2dnsmasq/tree/202e52fb5ea2260abc9f162b3a78e58ec9187005) / cokebar 与贡献者 | GFWList 转换工具，未链接到应用 | GPL v3，`cokebar-gfwlist2dnsmasq-LICENSE.txt` |
 | [XIU2/TrackersListCollection](https://github.com/XIU2/TrackersListCollection) / XIU2 与贡献者 | tracker 域名输入（上游从其 Gitea 镜像下载） | GPL v3，`XIU2-TrackersListCollection-LICENSE.txt` |
-| [xishang0128/rules](https://github.com/xishang0128/rules/tree/8b05b32709735c98c6b2f0d3a00e8ed1fcbc7800) / xishang0128 | biliintl、sharepoint | 检查到的 revision 无 LICENSE，README 未授予明确再分发许可；保留来源署名不等于取得授权。对外公开前仍须确认授权，或另行审阅并替换这部分规则。 |
+| [ACL4SSR/ACL4SSR](https://github.com/ACL4SSR/ACL4SSR/tree/802e3abf065f8609e7d9073ba506158dbe2ba6e7) / ACL4SSR 与贡献者 | 当前 biliintl 的海外 CDN 和接口精确域名 | CC BY-SA 4.0，`ACL4SSR-LICENSE.txt`；提取与格式转换的修改说明见当前输入快照 |
 
 ## 修改、源码与证据边界
 
-上游对域名进行了聚合、过滤、去重、分类覆盖和格式转换；具体步骤见随源保存的 `upstream-workflow.yml`。LumaRoute 将发布数据反向导出为可编辑 JSON，保留规则顺序、匹配类型、属性、CIDR、反向匹配标志及原 MetaDB 时间戳；未改变规则语义。三份数据的逐字节重建 SHA-256 见锁定清单。
+上游对域名进行了聚合、过滤、去重、分类覆盖和格式转换；具体步骤见随源保存的 `upstream-workflow.yml`。LumaRoute 将发布数据反向导出为可编辑 JSON，保留规则顺序、匹配类型、属性、CIDR、反向匹配标志及原 MetaDB 时间戳。本次完整替换 biliintl / sharepoint 的输入来源；biliintl 为 V2Ray MIT 与 ACL4SSR CC BY-SA 规则的选定子集，sharepoint 来自 V2Ray MIT。原 1,553 个其他分类和 IP 数据未改变。当前目标的逐字节重建 SHA-256 见锁定清单。
 
 规范化 JSON 继承对应数据的许可；其中的 CC BY-SA 材料及其改编按 CC BY-SA 4.0 提供。不能借由换格式去除署名或施加不兼容限制。完整可编辑输入、固定 GPL 重建工具、vendored 依赖与各自许可随 GEO 源码附件提供；Mihomo、Yams 的对应源码另附于 Release。
 
-上游未归档全部原始网络响应；本声明不是完整权利链证明。未声明许可的输入以及 GeoLite EULA 对持续分发和旧数据处置的要求，不能通过保留一个固定快照自动解决。仓库目前保持私有；将来公开前仍需处理上述未明确授权的输入及数据维护方式。
+上游未归档全部原始网络响应；本声明不是完整权利链证明。原 xishang0128/rules 提供的两类输入已从当前快照与安装包中替换；旧版记录按维护者要求保留在 Git 标签与私有备份中，不代表旧材料取得额外授权。GeoLite EULA 对持续分发和旧数据处置的要求，仍不能通过保留一个固定快照自动解决。仓库目前保持私有。
 
-本次仅补充许可、署名和来源记录；GEO 数据、规范化 JSON 与锁定摘要均未修改。
+当前直接来源的原始文件、固定提交、许可及选定行保存在 `Resources/GeoData/inputs/2026-10-15-licensed-rules/`。V2Ray 原始署名和 MIT 正文保留；ACL4SSR 材料及混合分类的改编贡献按 CC BY-SA 4.0 提供，不改为 LumaRoute 的 MIT。

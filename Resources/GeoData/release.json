@@ -1,8 +1,7 @@
 {
-  "repository": "MetaCubeX/meta-rules-dat",
-  "input_snapshot": "inputs/2026-10-13-normalized",
+  "input_snapshot": "inputs/2026-10-15-licensed-rules",
   "rebuild_script": "script/rebuild_geodata.py",
-  "snapshot_kind": "normalized-editable-inputs-exported-losslessly-from-existing-artifacts",
+  "snapshot_kind": "normalized-base-with-licensed-category-replacements",
   "assets": [
     {
       "name": "GeoIP.dat",
@@ -18,9 +17,14 @@
     },
     {
       "name": "GeoSite.dat",
-      "url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat",
-      "digest": "sha256:30b8fe82c220879da1fadf896ec18b26b495091980dab3dca7a11199c74a5773",
-      "updated_at": "2026-10-13T03:08:14Z"
+      "digest": "sha256:f7bc69233babdfbfdd9337d85ea925b478e2dcb26817fbfd1b0fdd582448eacb",
+      "updated_at": "2026-10-15T14:32:20Z",
+      "distribution": "rebuilt offline from the locked local snapshot",
+      "source_snapshot": "inputs/2026-10-15-licensed-rules",
+      "upstream_original_url": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
     }
-  ]
+  ],
+  "base_repository": "MetaCubeX/meta-rules-dat",
+  "repository": "onlyone1019/LumaRoute",
+  "geosite_source_manifest": "rule-sources.json"
 }

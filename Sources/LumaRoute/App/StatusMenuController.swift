@@ -133,6 +133,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addConfiguration(store:store,enabled:ready)
         add("更多设置…",key:",") { [weak self] in self?.show(.settings) }
+        let updateItem = add("检查更新…",enabled:!store.checkingAppUpdate) { [weak self] in
+            store.settingsTab = "更新与备份"; self?.show(.settings)
+            Task { await store.checkAppUpdate() }
+        }
+        track(updateItem) { item,store in item.isEnabled = !store.checkingAppUpdate }
         addHelp(store:store)
         add("退出 LumaRoute",key:"q") { NSApp.terminate(nil) }
         refreshMenuState()

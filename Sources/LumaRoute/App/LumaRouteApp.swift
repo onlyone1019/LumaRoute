@@ -24,6 +24,12 @@ struct LumaRouteApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width:1280,height:850)
         .commands {
+            CommandGroup(after:.appInfo) {
+                Button("检查更新…") {
+                    store.page = .settings; store.settingsTab = "更新与备份"; openWindow(id:"main")
+                    Task { await store.checkAppUpdate() }
+                }.disabled(store.checkingAppUpdate)
+            }
             CommandGroup(replacing:.newItem) {
                 Button("添加订阅") { store.page = .subscriptions; store.addingSubscription = true }.keyboardShortcut("n")
             }

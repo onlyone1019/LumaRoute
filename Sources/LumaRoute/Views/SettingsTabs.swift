@@ -91,7 +91,18 @@ struct SettingsMaintenanceTab:View {
     var body:some View {
         VStack(spacing:18) {
             SettingsGroup(title:"版本与维护") {
-                NativeRow(title:"LumaRoute",detail:"0.1.0 · Build 30") { Text("SwiftUI 原生 Mac 客户端").foregroundStyle(.secondary) }
+                NativeRow(title:"LumaRoute",detail:store.applicationVersion?.label ?? "开发版本") {
+                    Button(store.checkingAppUpdate ? "正在检查…":"检查更新") { Task { await store.checkAppUpdate() } }.disabled(store.checkingAppUpdate)
+                }
+                if let message = store.appUpdateMessage {
+                    RowDivider()
+                    NativeRow(title:store.availableApp == nil ? "应用更新":"发现新版本",detail:message) {
+                        if let release = store.availableApp {
+                            Link("更新说明",destination:release.releaseURL)
+                            Link("下载新版",destination:release.downloadURL).buttonStyle(.borderedProminent)
+                        }
+                    }
+                }
                 RowDivider()
                 NativeRow(title:"Mihomo",detail:store.coreVersion) {
                     Button("检查更新") { store.perform { try await store.checkCoreUpdate() } }

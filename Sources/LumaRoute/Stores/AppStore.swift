@@ -59,6 +59,10 @@ final class AppStore: ObservableObject {
     var nodeErrors:[String:String] { get { runtime.nodeErrors } set { runtime.nodeErrors = newValue } }
     @Published var notice: String?
     @Published var availableCore: CoreRelease?
+    @Published var availableApp: AppRelease?
+    @Published var checkingAppUpdate = false
+    @Published var appUpdateMessage: String?
+    var applicationVersion: AppVersion? { AppVersion(bundle:.main) }
     @Published var canRollbackCore = false
     @Published var canRollbackGeo = false
     @Published var serviceSetup: NetworkServiceSetup = .ready
@@ -1036,6 +1040,18 @@ final class AppStore: ObservableObject {
             if error is CancellationError { notice = "已取消授权，可稍后再试" }
             throw error
         }
+    }
+    func checkAppUpdate(session: URLSession = .shared) async {
+        guard !checkingAppUpdate else { return }
+        checkingAppUpdate = true; availableApp = nil; appUpdateMessage = nil
+        defer { checkingAppUpdate = false }
+        do {
+            guard let current = applicationVersion else { throw LumaError.message("当前应用版本信息无效，请使用打包后的应用") }
+            let release = try await AppRelease.latest(session:session)
+            if release.version > current {
+                availableApp = release; appUpdateMessage = release.version.label
+            } else { appUpdateMessage = "当前已是最新版本" }
+        } catch is CancellationError {} catch { appUpdateMessage = Redactor.clean(error.localizedDescription) }
     }
     func checkCoreUpdate() async throws {
         availableCore = try await CoreRelease.latest()

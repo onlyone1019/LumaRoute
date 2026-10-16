@@ -69,8 +69,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>LumaRoute</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.3</string>
-<key>CFBundleVersion</key><string>33</string>
+<key>CFBundleShortVersionString</key><string>0.1.4</string>
+<key>CFBundleVersion</key><string>34</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -97,6 +97,9 @@ IDENTITY="${LUMAROUTE_SIGNING_IDENTITY:--}"
 /usr/bin/codesign --force --sign "$IDENTITY" --identifier app.lumaroute.helper "$APP_BUNDLE/Contents/Library/LaunchServices/LumaRouteHelper"
 /usr/bin/codesign --force --sign "$IDENTITY" --identifier "$BUNDLE_ID" "$APP_BUNDLE"
 /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
+# Reusing the output directory leaves its old modification date intact.
+# Launch Services uses the bundle date to decide whether to refresh metadata.
+touch "$APP_BUNDLE"
 case "$MODE" in
   --build-only) echo "$APP_BUNDLE";;
   run) /usr/bin/open -n "$APP_BUNDLE";;

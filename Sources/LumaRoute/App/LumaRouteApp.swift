@@ -51,6 +51,10 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     private var terminationSignal: DispatchSourceSignal?
     private var workspaceObservers: [NSObjectProtocol] = []
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
+    // Visibility changes during Hide, occlusion and window animation are not
+    // closes. Only willClose ends a main window's presented lifetime.
+    private let openMainWindows = NSHashTable<NSWindow>.weakObjects()
+    private var pendingDockHide: DispatchWorkItem?
     private var createMainWindow: (() -> Void)?
     // The primary SwiftUI scene is presented asynchronously at launch. Keep the
     // app regular until it appears (or is explicitly closed), including the gap
@@ -69,10 +73,11 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     func registerMainWindow(_ window:NSWindow) {
         guard !mainWindows.contains(window) else { return }
         mainWindows.add(window)
+        openMainWindows.add(window)
         scheduleVisibilityUpdate()
     }
     func applicationWillFinishLaunching(_ notification:Notification) {
-        NSApp.setActivationPolicy(.regular)
+        setDockPolicy(.regular)
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
         launchFinished = true
@@ -87,6 +92,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
             // an error sheet is open. terminateNow avoids a nested dispatch loop.
             guard !self.terminating else { return }
             self.terminating = true
+            self.cancelDockHide()
             Task { @MainActor in
                 self.store?.error = nil
                 await self.store?.shutdown()
@@ -106,10 +112,14 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { false }
     @objc private func mainWindowWillClose(_ notification:Notification) {
         guard let window = notification.object as? NSWindow, mainWindows.contains(window), !terminating else { return }
+        openMainWindows.remove(window)
         presentationPending = false
         scheduleVisibilityUpdate()
     }
     @objc private func mainWindowDidBecomeKey(_ notification:Notification) {
+        if let window = notification.object as? NSWindow, mainWindows.contains(window), !terminating {
+            openMainWindows.add(window)
+        }
         mainWindowVisibilityChanged(notification)
     }
     @objc private func mainWindowVisibilityChanged(_ notification:Notification) {
@@ -128,31 +138,47 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     }
     private func updateDockVisibility() {
         guard launchFinished, !terminating else { return }
-        // Inspect actual registered windows after the event has completed. A
-        // queued close must not hide the Dock for an already reopened window.
         let visible = mainWindows.allObjects.filter { $0.isVisible || $0.isMiniaturized }.count
         if visible > 0 { presentationPending = false }
         store?.setMainWindowVisible(mainWindows.allObjects.contains {
             $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
         })
-        let policy:NSApplication.ActivationPolicy = visible > 0 || presentationPending ? .regular:.accessory
-        if NSApp.activationPolicy() != policy {
-            let success = NSApp.setActivationPolicy(policy)
-            windowLogger.info("Dock policy changed: visible=\(visible) regular=\(policy == .regular) success=\(success)")
-        }
-        if policy == .regular {
-            NSApp.dockTile.display()
+        if !openMainWindows.allObjects.isEmpty || presentationPending {
+            cancelDockHide()
+            setDockPolicy(.regular)
             if initialWindowActivation && visible > 0 {
                 initialWindowActivation = false
                 NSApp.activate(ignoringOtherApps:true)
             }
+        } else if pendingDockHide == nil && NSApp.activationPolicy() == .regular {
+            // AppKit's process transformations reach Dock asynchronously. A
+            // quick close/reopen should not send opposing transformations while
+            // the close animation and scene notifications are still in flight.
+            let hide = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.pendingDockHide = nil
+                guard !self.terminating, !self.presentationPending, self.openMainWindows.allObjects.isEmpty else { return }
+                self.setDockPolicy(.accessory)
+            }
+            pendingDockHide = hide
+            DispatchQueue.main.asyncAfter(deadline:.now() + .milliseconds(300),execute:hide)
         }
+    }
+    private func cancelDockHide() {
+        pendingDockHide?.cancel()
+        pendingDockHide = nil
+    }
+    private func setDockPolicy(_ policy:NSApplication.ActivationPolicy) {
+        guard NSApp.activationPolicy() != policy else { return }
+        let success = NSApp.setActivationPolicy(policy)
+        windowLogger.info("Dock policy changed: open=\(self.openMainWindows.allObjects.count) regular=\(policy == .regular) success=\(success)")
     }
     private func presentMainWindow() {
         guard !terminating else { return }
         presentationPending = true
-        NSApp.setActivationPolicy(.regular)
-        if let window = mainWindows.allObjects.first(where:{$0.isVisible || $0.isMiniaturized}) {
+        cancelDockHide()
+        setDockPolicy(.regular)
+        if let window = openMainWindows.allObjects.first {
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         } else { createMainWindow?() }
@@ -168,6 +194,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {
         if terminating { return .terminateNow }
         terminating = true
+        cancelDockHide()
         Task { await store?.shutdown(); sender.reply(toApplicationShouldTerminate:true) }
         return .terminateLater
     }

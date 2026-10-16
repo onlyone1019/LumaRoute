@@ -52,7 +52,10 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
     private var workspaceObservers: [NSObjectProtocol] = []
     private let mainWindows = NSHashTable<NSWindow>.weakObjects()
     private var createMainWindow: (() -> Void)?
-    private var presentationPending = false
+    // The primary SwiftUI scene is presented asynchronously at launch. Keep the
+    // app regular until it appears (or is explicitly closed), including the gap
+    // before MainWindowAccessor has registered its NSWindow.
+    private var presentationPending = true
     private var visibilityUpdatePending = false
     private var launchFinished = false
     private var initialWindowActivation = true
@@ -69,7 +72,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
         scheduleVisibilityUpdate()
     }
     func applicationWillFinishLaunching(_ notification:Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
         launchFinished = true
@@ -128,6 +131,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
         // Inspect actual registered windows after the event has completed. A
         // queued close must not hide the Dock for an already reopened window.
         let visible = mainWindows.allObjects.filter { $0.isVisible || $0.isMiniaturized }.count
+        if visible > 0 { presentationPending = false }
         store?.setMainWindowVisible(mainWindows.allObjects.contains {
             $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
         })
@@ -138,7 +142,7 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
         }
         if policy == .regular {
             NSApp.dockTile.display()
-            if initialWindowActivation {
+            if initialWindowActivation && visible > 0 {
                 initialWindowActivation = false
                 NSApp.activate(ignoringOtherApps:true)
             }

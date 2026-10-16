@@ -33,15 +33,14 @@ LumaRoute $VERSION · Build $BUILD · $ARCH
 
 安装：
 1. 更新旧版前，关闭 LumaRoute 的系统代理和 TUN，再退出应用。
-2. 把 LumaRoute.app 放到应用程序；更新时替换原安装位置中的应用，然后打开。
+2. 把 LumaRoute.app 放到 /Applications/LumaRoute.app；更新时替换该位置的应用，然后打开。
 3. 更新后如出现“完成更新”，点击并在 macOS 管理员授权窗口中确认。
 4. 首次使用可点击“启用网络功能”，或直接开启系统代理 / TUN 进入授权。
 5. 授权后自动连接服务，无需打开 Terminal、重启或手动重新检查。
 6. 自行导入订阅并选择节点；从网络开关进入授权时，会继续应用刚才的选择。
 
-主窗口打开后如仍无 Dock 图标，可把原样应用包放到
-/Applications/LumaRoute/LumaRoute.app，名字仍为 LumaRoute。
-之后更新沿用该位置，不要再装回原来有问题的路径。
+主窗口打开或最小化时保留 Dock 图标，关闭全部主窗口后隐藏。
+可从菜单栏重新打开控制台，应用继续在后台运行。
 
 本包使用本地 ad-hoc 签名，未使用 Developer ID 证书，也未公证。
 浏览器下载后可能被 macOS Gatekeeper 阻止。确认来源后，可在

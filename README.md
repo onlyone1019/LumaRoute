@@ -77,21 +77,21 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前正式版：[0.1.2 · Build 32](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.2)** · macOS 14+ · Apple Silicon / Intel
+**当前正式版：[0.1.3 · Build 33](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.3)** · macOS 14+ · Apple Silicon / Intel
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.2/LumaRoute-0.1.2-build.32-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.2/LumaRoute-0.1.2-build.32-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.2/LumaRoute-0.1.2-build.32-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.2/LumaRoute-0.1.2-build.32-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.2/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.3/LumaRoute-0.1.3-build.33-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.3/LumaRoute-0.1.3-build.33-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.3/LumaRoute-0.1.3-build.33-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.3/LumaRoute-0.1.3-build.33-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.3/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.2 发布说明](docs/releases/v0.1.2.md)。
+这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.3 发布说明](docs/releases/v0.1.3.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
@@ -141,13 +141,13 @@ LUMAROUTE_ARCH=x86_64 ./script/build_and_run.sh --build-only
 ### 安装到“应用程序”
 
 1. 退出正在运行的旧版 LumaRoute。
-2. 在 Finder 中打开项目的 `dist` 文件夹，将 `LumaRoute.app` 拖到“应用程序”。
+2. 在 Finder 中打开项目的 `dist` 文件夹，将 `LumaRoute.app` 拖到“应用程序”，安装路径为 `/Applications/LumaRoute.app`。
 3. 从“应用程序”启动 LumaRoute。
 4. 如需系统代理或 TUN，按下面的步骤安装后台服务。
 
 **先确定应用安装位置，再安装后台服务。** 不要直接修改已经安装的 `.app` 内部文件；重新构建后，使用新应用包整体替换。
 
-如果主窗口已打开但 Dock 图标仍缺失，可把原样应用包放到“应用程序”内的 `LumaRoute` 文件夹，即 `/Applications/LumaRoute/LumaRoute.app`，应用名称保持 **LumaRoute**。这是本机经实际确认的路径规避方式，尚未确定底层系统原因；后续更新应替换该路径中的应用，不另装回旧位置。未修改应用包的移动无需重新同步后台服务。详见 [Dock 验收记录](docs/dock-performance-2026-10-14.md)。
+应用以普通应用身份启动，主窗口打开或最小化时保留 Dock 图标，关闭全部主窗口后隐藏；可从菜单栏重新打开控制台。更新时继续替换 `/Applications/LumaRoute.app`，无需额外创建 `LumaRoute` 文件夹。
 
 ### 安装后台服务
 

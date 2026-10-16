@@ -34,24 +34,33 @@ struct DomainRoutesEditor: View {
                 if !policiesReady && policyFailure == nil { Text("正在加载出口列表…").font(.caption).foregroundStyle(.secondary) }
                 if routes.isEmpty { Text("尚未添加规则，沿用基础订阅的分流。").foregroundStyle(.secondary).padding(.vertical,8) }
                 ForEach($routes) { $route in
-                    VStack(alignment:.leading,spacing:4) {
-                        HStack(spacing:6) {
-                            Toggle("启用分流规则",isOn:$route.enabled).labelsHidden().toggleStyle(.checkbox)
-                            LumaPicker("匹配方式",selection:$route.type,value:CompositionRouting.types.first { $0.value == route.type }?.label ?? route.type) {
-                                ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) }
-                            }.frame(width:150)
-                            TextField(CompositionRouting.types.first { $0.value == route.type }?.placeholder ?? "匹配内容",text:$route.domain).textFieldStyle(LumaTextFieldStyle()).frame(minHeight:LumaControl.height).accessibilityLabel("分流匹配内容")
-                            if route.type == "PROCESS-PATH" {
-                                Button { importing = route.id; filePicker = true } label:{ Image(systemName:"folder") }.help("选择应用的可执行文件路径").accessibilityLabel("选择应用")
+                    let picksPath = route.type == "PROCESS-PATH"
+                    VStack(alignment:.leading,spacing:8) {
+                        HStack(spacing:RouteColumn.gap) {
+                            Toggle("启用分流规则",isOn:$route.enabled).labelsHidden().toggleStyle(.checkbox).frame(width:RouteColumn.toggle,alignment:.leading)
+                            VStack(spacing:8) {
+                                HStack(spacing:8) {
+                                    LumaPicker("匹配方式",selection:$route.type,value:CompositionRouting.types.first { $0.value == route.type }?.label ?? route.type) {
+                                        ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) }
+                                    }.frame(width:RouteColumn.label)
+                                    TextField(CompositionRouting.types.first { $0.value == route.type }?.placeholder ?? "匹配内容",text:$route.domain).textFieldStyle(LumaTextFieldStyle(trailingPadding:picksPath ? LumaControl.height:12)).frame(minHeight:LumaControl.height).accessibilityLabel("分流匹配内容")
+                                        .overlay(alignment:.trailing) {
+                                            if picksPath {
+                                                Button { importing = route.id; filePicker = true } label:{ Image(systemName:"folder").frame(width:LumaControl.height,height:LumaControl.height) }.buttonStyle(.borderless).help("选择应用的可执行文件路径").accessibilityLabel("选择应用")
+                                            }
+                                        }
+                                }
+                                HStack(spacing:8) {
+                                    Text("出口").font(.callout).foregroundStyle(.secondary).frame(width:RouteColumn.label,alignment:.trailing)
+                                    CompositionExitPicker(selection:Binding(get:{ selection(route) },set:{ setTarget(&route,$0) }),profiles:profiles,policies:policies,policiesReady:policiesReady)
+                                }
+                            }
+                            HStack(spacing:8) {
+                                RuleOrderButtons(canMoveUp:routes.first?.id != route.id,canMoveDown:routes.last?.id != route.id,moveUp:{ move(route.id,by:-1) },moveDown:{ move(route.id,by:1) })
+                                Button { routes.removeAll { $0.id == route.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除分流规则").accessibilityLabel("删除分流规则")
                             }
                         }
-                        HStack(spacing:8) {
-                            Text("出口").font(.callout).foregroundStyle(.secondary).frame(width:44,alignment:.leading)
-                            CompositionExitPicker(selection:Binding(get:{ selection(route) },set:{ setTarget(&route,$0) }),profiles:profiles,policies:policies,policiesReady:policiesReady)
-                            RuleOrderButtons(canMoveUp:routes.first?.id != route.id,canMoveDown:routes.last?.id != route.id,moveUp:{ move(route.id,by:-1) },moveDown:{ move(route.id,by:1) })
-                            Button { routes.removeAll { $0.id == route.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除分流规则").accessibilityLabel("删除分流规则")
-                        }
-                        if route.enabled,let error = routeError(route) { Text(error).font(.caption).foregroundStyle(.red) }
+                        if route.enabled,let error = routeError(route) { Text(error).font(.caption).foregroundStyle(.red).padding(.leading,RouteColumn.toggle+RouteColumn.gap) }
                     }.padding(12).background(LumaPalette.tile,in:RoundedRectangle(cornerRadius:10,style:.continuous))
                 }
                 Text("后缀包含域名及其子域名；关键词匹配域名中的文字。IP 网段只匹配已有目标 IP，不额外解析域名。应用路径使用可执行文件，进程名称和路径不区分大小写。").font(.caption).foregroundStyle(.secondary)
@@ -136,6 +145,13 @@ struct DomainRoutesEditor: View {
             }
         } catch { verdict = Redactor.clean(error.localizedDescription) }
     }
+}
+
+/// Column widths of a route card: checkbox | (match type + match text / "出口" + exit) | order and delete.
+private enum RouteColumn {
+    static let toggle: CGFloat = 18
+    static let gap: CGFloat = 12
+    static let label: CGFloat = 132
 }
 
 private struct CompositionExitPicker: View {

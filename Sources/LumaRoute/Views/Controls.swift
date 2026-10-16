@@ -6,13 +6,17 @@ enum LumaControl {
 }
 
 struct LumaTextFieldStyle: TextFieldStyle {
+    /// Room kept free at the trailing edge for an accessory laid over the field, such as a browse button.
+    let trailingPadding: CGFloat
     @FocusState private var focused: Bool
     @Environment(\.isEnabled) private var enabled
+
+    init(trailingPadding: CGFloat = 12) { self.trailingPadding = trailingPadding }
 
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration.textFieldStyle(.plain).focused($focused)
             .font(.system(size:13))
-            .padding(.horizontal,12)
+            .padding(.leading,12).padding(.trailing,trailingPadding)
             .frame(height:LumaControl.height)
             .background(LumaPalette.tile,in:Capsule())
             .overlay(Capsule().stroke(LumaPalette.accent,lineWidth:focused ? 2:0))

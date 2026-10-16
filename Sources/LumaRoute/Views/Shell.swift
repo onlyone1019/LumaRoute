@@ -29,13 +29,35 @@ struct SettingsWindowContent:View {
 struct SidebarView:View {
     @EnvironmentObject var store:AppStore
     var body:some View {
-        List(selection:Binding(get:{ store.page as AppPage? },set:{ if let page = $0,page != store.page { store.page = page } })) {
+        VStack(spacing:6) {
             ForEach(AppPage.allCases) { page in
-                Label(page.rawValue,systemImage:page.icon).font(.system(size:14)).tag(page)
+                SidebarRow(page:page,selected:store.page == page) { if store.page != page { store.page = page } }
             }
-        }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge:.bottom,spacing:0) { SidebarStatus() }
+            Spacer(minLength:0)
+        }.padding(.horizontal,12).padding(.top,8)
+            .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.top)
+            .safeAreaInset(edge:.bottom,spacing:0) { SidebarStatus() }
+    }
+}
+/// One large, roomy sidebar entry: tinted rounded fill when selected, soft gray on hover.
+struct SidebarRow:View {
+    let page:AppPage
+    let selected:Bool
+    let action:()->Void
+    @State private var hovering = false
+    var body:some View {
+        let shape = RoundedRectangle(cornerRadius:11,style:.continuous)
+        Button(action:action) {
+            HStack(spacing:14) {
+                Image(systemName:page.icon).font(.system(size:18,weight:.medium))
+                    .foregroundStyle(selected ? LumaPalette.accent:Color.primary.opacity(0.85)).frame(width:26)
+                Text(page.rawValue).font(.system(size:15,weight:selected ? .semibold:.regular)).tracking(1.5)
+                Spacer(minLength:0)
+            }.padding(.horizontal,14).frame(height:42).contentShape(shape)
+        }.buttonStyle(.plain)
+            .background(selected ? LumaPalette.accent.opacity(0.14):hovering ? LumaPalette.tile:Color.clear,in:shape)
+            .onHover { hovering = $0 }
+            .accessibilityAddTraits(selected ? [.isSelected]:[])
     }
 }
 struct SidebarStatus:View {

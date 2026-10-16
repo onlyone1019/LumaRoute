@@ -19,7 +19,7 @@ struct RuleSubscriptionsView: View {
                     guard let id = store.database.activeProfileID else { return }
                     let available = RuleCatalogEntry.all.first { entry in !items.contains(where:{$0.catalogID == entry.id}) } ?? RuleCatalogEntry.all[0]
                     editing = RuleSubscription(profileID:id,catalogID:available.id,target:available.defaultTarget.isEmpty ? store.groups.first?.name ?? "DIRECT":available.defaultTarget)
-                }.buttonStyle(LumaPrimaryButtonStyle()).disabled(store.busy || store.database.activeProfileID == nil || items.count >= RuleCatalogEntry.all.count)
+                }.buttonStyle(.borderedProminent).disabled(store.busy || store.database.activeProfileID == nil || items.count >= RuleCatalogEntry.all.count)
             }
             if items.isEmpty {
                 EmptyMessage(icon:"square.stack.3d.up",title:"暂无规则订阅",detail:"添加广告拦截、国内直连等规则集，再选择它使用的策略组。机场原分流规则会保留。")
@@ -109,7 +109,7 @@ private struct RuleSubscriptionSheet: View {
                         do { try await store.saveRuleSubscription(item); dismiss() }
                         catch { self.error = Redactor.clean(error.localizedDescription) }
                     }
-                }.buttonStyle(LumaPrimaryButtonStyle()).disabled(store.busy || (item.enabled && !store.ruleSubscriptionTargets.contains(item.target))).keyboardShortcut(.defaultAction)
+                }.buttonStyle(.borderedProminent).disabled(store.busy || (item.enabled && !store.ruleSubscriptionTargets.contains(item.target))).keyboardShortcut(.defaultAction)
             }
         }.padding(24).frame(width:650).disabled(store.busy)
         .onChange(of:item.catalogID) { _,id in

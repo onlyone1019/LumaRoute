@@ -1,25 +1,14 @@
 import SwiftUI
 import LumaRouteCore
 
-enum LumaPalette {
-    static let accent = Color(red:0.02,green:0.47,blue:1)
-    static let upload = Color(red:0.61,green:0.31,blue:0.98)
-    static let border = Color.primary.opacity(0.09)
-}
-struct LumaPrimaryButtonStyle:ButtonStyle {
-    func makeBody(configuration:Configuration)->some View {
-        LumaButtonLabel(configuration:configuration,prominent:true)
-    }
-}
-
+/// A flat tonal card. `emphasized` tints it with the accent instead of drawing a border.
 struct Panel<Content:View>:View {
-    var padding:CGFloat = 16
+    var padding:CGFloat = 18
     var emphasized = false
     @ViewBuilder var content:Content
     var body:some View {
         content.padding(padding).frame(maxWidth:.infinity,alignment:.leading)
-            .background(emphasized ? LumaPalette.accent.opacity(0.055):Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
-            .overlay(RoundedRectangle(cornerRadius:10).stroke(emphasized ? LumaPalette.accent.opacity(0.65):LumaPalette.border,lineWidth:1))
+            .background(emphasized ? LumaPalette.accent.opacity(0.10):LumaPalette.card,in:RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
     }
 }
 struct SearchField:View {
@@ -27,11 +16,12 @@ struct SearchField:View {
     @Binding var text:String
     var body:some View {
         HStack(spacing:7) {
-            Image(systemName:"magnifyingglass").font(.system(size:12)).foregroundStyle(.secondary)
-            TextField(placeholder,text:$text).textFieldStyle(.plain).accessibilityLabel(placeholder)
-        }.padding(.horizontal,10).frame(height:LumaControl.height)
-            .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:6))
-            .overlay(RoundedRectangle(cornerRadius:6).stroke(LumaPalette.border,lineWidth:1))
+            Image(systemName:"magnifyingglass").font(.system(size:12,weight:.medium)).foregroundStyle(.secondary)
+            TextField(placeholder,text:$text).textFieldStyle(.plain).font(.system(size:13)).accessibilityLabel(placeholder)
+            if !text.isEmpty {
+                Button { text = "" } label:{ Image(systemName:"xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("清除搜索")
+            }
+        }.padding(.horizontal,12).frame(height:LumaControl.height).background(LumaPalette.tile,in:Capsule())
     }
 }
 struct PageHeader<Actions:View>:View {
@@ -40,23 +30,33 @@ struct PageHeader<Actions:View>:View {
     @ViewBuilder var actions:Actions
     var body:some View {
         HStack(alignment:.center,spacing:16) {
-            VStack(alignment:.leading,spacing:4) { Text(title).font(.system(size:23,weight:.semibold)); if let subtitle { Text(subtitle).font(.callout).foregroundStyle(.secondary) } }
-            Spacer(); HStack(spacing:8) { actions }.fixedSize(horizontal:true,vertical:false)
-        }.frame(minHeight:36).padding(.bottom,2)
+            VStack(alignment:.leading,spacing:3) {
+                Text(title).font(.system(size:26,weight:.bold))
+                if let subtitle { Text(subtitle).font(.system(size:13)).foregroundStyle(.secondary) }
+            }
+            Spacer(minLength:12); HStack(spacing:8) { actions }.fixedSize(horizontal:true,vertical:false)
+        }.frame(minHeight:44)
     }
 }
 struct StatusDot:View {
     var active:Bool
-    var body:some View { Circle().fill(active ? .green:Color.secondary.opacity(0.5)).frame(width:9,height:9) }
+    var body:some View { Circle().fill(active ? Color.green:Color.secondary.opacity(0.5)).frame(width:8,height:8) }
 }
 struct EmptyMessage:View {
     var icon:String = "tray"
     var title:String
     var detail:String
+    var actionTitle:String? = nil
+    var action:(()->Void)? = nil
     var body:some View {
-        VStack(spacing:12) {
-            Image(systemName:icon).font(.system(size:32)).foregroundStyle(.secondary)
-            Text(title).font(.headline); Text(detail).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        VStack(spacing:14) {
+            Image(systemName:icon).font(.system(size:26,weight:.medium)).foregroundStyle(.secondary)
+                .frame(width:64,height:64).background(LumaPalette.tile,in:Circle())
+            VStack(spacing:5) {
+                Text(title).font(.system(size:16,weight:.semibold))
+                Text(detail).font(.system(size:13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            if let actionTitle,let action { Button(actionTitle,action:action).buttonStyle(.borderedProminent).padding(.top,4) }
         }.frame(maxWidth:.infinity,maxHeight:.infinity).padding(32)
     }
 }
@@ -67,80 +67,35 @@ struct NativeRow<Controls:View>:View {
     @ViewBuilder var controls:Controls
     var body:some View {
         HStack(spacing:16) {
-            VStack(alignment:.leading,spacing:compact ? 2:3) { Text(title); if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true) } }
-            Spacer(minLength:12); HStack(spacing:8) { controls }.fixedSize(horizontal:true,vertical:false)
-        }.frame(minHeight:LumaControl.height).padding(.vertical,compact ? 2:3)
-    }
-}
-struct RootView:View {
-    @EnvironmentObject var store:AppStore
-    var body:some View {
-        HStack(spacing:0) {
-            SidebarView().frame(width:180)
-            Divider()
-            ZStack(alignment:.topTrailing) {
-                VStack(spacing:14) {
-                if store.serviceSetup != .ready {
-                    Panel {
-                        HStack(spacing:12) {
-                            Image(systemName:"checkmark.shield").foregroundStyle(LumaPalette.accent)
-                            VStack(alignment:.leading,spacing:3) {
-                                Text(store.serviceSetup == .update ? "完成应用更新":"启用网络功能").font(.headline)
-                                Text(store.serviceInstalling ? "等待授权完成，随后自动连接":"授权后自动准备系统代理和 TUN，无需单独安装").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button(store.serviceSetupButton) { store.installService(networkReady:true) }
-                                .buttonStyle(LumaPrimaryButtonStyle()).disabled(store.busy || store.serviceInstalling)
-                        }
-                    }
-                }
-                PageHostView().frame(maxWidth:.infinity,maxHeight:.infinity)
-                }.padding(20)
-                if store.busy { ProgressView().controlSize(.small).padding(12) }
-                if let notice = store.notice {
-                    VStack { Spacer(); HStack(spacing:12) {
-                        Image(systemName:"info.circle").foregroundStyle(LumaPalette.accent)
-                        Text(notice).font(.callout)
-                        Button { store.notice = nil } label:{ Image(systemName:"xmark") }.buttonStyle(.borderless).accessibilityLabel("关闭提示")
-                    }.padding(12).background(.regularMaterial,in:RoundedRectangle(cornerRadius:10)).padding(16) }
-                }
-            }.frame(maxWidth:.infinity,maxHeight:.infinity).background(.background)
-        }.tint(LumaPalette.accent).buttonStyle(LumaButtonStyle()).controlSize(.regular)
-    }
-}
-struct SidebarView:View {
-    @EnvironmentObject var store:AppStore
-    var body:some View {
-        VStack(alignment:.leading,spacing:5) {
-            ForEach(AppPage.allCases) { page in
-                Button { if store.page != page { store.page = page } } label: {
-                    HStack(spacing:12) {
-                        Image(systemName:page.icon).font(.system(size:18,weight:.regular)).frame(width:22)
-                        Text(page.rawValue).font(.system(size:14,weight:store.page == page ? .medium:.regular))
-                        Spacer(minLength:0)
-                    }.foregroundStyle(store.page == page ? LumaPalette.accent:Color.primary)
-                        .padding(.horizontal,12).frame(height:38)
-                        .background(store.page == page ? LumaPalette.accent.opacity(0.13):Color.clear,in:RoundedRectangle(cornerRadius:7))
-                        .contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityAddTraits(store.page == page ? [.isSelected]:[])
+            VStack(alignment:.leading,spacing:2) {
+                Text(title).font(.system(size:14))
+                if let detail { Text(detail).font(.system(size:12)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true) }
             }
-            Spacer()
-            HStack(alignment:.top,spacing:10) {
-                StatusDot(active:store.connected).padding(.top,4)
-                VStack(alignment:.leading,spacing:5) {
-                    Text(store.connected ? "已连接":"未接管网络").font(.system(size:13,weight:.medium))
-                    Text(store.database.settings.tun ? "TUN 已开启":store.database.settings.systemProxy ? "系统代理已开启":store.coreReady ? "内核运行中":"内核未就绪").font(.caption).foregroundStyle(.secondary)
-                }
-            }.padding(.horizontal,12).padding(.bottom,10)
-        }.padding(.horizontal,10).padding(.top,24).background(.regularMaterial)
+            Spacer(minLength:12); HStack(spacing:8) { controls }.fixedSize(horizontal:true,vertical:false)
+        }.padding(.vertical,compact ? 7:9).frame(minHeight:compact ? 40:46)
+    }
+}
+struct RowDivider:View {
+    var body:some View { Rectangle().fill(LumaPalette.hairline).frame(height:1) }
+}
+/// A titled group of settings rows on one flat card. Insert `RowDivider()` between rows.
+struct SettingsGroup<Content:View>:View {
+    var title:String? = nil
+    @ViewBuilder var content:Content
+    var body:some View {
+        VStack(alignment:.leading,spacing:8) {
+            if let title { Text(title).font(.system(size:12,weight:.semibold)).foregroundStyle(.secondary).padding(.leading,6) }
+            VStack(spacing:0) { content }.padding(.horizontal,16).padding(.vertical,2).frame(maxWidth:.infinity,alignment:.leading)
+                .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
+        }
     }
 }
 struct IconBadge:View {
     var icon:String
-    var tint:Color = .primary
+    var size:CGFloat = 42
+    var tint:Color = LumaPalette.accent
     var body:some View {
-        Image(systemName:icon).font(.system(size:18,weight:.medium)).foregroundStyle(tint)
-            .frame(width:42,height:42).background(Color.primary.opacity(0.04),in:Circle())
+        Image(systemName:icon).font(.system(size:size*0.4,weight:.semibold)).foregroundStyle(tint)
+            .frame(width:size,height:size).background(tint.opacity(0.13),in:RoundedRectangle(cornerRadius:size*0.29,style:.continuous))
     }
 }
-

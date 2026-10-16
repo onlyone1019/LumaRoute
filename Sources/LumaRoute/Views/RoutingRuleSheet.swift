@@ -47,7 +47,7 @@ struct RoutingRuleSheet: View {
                             try await store.saveRoutingRule(proposed,profileID:profileID); dismiss()
                         } catch { failure = Redactor.clean(error.localizedDescription) }
                     }
-                }.buttonStyle(LumaPrimaryButtonStyle()).keyboardShortcut(.defaultAction).disabled(store.activeProfile == nil || rule.payload.isEmpty)
+                }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(store.activeProfile == nil || rule.payload.isEmpty)
             }
         }.padding(24).frame(width:620).disabled(store.busy)
          .fileImporter(isPresented:$importing,allowedContentTypes:[.applicationBundle]) { result in
@@ -90,19 +90,24 @@ struct ApplicationRoutingView: View {
             }
             if rules.isEmpty { EmptyMessage(icon:"app.badge.checkmark",title:compositionRuleCount > 0 ? "暂无自定义应用规则":"暂无应用分流",detail:"选择一个应用，或从连接列表为实际进程创建规则。") }
             else {
-                List(rules) { rule in
-                    HStack {
-                        Toggle("启用应用规则",isOn:Binding(get:{rule.enabled},set:{ enabled in
-                            var updated = store.currentCustomRules
-                            if let index = updated.firstIndex(where:{$0.id == rule.id}) { updated[index].enabled = enabled }
-                            store.perform { try await store.applyRules(updated) }
-                        })).labelsHidden().toggleStyle(.checkbox)
-                        VStack(alignment:.leading,spacing:4) { Text(rule.payload).lineLimit(2); Text((rule.type == "PROCESS-PATH" ? "完整路径":"进程名称")+" → "+(store.routingTargets.first(where:{$0.name == rule.target})?.label ?? rule.target)).font(.caption).foregroundStyle(.secondary) }
-                        Spacer()
-                        Button("编辑") { editing = rule }
-                        Button("删除") { let updated = store.currentCustomRules.filter { $0.id != rule.id }; store.perform { try await store.applyRules(updated) } }
-                    }.padding(.vertical,5).disabled(store.busy)
-                }.listStyle(.inset)
+                ScrollView {
+                    VStack(spacing:8) {
+                        ForEach(rules) { rule in
+                            HStack(spacing:12) {
+                                Toggle("启用应用规则",isOn:Binding(get:{rule.enabled},set:{ enabled in
+                                    var updated = store.currentCustomRules
+                                    if let index = updated.firstIndex(where:{$0.id == rule.id}) { updated[index].enabled = enabled }
+                                    store.perform { try await store.applyRules(updated) }
+                                })).labelsHidden().toggleStyle(.checkbox)
+                                VStack(alignment:.leading,spacing:4) { Text(rule.payload).lineLimit(2); Text((rule.type == "PROCESS-PATH" ? "完整路径":"进程名称")+" → "+(store.routingTargets.first(where:{$0.name == rule.target})?.label ?? rule.target)).font(.caption).foregroundStyle(.secondary) }
+                                Spacer()
+                                Button("编辑") { editing = rule }
+                                Button("删除") { let updated = store.currentCustomRules.filter { $0.id != rule.id }; store.perform { try await store.applyRules(updated) } }
+                            }.padding(.horizontal,14).padding(.vertical,10).disabled(store.busy)
+                            .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:12,style:.continuous))
+                        }
+                    }
+                }
             }
         }.sheet(item:$editing) { RoutingRuleSheet(rule:$0,profileID:store.database.activeProfileID) }
     }

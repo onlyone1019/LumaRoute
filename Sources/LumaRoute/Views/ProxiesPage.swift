@@ -30,12 +30,12 @@ struct ProxiesPage: View {
         VStack(spacing:14) {
             PageHeader(title:"代理",subtitle:store.database.settings.mode == .global ? "全局模式 · 在 GLOBAL 中选择节点" : "\(store.groups.count) 个策略组 · 按订阅顺序排列") {
                 SearchField(placeholder:"搜索策略组或节点",text:$filter.search).frame(width:210)
-                Button("测试全部") { store.testNodes(testCandidates) }.buttonStyle(LumaPrimaryButtonStyle()).disabled(!store.coreReady || testCandidates.isEmpty)
+                Button("测试全部") { store.testNodes(testCandidates) }.buttonStyle(.borderedProminent).disabled(!store.coreReady || testCandidates.isEmpty)
             }
             HStack {
                 Picker("代理模式",selection:Binding(get:{store.database.settings.mode},set:{store.setMode($0)})) {
                     ForEach(RouteMode.allCases) { Text($0.label).tag($0) }
-                }.labelsHidden().pickerStyle(.segmented).frame(width:200)
+                }.labelsHidden().pickerStyle(.segmented).fixedSize()
                 Spacer()
                 LumaPicker("地区",selection:$filter.region,value:filter.region) { Text("全部地区").tag("全部地区"); Text("日本").tag("日本") }.frame(width:150)
                 LumaPicker("来源",selection:$filter.source,value:filter.source) {

@@ -1,8 +1,8 @@
 import SwiftUI
 
 enum LumaControl {
-    static let height: CGFloat = 32
-    static let cornerRadius: CGFloat = 7
+    /// Matches the height of native `.large` capsule controls so mixed rows line up.
+    static let height: CGFloat = 28
 }
 
 struct LumaTextFieldStyle: TextFieldStyle {
@@ -12,39 +12,11 @@ struct LumaTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration.textFieldStyle(.plain).focused($focused)
             .font(.system(size:13))
-            .padding(.horizontal,10)
-            .frame(height:LumaControl.height)
-            .background(Color(nsColor:.textBackgroundColor),in:RoundedRectangle(cornerRadius:LumaControl.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius:LumaControl.cornerRadius).stroke(focused ? LumaPalette.accent:Color.primary.opacity(0.16),lineWidth:focused ? 2:1))
-            .opacity(enabled ? 1:0.45)
-    }
-}
-
-struct LumaButtonStyle: ButtonStyle {
-    var prominent = false
-    func makeBody(configuration: Configuration) -> some View {
-        LumaButtonLabel(configuration:configuration,prominent:prominent)
-    }
-}
-
-struct LumaButtonLabel: View {
-    let configuration: ButtonStyleConfiguration
-    let prominent: Bool
-    @Environment(\.isEnabled) private var enabled
-
-    var body: some View {
-        configuration.label
-            .font(.system(size:13,weight:prominent ? .medium:.regular))
-            .lineLimit(1)
             .padding(.horizontal,12)
-            .frame(minHeight:LumaControl.height)
-            .foregroundStyle(prominent ? Color.white:configuration.role == .destructive ? .red:.primary)
-            .background(prominent ? LumaPalette.accent:Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:LumaControl.cornerRadius))
-            .overlay {
-                if !prominent { RoundedRectangle(cornerRadius:LumaControl.cornerRadius).stroke(Color.primary.opacity(0.16),lineWidth:1) }
-            }
-            .contentShape(RoundedRectangle(cornerRadius:LumaControl.cornerRadius))
-            .opacity(!enabled ? 0.45:configuration.isPressed ? 0.7:1)
+            .frame(height:LumaControl.height)
+            .background(LumaPalette.tile,in:Capsule())
+            .overlay(Capsule().stroke(LumaPalette.accent,lineWidth:focused ? 2:0))
+            .opacity(enabled ? 1:0.45)
     }
 }
 
@@ -60,15 +32,14 @@ struct LumaMenu<Content: View>: View {
         } label: {
             HStack(spacing:8) {
                 Text(title).lineLimit(1).truncationMode(.middle).frame(maxWidth:.infinity,alignment:.leading)
-                Image(systemName:"chevron.down").font(.system(size:10,weight:.semibold)).foregroundStyle(.secondary).accessibilityHidden(true)
+                Image(systemName:"chevron.up.chevron.down").font(.system(size:9,weight:.bold)).foregroundStyle(.secondary).accessibilityHidden(true)
             }
             .font(.system(size:13))
             .foregroundStyle(.primary)
-            .padding(.horizontal,10)
+            .padding(.horizontal,12)
             .frame(height:LumaControl.height)
-            .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:LumaControl.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius:LumaControl.cornerRadius).stroke(Color.primary.opacity(0.16),lineWidth:1))
-            .contentShape(RoundedRectangle(cornerRadius:LumaControl.cornerRadius))
+            .background(LumaPalette.tile,in:Capsule())
+            .contentShape(Capsule())
             .opacity(enabled ? 1:0.45)
             .accessibilityElement(children:.ignore)
             .accessibilityLabel(title)

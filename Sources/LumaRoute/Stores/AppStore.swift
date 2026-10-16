@@ -10,7 +10,7 @@ enum AppPage: String, CaseIterable, Identifiable {
     case overview = "概览", subscriptions = "订阅", proxies = "代理", connections = "连接", rules = "规则", logs = "日志", settings = "设置"
     var id: String { rawValue }
     var icon: String {
-        switch self { case .overview:return "house"; case .subscriptions:return "doc.text"; case .proxies:return "point.3.connected.trianglepath.dotted"; case .connections:return "wifi"; case .rules:return "list.bullet.rectangle"; case .logs:return "terminal"; case .settings:return "gearshape" }
+        switch self { case .overview:return "gauge.with.dots.needle.50percent"; case .subscriptions:return "tray.full"; case .proxies:return "network"; case .connections:return "arrow.left.arrow.right"; case .rules:return "arrow.triangle.branch"; case .logs:return "doc.plaintext"; case .settings:return "gearshape" }
     }
 }
 // Keep a named result: the tuple variant crashes TaskGroup completion in the

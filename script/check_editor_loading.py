@@ -13,7 +13,7 @@ products=ROOT/'.build/out/Products/Release'
 components=WORK/'EditorComponents.swift'
 components.write_text((ROOT/'Sources/LumaRoute/Views/Components.swift').read_text().split('struct RootView:View')[0])
 command=['xcrun','swiftc','-O','-parse-as-library','-target','arm64-apple-macosx14.0','-sdk','/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk','-I',str(products),'-I',str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include')]
-command += [str(ROOT/p) for p in ['script/check_editor_loading.swift','Sources/LumaRoute/Views/CompositionRoutingEditor.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RoutingStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift','Sources/LumaRoute/Support/HelperClient.swift']]
+command += [str(ROOT/p) for p in ['script/check_editor_loading.swift','Sources/LumaRoute/Views/CompositionRoutingEditor.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RoutingStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift','Sources/LumaRoute/Support/HelperClient.swift','Sources/LumaRoute/Views/Theme.swift']]
 command += [str(components),str(ROOT/'Sources/LumaRoute/Views/Controls.swift')]
 command += [str(products/name) for name in ['LumaRouteCore.o','Yams.o','CYaml.o']]
 command += ['-o',str(app/'Contents/MacOS/EditorLoadingQA')]

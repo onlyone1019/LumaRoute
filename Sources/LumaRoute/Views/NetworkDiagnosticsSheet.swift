@@ -34,7 +34,7 @@ struct NetworkDiagnosticsSheet: View {
                 Spacer()
                 Button("关闭") { cancel(); dismiss() }.keyboardShortcut(.cancelAction)
                 if running { Button("取消检查") { cancel() } }
-                else { Button(checks.isEmpty ? "开始诊断":"重新诊断",action:start).buttonStyle(LumaPrimaryButtonStyle()) }
+                else { Button(checks.isEmpty ? "开始诊断":"重新诊断",action:start).buttonStyle(.borderedProminent) }
             }
         }.padding(24).frame(width:670)
          .onAppear { address = store.database.settings.testURL }

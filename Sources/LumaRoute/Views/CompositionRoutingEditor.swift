@@ -52,7 +52,7 @@ struct DomainRoutesEditor: View {
                             Button { routes.removeAll { $0.id == route.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除分流规则").accessibilityLabel("删除分流规则")
                         }
                         if route.enabled,let error = routeError(route) { Text(error).font(.caption).foregroundStyle(.red) }
-                    }.padding(10).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
+                    }.padding(12).background(LumaPalette.tile,in:RoundedRectangle(cornerRadius:10,style:.continuous))
                 }
                 Text("后缀包含域名及其子域名；关键词匹配域名中的文字。IP 网段只匹配已有目标 IP，不额外解析域名。应用路径使用可执行文件，进程名称和路径不区分大小写。").font(.caption).foregroundStyle(.secondary)
                 Divider()
@@ -180,7 +180,7 @@ private struct CompositionBatchSheet: View {
             Text("批量添加分流规则").font(.title2.bold())
             Text("每行一条匹配内容，使用下方统一匹配方式和出口。也可每行填写 TYPE,匹配内容，混合多种类型。").foregroundStyle(.secondary)
             Text("example.com\nDOMAIN-KEYWORD,video\nIP-CIDR,192.168.0.0/16").font(.system(.caption,design:.monospaced)).foregroundStyle(.secondary)
-            TextEditor(text:$text).font(.system(.body,design:.monospaced)).frame(minHeight:180).border(Color.secondary.opacity(0.3)).accessibilityLabel("批量规则内容")
+            TextEditor(text:$text).font(.system(.body,design:.monospaced)).scrollContentBackground(.hidden).padding(10).frame(minHeight:180).background(LumaPalette.tile,in:RoundedRectangle(cornerRadius:10,style:.continuous)).accessibilityLabel("批量规则内容")
             HStack {
                 LumaPicker("默认匹配方式",selection:$type,value:CompositionRouting.types.first { $0.value == type }?.label ?? type) { ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) } }.frame(width:180)
                 CompositionExitPicker(selection:$exit,profiles:profiles,policies:policies,policiesReady:policiesReady)
@@ -196,7 +196,7 @@ private struct CompositionBatchSheet: View {
                         let additions = try CompositionRouting.batch(text,type:type,profileID:id,target:target,existing:routes)
                         routes.append(contentsOf:additions); dismiss()
                     } catch { failure = Redactor.clean(error.localizedDescription) }
-                }.buttonStyle(LumaPrimaryButtonStyle()).keyboardShortcut(.defaultAction).disabled(!policiesReady)
+                }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!policiesReady)
             }
         }.padding(24).frame(width:620).onAppear { exit = profiles.first.map { "profile:"+$0.id.uuidString } ?? "policy:DIRECT" }
     }

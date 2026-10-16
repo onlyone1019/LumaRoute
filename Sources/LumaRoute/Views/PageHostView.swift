@@ -57,7 +57,7 @@ private struct HostedPage: View {
             case .settings: SettingsPage()
             }
         }
-        .tint(LumaPalette.accent).buttonStyle(LumaButtonStyle()).controlSize(.regular)
+        .controlSize(.large)
         .environment(\.colorScheme,store.database.settings.appearance == "light" ? .light:store.database.settings.appearance == "dark" ? .dark:systemColorScheme)
     }
 }

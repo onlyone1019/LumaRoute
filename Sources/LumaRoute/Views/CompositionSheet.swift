@@ -68,7 +68,7 @@ struct CompositionSheet: View {
                         do { try await store.saveComposition(proposed,activate:activate); dismiss() }
                         catch { failure = Redactor.clean(error.localizedDescription) }
                     }
-                }.buttonStyle(LumaPrimaryButtonStyle()).keyboardShortcut(.defaultAction).disabled(members.count < 2)
+                }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(members.count < 2)
             }
         }.padding(24).frame(width:790,height:650).disabled(store.busy)
     }
@@ -102,11 +102,10 @@ struct DomainRoutingView: View {
                             do { try await store.saveComposition(proposed,activate:true); failure = nil }
                             catch { failure = Redactor.clean(error.localizedDescription) }
                         }
-                    }.buttonStyle(LumaPrimaryButtonStyle()).disabled(store.busy || draft == composition.domainRoutes)
+                    }.buttonStyle(.borderedProminent).disabled(store.busy || draft == composition.domainRoutes)
                 }
             } else {
-                EmptyMessage(icon:"arrow.triangle.branch",title:"组合配置的分流规则",detail:"创建组合配置后，可将不同域名分别交给不同订阅。单订阅仍可使用自定义规则选择策略组。")
-                Button("前往订阅") { store.page = .subscriptions }
+                EmptyMessage(icon:"arrow.triangle.branch",title:"组合配置的分流规则",detail:"创建组合配置后，可将不同域名分别交给不同订阅。单订阅仍可使用自定义规则选择策略组。",actionTitle:"前往订阅",action:{ store.page = .subscriptions })
             }
         }.onAppear { if !initialized { draft = composition?.domainRoutes ?? []; initialized = true } }
          .onChange(of:store.database.activeProfileID) { _,_ in draft = composition?.domainRoutes ?? []; failure = nil }

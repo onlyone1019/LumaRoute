@@ -48,7 +48,7 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ## 界面展示
 
-以下图片由**当前 SwiftUI 界面组件使用演示数据离线渲染**，用于展示实际布局；其中订阅、节点、流量及连接均为示例，不包含真实账号或网络记录。早期设计稿另见 [design](design/)。
+以下图片是**当前版本真实窗口的截图**，使用演示数据；其中订阅、节点、流量及连接均为示例，不包含真实账号或网络记录。早期设计稿另见 [design](design/)。
 
 <table>
   <tr>
@@ -60,7 +60,7 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
     <td><strong>系统代理与 TUN</strong><br /><img src="docs/images/tun-settings.png" alt="网络设置演示：系统代理、TUN、协议栈与 DNS" /></td>
   </tr>
   <tr>
-    <td><strong>连接查看器</strong><br /><img src="docs/images/connections.png" alt="连接页演示：进程、目标、策略和流量" /></td>
+    <td><strong>连接查看器</strong><br /><img src="docs/images/connections.png" alt="连接页演示：进程、目标、策略、流量和连接详情" /></td>
     <td><strong>运行日志</strong><br /><img src="docs/images/logs.png" alt="日志页演示：级别、来源、搜索与诊断导出" /></td>
   </tr>
 </table>
@@ -191,7 +191,7 @@ LUMAROUTE_SIGNING_IDENTITY='Developer ID Application: 你的身份' \
 
 ### 1. 导入订阅
 
-在 **订阅 → 添加订阅** 中填写名称和链接；也可以导入文件，或把配置拖入订阅页的虚线区域。
+在 **订阅 → 添加订阅** 中填写名称和链接；也可以导入文件，或把配置文件拖到订阅页导入。
 
 - 订阅链接保存在本机 SQLite 数据库中。
 - 默认使用 Clash Meta 兼容 User-Agent；可为每个订阅单独指定。

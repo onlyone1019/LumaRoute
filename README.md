@@ -25,7 +25,7 @@
 
 LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihomo](https://github.com/MetaCubeX/mihomo)** 内核处理代理与分流。保留订阅提供的策略组和规则，同时提供本地覆盖、自动选择与菜单栏快捷操作。
 
-> 当前为开发预览版，提供 Apple Silicon 和 Intel 安装包，也支持本机自行构建。默认采用本地 ad-hoc 签名，无需购买 Apple 开发者证书；安装包未经过 Developer ID 签名与 Apple 公证。
+> 当前为开发预览版，提供 Apple Silicon 和 Intel 安装包，也支持本机自行构建。
 
 ## 功能一览
 
@@ -48,7 +48,7 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ## 界面展示
 
-以下图片是**当前版本真实窗口的截图**，使用演示数据；其中订阅、节点、流量及连接均为示例，不包含真实账号或网络记录。早期设计稿另见 [design](design/)。
+以下为使用演示数据的真实应用截图。
 
 <table>
   <tr>
@@ -79,8 +79,6 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 **当前预览版：[0.1.0 · Build 29](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.0-build.29)** · macOS 14+ · Apple Silicon / Intel
 
-Build 29 增加 MIT 署名与完整第三方许可、原创猫形菜单图标，以及可离线重建的 GEO 输入和完整生成依赖，并修复云端构建兼容性。详见 [Build 29 发布与验证记录](docs/build29-release-verification-2026-10-15.md)。
-
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
@@ -104,8 +102,8 @@ Build 29 增加 MIT 署名与完整第三方许可、原创猫形菜单图标，
 - **macOS 14 或更新版本**。
 - **Xcode 或 Apple Command Line Tools**，提供 Swift 编译器及 macOS SDK。
 - **Python 3**，用于取得和校验官方内核、调度 GEO 数据离线重建。
-- **Go 1.23 或更新版本**，首次从源码构建时用于从固定输入离线生成 GEO 数据；安装包用户无需安装 Go。
-- 首次构建需联网访问 GitHub，获取 Yams 依赖与 Mihomo 内核。GEO 数据使用仓库内固定输入离线重建。
+- **Go 1.23 或更新版本**，用于离线重建 GEO 数据；安装包用户无需安装 Go。
+- 首次构建需联网访问 GitHub，获取 Yams 依赖、Mihomo 内核与独立 GEO 附件。GEO 数据使用附件中的固定输入离线重建。
 
 脚本根据本机架构选择 `arm64` 或 `x86_64` 内核。现有运行验收在 Apple Silicon Mac 上完成。
 
@@ -123,7 +121,7 @@ cd LumaRoute
 ./script/build_and_run.sh --build-only
 ```
 
-构建脚本会取得所需依赖和内核，从独立 GEO 附件验证或离线重建数据，执行 Release 构建、生成应用图标，并对应用和内核进行本地 ad-hoc 签名。GEO 数据、可编辑输入、固定工具和完整依赖源码与应用源码分开管理，下载版本及 SHA-256 固定在清单中；私有仓库需提供 `GH_TOKEN` 或本地附件，见 [GEO 独立分发说明](Resources/GeoData/README.md)。生成的应用位于：
+构建脚本会下载并校验依赖、准备 GEO 数据，完成 Release 构建和本地 ad-hoc 签名。私有仓库需提供 `GH_TOKEN` 或本地 GEO 附件，见 [GEO 独立分发说明](Resources/GeoData/README.md)。生成的应用位于：
 
 ```text
 dist/LumaRoute.app
@@ -317,10 +315,6 @@ Build 21 起，应用业务数据统一保存在 `~/Library/Application Support/
 
 命令行验证产物路径取决于本机 Swift 构建系统；若上述路径不存在，可在相同构建配置和 SDK 下通过 `swift build --configuration release --show-bin-path` 查询。
 
-现有验证记录包括：**56 项原生回归、79 项内核集成、37 项规则订阅集成**，以及独立的内核维护、GEO、调度与生命周期检查。测速回归覆盖连续批次、失败、取消和立即重测。详细范围和证据以各文档为准。
-
-当前本机环境缺少 XCTest 模块，因此现有验证采用 CLI 原生回归和真实 Mihomo 集成，仓库中的 XCTest 源码不代表已经全量运行通过。实际登录自启、物理断网重连仍待完成验收。
-
 | 文档 | 内容 |
 | --- | --- |
 | [功能验收](docs/functional-verification.md) | 受控内核集成、网络接管与恢复 |
@@ -350,18 +344,11 @@ Resources/            # 图标、第三方许可及资源下载记录
 
 ## 致谢与第三方许可
 
-LumaRoute 自行编写的代码、文档与自有素材采用 [MIT License](LICENSE)，Copyright (c) 2026 onlyone1019。第三方组件保留原协议，完整范围及源码获取说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+LumaRoute 的自有代码、文档与素材采用 [MIT License](LICENSE)。第三方组件与数据遵循各自许可，完整声明及源码获取说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-- [Mihomo](https://github.com/MetaCubeX/mihomo)：代理内核，官方许可随应用附带，见 [Mihomo LICENSE](Resources/Licenses/Mihomo-LICENSE)。
-- [Yams](https://github.com/jpsim/Yams)：YAML 解析；构建时将其 LICENSE 复制到应用包。
+- [Mihomo](https://github.com/MetaCubeX/mihomo)：代理内核，见 [许可声明](Resources/Licenses/Mihomo-LICENSE)。
+- [Yams](https://github.com/jpsim/Yams)：YAML 解析。
 - [Loyalsoldier/clash-rules](https://github.com/Loyalsoldier/clash-rules)：可选的在线规则订阅来源。
-- 当前源码使用 [imagegen 生成的原创猫形菜单图标](Resources/MenuBar/README.md)。曾分发的 Build 17–28 包含 ClashX.Meta 历史素材，其 AGPL-3.0 声明见 [NOTICE](Resources/Licenses/ClashX-menu-icon-NOTICE.txt)。
-- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat)：预置 GEO 数据，逐来源署名、许可正文和授权边界见 [GEO 专项声明](Resources/Licenses/GeoData-NOTICE.md)。
+- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat)：预置 GEO 数据，见 [GEO 许可声明](Resources/Licenses/GeoData-NOTICE.md)。
 
-应用图标与早期设计稿保存在本仓库中。第三方代码、资源及规则库分别遵循其自身许可。
-
-Build 29 提供 Apple Silicon / Intel 两种架构；安装包、校验文件与对应源码材料见上方 Release。参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。CI 定义用于双架构构建与秘密扫描；只有实际运行通过后才能视为验证结果。
-
-Build 17、19、21、28 的 Release 与附件已备份后删除，仅保留 Build 29；所有 Git 标签和外部备份保留。GEO 的第三方声明已补入 Build 29 双架构包与源码附件，此前未明确授权的 biliintl / sharepoint 输入已替换为固定的 V2Ray MIT 与 ACL4SSR CC BY-SA 4.0 来源。
-
-应用内手动在线 GEO 更新与旧快照回退也会保留这两类许可明确的服务规则；下载、策略或内核校验失败则保留当前数据和内核运行状态。
+参与开发见 [贡献指南](CONTRIBUTING.md)，报告安全问题见 [安全政策](SECURITY.md)。

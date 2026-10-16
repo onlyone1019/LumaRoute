@@ -10,7 +10,7 @@ struct SettingsPage:View {
     var body:some View {
         VStack(spacing:16) {
             PageHeader(title:"设置") {
-                Picker("",selection:$store.settingsTab) { Text("通用").tag("通用"); Text("网络").tag("网络"); Text("更新与备份").tag("更新与备份") }.pickerStyle(.segmented).frame(width:360)
+                Picker("设置分类",selection:$store.settingsTab) { Text("通用").tag("通用"); Text("网络").tag("网络"); Text("更新与备份").tag("更新与备份") }.labelsHidden().pickerStyle(.segmented).frame(width:360)
             }
             ScrollView {
                 VStack(spacing:16) {
@@ -19,16 +19,16 @@ struct SettingsPage:View {
                         Panel {
                             VStack(alignment:.leading,spacing:12) {
                                 Text("启动与外观").font(.headline)
-                                NativeRow(title:"登录时启动") { Toggle("",isOn:$draft.autoLaunch).labelsHidden().toggleStyle(.switch) }
+                                NativeRow(title:"登录时启动") { Toggle("登录时启动",isOn:$draft.autoLaunch).labelsHidden().toggleStyle(.switch) }
                                 Divider()
-                                NativeRow(title:"启动后连接",detail:"开启后，将恢复上次保存的接管方式") { Toggle("",isOn:$draft.connectOnLaunch).labelsHidden().toggleStyle(.switch) }
+                                NativeRow(title:"启动后连接",detail:"开启后，将恢复上次保存的接管方式") { Toggle("启动后连接",isOn:$draft.connectOnLaunch).labelsHidden().toggleStyle(.switch) }
                                 Divider()
-                                NativeRow(title:"外观") { Picker("",selection:$draft.appearance) { Text("跟随系统").tag("system"); Text("浅色").tag("light"); Text("深色").tag("dark") }.frame(width:160) }
+                                NativeRow(title:"外观") { LumaPicker("外观",selection:$draft.appearance,value:["system":"跟随系统","light":"浅色","dark":"深色"][draft.appearance] ?? draft.appearance) { Text("跟随系统").tag("system"); Text("浅色").tag("light"); Text("深色").tag("dark") }.frame(width:160) }
                                 Divider()
                                 NativeRow(title:"测试并发数") { Stepper("\(draft.testConcurrency)",value:$draft.testConcurrency,in:1...16).frame(width:120) }
-                                NativeRow(title:"测试目标") { TextField("测试 URL",text:$draft.testURL).textFieldStyle(.roundedBorder).frame(width:340) }
-                                NativeRow(title:"代理端口") { TextField("",value:$draft.mixedPort,format:.number.grouping(.never)).textFieldStyle(.roundedBorder).frame(width:90) }
-                                NativeRow(title:"控制端口") { TextField("",value:$draft.controllerPort,format:.number.grouping(.never)).textFieldStyle(.roundedBorder).frame(width:90) }
+                                NativeRow(title:"测试目标") { TextField("测试 URL",text:$draft.testURL).textFieldStyle(LumaTextFieldStyle()).frame(width:340) }
+                                NativeRow(title:"代理端口") { TextField("",value:$draft.mixedPort,format:.number.grouping(.never)).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("代理端口").frame(width:90) }
+                                NativeRow(title:"控制端口") { TextField("",value:$draft.controllerPort,format:.number.grouping(.never)).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("控制端口").frame(width:90) }
                                 Text("连接快捷键：⌘⇧P · 关闭窗口后应用继续在菜单栏运行").font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -81,15 +81,15 @@ struct SettingsPage:View {
             Panel(padding:12) {
                 VStack(alignment:.leading,spacing:5) {
                     Text("系统代理").font(.headline)
-                    NativeRow(title:"系统代理",detail:"让遵循系统代理的应用通过代理连接",compact:true) { Toggle("",isOn:$draft.systemProxy).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"系统代理",detail:"让遵循系统代理的应用通过代理连接",compact:true) { Toggle("系统代理",isOn:$draft.systemProxy).labelsHidden().toggleStyle(.switch) }
                     Divider()
-                    NativeRow(title:"绕过地址",compact:true) { TextField("",text:Binding(get:{draft.bypass.joined(separator:", ")},set:{draft.bypass=$0.split(separator:",").map { $0.trimmingCharacters(in:.whitespaces) }})).textFieldStyle(.roundedBorder).frame(width:400) }
+                    NativeRow(title:"绕过地址",compact:true) { TextField("",text:Binding(get:{draft.bypass.joined(separator:", ")},set:{draft.bypass=$0.split(separator:",").map { $0.trimmingCharacters(in:.whitespaces) }})).textFieldStyle(LumaTextFieldStyle()).frame(width:400) }
                 }
             }
             Panel(padding:12) {
                 VStack(alignment:.leading,spacing:5) {
                     Text("TUN 模式").font(.headline)
-                    NativeRow(title:"启用 TUN",detail:"接管未使用系统代理的应用流量",compact:true) { Toggle("",isOn:$draft.tun).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"启用 TUN",detail:"接管未使用系统代理的应用流量",compact:true) { Toggle("启用 TUN",isOn:$draft.tun).labelsHidden().toggleStyle(.switch) }
                     Divider()
                     NativeRow(title:"后台服务",detail:"首次启用需要管理员授权",compact:true) {
                         StatusDot(active:store.serviceRunning)
@@ -97,34 +97,34 @@ struct SettingsPage:View {
                         if store.serviceSetup != .ready {
                             Button(store.serviceSetupButton) { store.installService(networkReady:true) }.disabled(store.busy || store.serviceInstalling)
                         }
-                        Menu("管理服务") {
+                        LumaMenu(title:"管理服务") {
                             Button("重新同步服务") { store.installService(networkReady:true) }.disabled(store.serviceInstalling)
                             Button("仅验证服务启动") { store.installService() }.disabled(store.serviceInstalling)
                             if store.helper.supportsPrivilegedService && store.helper.localInstallation == nil {
                                 Button("打开授权设置") { store.helper.openApproval() }
                             }
                             Button("卸载服务",role:.destructive) { store.uninstallService() }
-                        }.frame(width:110)
+                        }.frame(width:130)
                     }
                     Divider()
-                    NativeRow(title:"协议栈",compact:true) { Picker("",selection:$draft.stack) { Text("Mixed").tag("mixed"); Text("System").tag("system"); Text("gVisor").tag("gvisor"); Text("MIPS").tag("mips") }.frame(width:150) }
-                    NativeRow(title:"自动设置路由",compact:true) { Toggle("",isOn:$draft.autoRoute).labelsHidden().toggleStyle(.switch) }
-                    NativeRow(title:"自动识别出口网卡",compact:true) { Toggle("",isOn:$draft.autoDetectInterface).labelsHidden().toggleStyle(.switch) }
-                    NativeRow(title:"排除局域网地址",detail:"保持本地设备可访问",compact:true) { Toggle("",isOn:$draft.excludeLAN).labelsHidden().toggleStyle(.switch) }
-                    NativeRow(title:"MTU",compact:true) { TextField("",value:$draft.mtu,format:.number.grouping(.never)).textFieldStyle(.roundedBorder).frame(width:90) }
-                    NativeRow(title:"IPv6",compact:true) { Toggle("",isOn:$draft.ipv6).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"协议栈",compact:true) { LumaPicker("协议栈",selection:$draft.stack,value:["mixed":"Mixed","system":"System","gvisor":"gVisor","mips":"MIPS"][draft.stack] ?? draft.stack) { Text("Mixed").tag("mixed"); Text("System").tag("system"); Text("gVisor").tag("gvisor"); Text("MIPS").tag("mips") }.frame(width:150) }
+                    NativeRow(title:"自动设置路由",compact:true) { Toggle("自动设置路由",isOn:$draft.autoRoute).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"自动识别出口网卡",compact:true) { Toggle("自动识别出口网卡",isOn:$draft.autoDetectInterface).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"排除局域网地址",detail:"保持本地设备可访问",compact:true) { Toggle("排除局域网地址",isOn:$draft.excludeLAN).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"MTU",compact:true) { TextField("",value:$draft.mtu,format:.number.grouping(.never)).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("MTU").frame(width:90) }
+                    NativeRow(title:"IPv6",compact:true) { Toggle("IPv6",isOn:$draft.ipv6).labelsHidden().toggleStyle(.switch) }
                 }
             }
             Panel(padding:12) {
                 VStack(alignment:.leading,spacing:5) {
                     Text("DNS").font(.headline)
-                    NativeRow(title:"DNS 接管",compact:true) { Toggle("",isOn:$draft.dnsHijack).labelsHidden().toggleStyle(.switch) }
-                    NativeRow(title:"解析模式",compact:true) { Picker("",selection:$draft.fakeIP) { Text("Fake-IP").tag(true); Text("真实 IP").tag(false) }.frame(width:150) }
+                    NativeRow(title:"DNS 接管",compact:true) { Toggle("DNS 接管",isOn:$draft.dnsHijack).labelsHidden().toggleStyle(.switch) }
+                    NativeRow(title:"解析模式",compact:true) { LumaPicker("解析模式",selection:$draft.fakeIP,value:draft.fakeIP ? "Fake-IP":"真实 IP") { Text("Fake-IP").tag(true); Text("真实 IP").tag(false) }.frame(width:150) }
                     NativeRow(title:"系统 DNS",detail:"关闭 TUN 时恢复；不会覆盖其他软件后续的修改",compact:true) { Text(store.database.settings.tun ? "由授权服务管理":"未修改").foregroundStyle(.secondary) }
                 }
             }
             HStack { StatusDot(active:store.coreReady); Text(store.coreReady ? "内核运行正常":"内核尚未就绪").foregroundStyle(.secondary); Spacer(); Button("重新检查") { Task { await store.recheck() } } }.font(.caption)
-        }.font(.system(size:12)).controlSize(.small)
+        }.controlSize(.regular)
     }
 }
 

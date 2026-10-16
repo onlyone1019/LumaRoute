@@ -14,7 +14,7 @@ struct NetworkDiagnosticsSheet: View {
         VStack(alignment:.leading,spacing:16) {
             Text("网络诊断").font(.title2.bold())
             Text("依次检查内核、当前网络接管、DNS 和通过本机代理的真实访问，不修改配置。点击开始后会访问下方地址。").foregroundStyle(.secondary)
-            TextField("测试地址",text:$address).textFieldStyle(.roundedBorder).accessibilityLabel("诊断测试地址").disabled(running)
+            TextField("测试地址",text:$address).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("诊断测试地址").disabled(running)
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     ForEach(checks) { check in

@@ -13,24 +13,24 @@ struct RulesPage:View {
             PageHeader(title:"规则") {
                 if tab == "custom" { Button("添加规则") { draft.append(CustomRule()); tab="custom" }.buttonStyle(LumaPrimaryButtonStyle()) }
             }
-            HStack { SearchField(placeholder:"搜索域名、IP、应用或策略",text:$search); Picker("",selection:$tab) { Text("自定义规则").tag("custom"); Text("组合分流").tag("domains"); Text("应用分流").tag("apps"); Text("规则订阅").tag("providers"); Text("生效规则").tag("live") }.pickerStyle(.segmented).frame(width:500) }
+            HStack { SearchField(placeholder:"搜索域名、IP、应用或策略",text:$search); Picker("规则分类",selection:$tab) { Text("自定义规则").tag("custom"); Text("组合分流").tag("domains"); Text("应用分流").tag("apps"); Text("规则订阅").tag("providers"); Text("生效规则").tag("live") }.labelsHidden().pickerStyle(.segmented).frame(width:500) }
             if tab == "custom" {
-                HStack { Text("启用").frame(width:45); Text("类型").frame(width:140); Text("匹配内容").frame(maxWidth:.infinity,alignment:.leading); Text("目标策略").frame(width:180); Spacer().frame(width:45) }.foregroundStyle(.secondary)
+                HStack(spacing:8) { Text("启用").frame(width:30); Text("类型").frame(width:140,alignment:.leading); Text("匹配内容").frame(maxWidth:.infinity,alignment:.leading); Text("目标策略").frame(width:200,alignment:.leading); Spacer().frame(width:90) }.font(.caption).foregroundStyle(.secondary).padding(.horizontal,10)
                 List {
                     ForEach($draft) { $rule in
                         if search.isEmpty || rule.payload.localizedCaseInsensitiveContains(search) || rule.target.localizedCaseInsensitiveContains(search) || rule.type.localizedCaseInsensitiveContains(search) {
                         HStack {
-                            Toggle("",isOn:$rule.enabled).labelsHidden().frame(width:45)
-                            Picker("",selection:$rule.type) {
+                            Toggle("启用规则",isOn:$rule.enabled).labelsHidden().frame(width:30)
+                            LumaPicker("规则类型",selection:$rule.type,value:CompositionRouting.types.first { $0.value == rule.type }?.label ?? rule.type) {
                                 Text("域名").tag("DOMAIN"); Text("域名后缀").tag("DOMAIN-SUFFIX"); Text("域名关键词").tag("DOMAIN-KEYWORD"); Text("IP 网段").tag("IP-CIDR"); Text("IPv6 网段").tag("IP-CIDR6"); Text("进程名称").tag("PROCESS-NAME"); Text("进程路径").tag("PROCESS-PATH")
                             }.frame(width:140)
-                            TextField("匹配内容",text:$rule.payload).textFieldStyle(.roundedBorder)
-                            Picker("",selection:$rule.target) { Text("直连").tag("DIRECT"); Text("拒绝").tag("REJECT"); ForEach(store.groups) { Text($0.name).tag($0.name) } }.frame(width:180)
-                            VStack(spacing:2) {
-                                Button { moveRule(rule.id,direction:-1) } label:{ Image(systemName:"chevron.up") }.disabled(!search.isEmpty || draft.first?.id == rule.id)
-                                Button { moveRule(rule.id,direction:1) } label:{ Image(systemName:"chevron.down") }.disabled(!search.isEmpty || draft.last?.id == rule.id)
-                            }.buttonStyle(.borderless)
-                            Button { draft.removeAll { $0.id==rule.id } } label:{ Image(systemName:"trash") }.buttonStyle(.borderless)
+                            TextField("匹配内容",text:$rule.payload).textFieldStyle(LumaTextFieldStyle()).frame(minHeight:LumaControl.height).accessibilityLabel("规则匹配内容")
+                            LumaPicker("目标策略",selection:$rule.target,value:rule.target == "DIRECT" ? "直连":rule.target == "REJECT" ? "拒绝":rule.target) {
+                                Text("直连").tag("DIRECT"); Text("拒绝").tag("REJECT"); ForEach(store.groups) { Text($0.name).tag($0.name) }
+                                if !["DIRECT","REJECT"].contains(rule.target),!store.groups.contains(where:{$0.name == rule.target}) { Text("已失效："+rule.target).tag(rule.target) }
+                            }.frame(width:200)
+                            RuleOrderButtons(canMoveUp:search.isEmpty && draft.first?.id != rule.id,canMoveDown:search.isEmpty && draft.last?.id != rule.id,moveUp:{ moveRule(rule.id,direction:-1) },moveDown:{ moveRule(rule.id,direction:1) })
+                            Button { draft.removeAll { $0.id==rule.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除规则").accessibilityLabel("删除规则")
                         }.padding(.vertical,6)
                         .moveDisabled(!search.isEmpty)
                         }

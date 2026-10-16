@@ -23,7 +23,7 @@ struct CompositionSheet: View {
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
             Text(profile.composition == nil ? "新建组合配置":"编辑组合配置").font(.title2.bold())
-            TextField("组合名称",text:$profile.name).textFieldStyle(.roundedBorder).accessibilityLabel("组合名称")
+            TextField("组合名称",text:$profile.name).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("组合名称")
             ScrollView {
                 VStack(alignment:.leading,spacing:18) {
                     Panel(padding:12) {
@@ -42,12 +42,12 @@ struct CompositionSheet: View {
                     Panel(padding:12) {
                         VStack(alignment:.leading,spacing:10) {
                             Text("默认分流").font(.headline)
-                            Picker("基础配置",selection:Binding(get:{draft.baseProfileID?.uuidString ?? ""},set:{draft.baseProfileID = UUID(uuidString:$0)})) {
+                            LumaPicker("基础配置",selection:Binding(get:{draft.baseProfileID?.uuidString ?? ""},set:{draft.baseProfileID = UUID(uuidString:$0)}),value:members.first { $0.id == draft.baseProfileID }?.name ?? "选择基础订阅",showsLabel:true) {
                                 Text("选择基础订阅").tag("")
                                 ForEach(members) { Text($0.name).tag($0.id.uuidString) }
                             }
                             Text("沿用基础订阅的 DNS 和原有分流规则；下方分流规则优先生效。").font(.caption).foregroundStyle(.secondary)
-                            Picker("兜底出口",selection:Binding(get:{draft.fallbackProfileID?.uuidString ?? ""},set:{draft.fallbackProfileID = UUID(uuidString:$0)})) {
+                            LumaPicker("兜底出口",selection:Binding(get:{draft.fallbackProfileID?.uuidString ?? ""},set:{draft.fallbackProfileID = UUID(uuidString:$0)}),value:members.first { $0.id == draft.fallbackProfileID }?.name ?? "聚合节点（全部订阅）",showsLabel:true) {
                                 Text("聚合节点（全部订阅）").tag("")
                                 ForEach(members) { Text($0.name).tag($0.id.uuidString) }
                             }

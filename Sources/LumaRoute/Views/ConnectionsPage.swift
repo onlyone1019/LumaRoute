@@ -19,8 +19,8 @@ struct ConnectionsPage:View {
             PageHeader(title:"连接") { Label(store.coreReady ? "实时更新":"未连接内核",systemImage:"circle.fill").font(.caption).foregroundStyle(store.coreReady ? Color.green:Color.secondary); Button("刷新") { Task { await store.refreshConnectionsSnapshot() } }.disabled(store.busy || !store.coreReady); Button("关闭全部") { store.closeConnection(nil) }.disabled(store.connections.isEmpty) }
             HStack {
                 SearchField(placeholder:"搜索域名、进程、IP 或规则",text:$search)
-                Picker("协议",selection:$network) { Text("全部协议").tag("all"); Text("TCP").tag("tcp"); Text("UDP").tag("udp") }.frame(width:155)
-                Picker("策略",selection:$policy) { Text("全部策略").tag("all"); ForEach(policies,id:\.self) { Text($0).tag($0) } }.frame(width:190)
+                LumaPicker("协议",selection:$network,value:network == "all" ? "全部协议":network.uppercased()) { Text("全部协议").tag("all"); Text("TCP").tag("tcp"); Text("UDP").tag("udp") }.frame(width:155)
+                LumaPicker("策略",selection:$policy,value:policy == "all" ? "全部策略":policy) { Text("全部策略").tag("all"); ForEach(policies,id:\.self) { Text($0).tag($0) } }.frame(width:190)
             }
             HStack(spacing:14) {
                 Table(items,selection:$selection,sortOrder:$sortOrder) {

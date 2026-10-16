@@ -13,9 +13,9 @@ struct GroupStrategySheet: View {
             Text("策略设置").font(.title2.bold())
             Text(group.name).font(.headline)
             Form {
-                Picker("选择方式",selection:$draft.mode) { ForEach(GroupStrategyMode.allCases) { Text($0.label).tag($0) } }
+                LumaPicker("选择方式",selection:$draft.mode,value:draft.mode.label,showsLabel:true) { ForEach(GroupStrategyMode.allCases) { Text($0.label).tag($0) } }
                 if draft.mode != .subscription {
-                    Picker("候选范围",selection:$draft.candidateFilter) { Text("全部代理节点").tag(""); Text("仅日本节点").tag(GroupStrategy.japanFilter) }
+                    LumaPicker("候选范围",selection:$draft.candidateFilter,value:draft.candidateFilter.isEmpty ? "全部代理节点":"仅日本节点",showsLabel:true) { Text("全部代理节点").tag(""); Text("仅日本节点").tag(GroupStrategy.japanFilter) }
                     Stepper("测试间隔：\(draft.interval) 秒",value:$draft.interval,in:10...3600,step:10)
                     if draft.mode == .lowestLatency { Stepper("切换容差：\(draft.tolerance) ms",value:$draft.tolerance,in:0...1000,step:10) }
                     Text(draft.mode == .lowestLatency ? "定时测试候选节点。新节点的延迟改善超过容差时才切换，避免频繁跳动。" : "按原候选顺序优先使用第一个可用节点；当前节点不可用时切换到下一个。")

@@ -37,31 +37,31 @@ struct DomainRoutesEditor: View {
                     VStack(alignment:.leading,spacing:4) {
                         HStack(spacing:6) {
                             Toggle("启用分流规则",isOn:$route.enabled).labelsHidden().toggleStyle(.checkbox)
-                            Picker("匹配方式",selection:$route.type) {
+                            LumaPicker("匹配方式",selection:$route.type,value:CompositionRouting.types.first { $0.value == route.type }?.label ?? route.type) {
                                 ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) }
-                            }.labelsHidden().frame(width:118)
-                            TextField(CompositionRouting.types.first { $0.value == route.type }?.placeholder ?? "匹配内容",text:$route.domain).textFieldStyle(.roundedBorder).accessibilityLabel("分流匹配内容")
+                            }.frame(width:150)
+                            TextField(CompositionRouting.types.first { $0.value == route.type }?.placeholder ?? "匹配内容",text:$route.domain).textFieldStyle(LumaTextFieldStyle()).frame(minHeight:LumaControl.height).accessibilityLabel("分流匹配内容")
                             if route.type == "PROCESS-PATH" {
                                 Button { importing = route.id; filePicker = true } label:{ Image(systemName:"folder") }.help("选择应用的可执行文件路径").accessibilityLabel("选择应用")
                             }
-                            CompositionExitPicker(selection:Binding(get:{ selection(route) },set:{ setTarget(&route,$0) }),profiles:profiles,policies:policies,policiesReady:policiesReady).frame(width:180)
-                            VStack(spacing:1) {
-                                Button { move(route.id,by:-1) } label:{ Image(systemName:"chevron.up") }.disabled(routes.first?.id == route.id).accessibilityLabel("上移规则")
-                                Button { move(route.id,by:1) } label:{ Image(systemName:"chevron.down") }.disabled(routes.last?.id == route.id).accessibilityLabel("下移规则")
-                            }.buttonStyle(.borderless)
-                            Button { routes.removeAll { $0.id == route.id } } label:{ Image(systemName:"trash") }.buttonStyle(.borderless).accessibilityLabel("删除分流规则")
+                        }
+                        HStack(spacing:8) {
+                            Text("出口").font(.callout).foregroundStyle(.secondary).frame(width:44,alignment:.leading)
+                            CompositionExitPicker(selection:Binding(get:{ selection(route) },set:{ setTarget(&route,$0) }),profiles:profiles,policies:policies,policiesReady:policiesReady)
+                            RuleOrderButtons(canMoveUp:routes.first?.id != route.id,canMoveDown:routes.last?.id != route.id,moveUp:{ move(route.id,by:-1) },moveDown:{ move(route.id,by:1) })
+                            Button { routes.removeAll { $0.id == route.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除分流规则").accessibilityLabel("删除分流规则")
                         }
                         if route.enabled,let error = routeError(route) { Text(error).font(.caption).foregroundStyle(.red) }
-                    }
+                    }.padding(10).background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
                 }
                 Text("后缀包含域名及其子域名；关键词匹配域名中的文字。IP 网段只匹配已有目标 IP，不额外解析域名。应用路径使用可执行文件，进程名称和路径不区分大小写。").font(.caption).foregroundStyle(.secondary)
                 Divider()
                 DisclosureGroup("分流验证 · 当前草稿") {
                     VStack(alignment:.leading,spacing:8) {
-                        TextField("域名或目标 IP（如 api.example.com）",text:$host).textFieldStyle(.roundedBorder).accessibilityLabel("验证域名或 IP")
+                        TextField("域名或目标 IP（如 api.example.com）",text:$host).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("验证域名或 IP")
                         HStack {
-                            TextField("已解析 IP（可选）",text:$resolvedIP).textFieldStyle(.roundedBorder)
-                            TextField("进程名称或完整路径（可选）",text:$process).textFieldStyle(.roundedBorder)
+                            TextField("已解析 IP（可选）",text:$resolvedIP).textFieldStyle(LumaTextFieldStyle())
+                            TextField("进程名称或完整路径（可选）",text:$process).textFieldStyle(LumaTextFieldStyle())
                             Button("验证规则") { verify() }.disabled(!policiesReady)
                         }
                         if let verdict { Text(verdict).font(.callout).textSelection(.enabled).fixedSize(horizontal:false,vertical:true) }
@@ -144,8 +144,16 @@ private struct CompositionExitPicker: View {
     let policies: [String]
     let policiesReady: Bool
     private var known: Bool { selection.isEmpty || selection == "policy:DIRECT" || selection == "policy:REJECT" || policies.contains(where:{"policy:"+$0 == selection}) || profiles.contains(where:{"profile:"+$0.id.uuidString == selection}) }
+    private var selectedLabel: String {
+        if selection.isEmpty { return "选择出口" }
+        if selection == "policy:DIRECT" { return "直连" }
+        if selection == "policy:REJECT" { return "拒绝连接" }
+        if selection.hasPrefix("profile:"),let profile = profiles.first(where:{"profile:"+$0.id.uuidString == selection}) { return "订阅 · "+profile.name }
+        if selection.hasPrefix("policy:") { return (known || !policiesReady ? "":"已失效：")+String(selection.dropFirst(7)) }
+        return policiesReady ? "出口已失效":"所选订阅（加载中）"
+    }
     var body: some View {
-        Picker("分流出口",selection:$selection) {
+        LumaPicker("分流出口",selection:$selection,value:selectedLabel) {
             Text("选择出口").tag("")
             Section("订阅") { ForEach(profiles) { Text("订阅 · "+$0.name).tag("profile:"+$0.id.uuidString) } }
             Section("连接方式") { Text("直连").tag("policy:DIRECT"); Text("拒绝连接").tag("policy:REJECT") }
@@ -153,7 +161,7 @@ private struct CompositionExitPicker: View {
             if !known {
                 Text(!policiesReady ? (selection.hasPrefix("policy:") ? String(selection.dropFirst(7)):"所选订阅（加载中）"):"出口已失效").tag(selection)
             }
-        }.labelsHidden().disabled(!policiesReady)
+        }.disabled(!policiesReady)
     }
 }
 
@@ -174,7 +182,7 @@ private struct CompositionBatchSheet: View {
             Text("example.com\nDOMAIN-KEYWORD,video\nIP-CIDR,192.168.0.0/16").font(.system(.caption,design:.monospaced)).foregroundStyle(.secondary)
             TextEditor(text:$text).font(.system(.body,design:.monospaced)).frame(minHeight:180).border(Color.secondary.opacity(0.3)).accessibilityLabel("批量规则内容")
             HStack {
-                Picker("默认匹配方式",selection:$type) { ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) } }
+                LumaPicker("默认匹配方式",selection:$type,value:CompositionRouting.types.first { $0.value == type }?.label ?? type) { ForEach(CompositionRouting.types,id:\.value) { Text($0.label).tag($0.value) } }.frame(width:180)
                 CompositionExitPicker(selection:$exit,profiles:profiles,policies:policies,policiesReady:policiesReady)
             }
             if let failure { Text(failure).foregroundStyle(.red).fixedSize(horizontal:false,vertical:true) }

@@ -32,7 +32,7 @@ struct LumaRouteApp: App {
                 ForEach(LumaRouteCore.RouteMode.allCases) { mode in Button(mode.label+"模式") { store.setMode(mode) } }
             }
         }
-        Settings { SettingsPage().environmentObject(store).frame(width:780,height:760) }
+        Settings { SettingsPage().environmentObject(store).buttonStyle(LumaButtonStyle()).controlSize(.regular).frame(width:780,height:760) }
     }
 }
 import LumaRouteCore

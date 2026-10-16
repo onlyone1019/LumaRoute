@@ -128,8 +128,8 @@ struct ImportSubscriptionSheet:View {
     var body:some View {
         VStack(alignment:.leading,spacing:18) {
             Text("添加订阅").font(.title2.bold())
-            TextField("名称",text:$name).textFieldStyle(.roundedBorder)
-            TextField("订阅链接",text:$address).textFieldStyle(.roundedBorder)
+            TextField("名称",text:$name).textFieldStyle(LumaTextFieldStyle())
+            TextField("订阅链接",text:$address).textFieldStyle(LumaTextFieldStyle())
             Text("完整订阅链接仅保存在本机，不随普通备份导出").font(.caption).foregroundStyle(.secondary)
             SubscriptionUserAgentField(value:$userAgent)
             if let failure { SubscriptionFailureMessage(message:failure) }
@@ -180,7 +180,7 @@ struct SubscriptionUserAgentField:View {
     var body:some View {
         VStack(alignment:.leading,spacing:6) {
             Text("User-Agent").font(.callout.weight(.medium))
-            TextField("留空使用默认标识",text:$value).textFieldStyle(.roundedBorder).accessibilityLabel("User-Agent")
+            TextField("留空使用默认标识",text:$value).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("User-Agent")
             Text("默认："+SubscriptionFetcher.defaultUserAgent).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
         }
     }

@@ -86,19 +86,19 @@ private struct RuleSubscriptionSheet: View {
         VStack(alignment:.leading,spacing:18) {
             Text(item.revision == nil ? "添加规则订阅":"规则订阅设置").font(.title2.weight(.semibold))
             Form {
-                Picker("规则集",selection:$item.catalogID) { ForEach(available) { Text($0.title).tag($0.id) } }.disabled(item.revision != nil)
+                LumaPicker("规则集",selection:$item.catalogID,value:(try? RuleCatalogEntry.entry(item.catalogID).title) ?? item.catalogID,showsLabel:true) { ForEach(available) { Text($0.title).tag($0.id) } }.disabled(item.revision != nil)
                 if let entry=try? RuleCatalogEntry.entry(item.catalogID) {
                     Text(entry.detail).font(.caption).foregroundStyle(.secondary)
                     Text(entry.url.absoluteString).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
-                Picker("目标策略",selection:$item.target) {
+                LumaPicker("目标策略",selection:$item.target,value:item.target == "DIRECT" ? "直连 (DIRECT)":item.target == "REJECT" ? "拦截 (REJECT)":item.target,showsLabel:true) {
                     ForEach(store.ruleSubscriptionTargets,id:\.self) { Text($0 == "DIRECT" ? "直连 (DIRECT)":$0 == "REJECT" ? "拦截 (REJECT)":$0).tag($0) }
                     if !store.ruleSubscriptionTargets.contains(item.target) { Text("已失效："+item.target).tag(item.target) }
                 }
-                Picker("匹配优先级",selection:$item.priority) { ForEach(RuleSubscriptionPriority.allCases) { Text($0.label).tag($0) } }
+                LumaPicker("匹配优先级",selection:$item.priority,value:item.priority.label,showsLabel:true) { ForEach(RuleSubscriptionPriority.allCases) { Text($0.label).tag($0) } }
                 Text(item.priority == .supplement ? "机场已命中的流量保持原分流，只有未命中的流量才尝试此规则集。":"此规则集会先于机场规则匹配，可能改变机场对相关流量的分流。").font(.caption).foregroundStyle(item.priority == .override ? .orange:Color.secondary)
                 Toggle("自动更新",isOn:$item.autoUpdate)
-                Picker("更新间隔",selection:$item.intervalHours) { ForEach([1,6,12,24,48,168],id:\.self) { Text("\($0) 小时").tag($0) } }.disabled(!item.autoUpdate)
+                LumaPicker("更新间隔",selection:$item.intervalHours,value:"\(item.intervalHours) 小时",showsLabel:true) { ForEach([1,6,12,24,48,168],id:\.self) { Text("\($0) 小时").tag($0) } }.disabled(!item.autoUpdate)
             }
             if let error { Text(error).foregroundStyle(.red).font(.callout).textSelection(.enabled) }
             HStack {

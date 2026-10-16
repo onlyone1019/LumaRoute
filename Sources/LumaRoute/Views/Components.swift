@@ -7,12 +7,8 @@ enum LumaPalette {
     static let border = Color.primary.opacity(0.09)
 }
 struct LumaPrimaryButtonStyle:ButtonStyle {
-    @Environment(\.isEnabled) private var enabled
     func makeBody(configuration:Configuration)->some View {
-        configuration.label.font(.system(size:13,weight:.medium)).foregroundStyle(.white)
-            .padding(.horizontal,15).frame(height:32)
-            .background(enabled ? LumaPalette.accent:Color.secondary.opacity(0.35),in:RoundedRectangle(cornerRadius:7))
-            .opacity(configuration.isPressed ? 0.78:1)
+        LumaButtonLabel(configuration:configuration,prominent:true)
     }
 }
 
@@ -33,7 +29,7 @@ struct SearchField:View {
         HStack(spacing:7) {
             Image(systemName:"magnifyingglass").font(.system(size:12)).foregroundStyle(.secondary)
             TextField(placeholder,text:$text).textFieldStyle(.plain).accessibilityLabel(placeholder)
-        }.padding(.horizontal,9).frame(height:30)
+        }.padding(.horizontal,10).frame(height:LumaControl.height)
             .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:6))
             .overlay(RoundedRectangle(cornerRadius:6).stroke(LumaPalette.border,lineWidth:1))
     }
@@ -45,7 +41,7 @@ struct PageHeader<Actions:View>:View {
     var body:some View {
         HStack(alignment:.center,spacing:16) {
             VStack(alignment:.leading,spacing:4) { Text(title).font(.system(size:23,weight:.semibold)); if let subtitle { Text(subtitle).font(.callout).foregroundStyle(.secondary) } }
-            Spacer(); actions
+            Spacer(); HStack(spacing:8) { actions }.fixedSize(horizontal:true,vertical:false)
         }.frame(minHeight:36).padding(.bottom,2)
     }
 }
@@ -70,10 +66,10 @@ struct NativeRow<Controls:View>:View {
     var compact = false
     @ViewBuilder var controls:Controls
     var body:some View {
-        HStack {
-            VStack(alignment:.leading,spacing:compact ? 2:3) { Text(title); if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) } }
-            Spacer(); controls
-        }.padding(.vertical,compact ? 1:3)
+        HStack(spacing:16) {
+            VStack(alignment:.leading,spacing:compact ? 2:3) { Text(title); if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true) } }
+            Spacer(minLength:12); HStack(spacing:8) { controls }.fixedSize(horizontal:true,vertical:false)
+        }.frame(minHeight:LumaControl.height).padding(.vertical,compact ? 2:3)
     }
 }
 struct RootView:View {
@@ -109,7 +105,7 @@ struct RootView:View {
                     }.padding(12).background(.regularMaterial,in:RoundedRectangle(cornerRadius:10)).padding(16) }
                 }
             }.frame(maxWidth:.infinity,maxHeight:.infinity).background(.background)
-        }.tint(LumaPalette.accent).buttonStyle(.bordered).controlSize(.regular)
+        }.tint(LumaPalette.accent).buttonStyle(LumaButtonStyle()).controlSize(.regular)
     }
 }
 struct SidebarView:View {

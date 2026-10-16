@@ -35,13 +35,13 @@ struct ProxiesPage: View {
             HStack {
                 Picker("代理模式",selection:Binding(get:{store.database.settings.mode},set:{store.setMode($0)})) {
                     ForEach(RouteMode.allCases) { Text($0.label).tag($0) }
-                }.pickerStyle(.segmented).frame(width:200)
+                }.labelsHidden().pickerStyle(.segmented).frame(width:200)
                 Spacer()
-                Picker("地区",selection:$filter.region) { Text("全部地区").tag("全部地区"); Text("日本").tag("日本") }.labelsHidden().frame(width:150)
-                Picker("来源",selection:$filter.source) {
+                LumaPicker("地区",selection:$filter.region,value:filter.region) { Text("全部地区").tag("全部地区"); Text("日本").tag("日本") }.frame(width:150)
+                LumaPicker("来源",selection:$filter.source,value:filter.source) {
                     Text("全部来源").tag("全部来源")
                     ForEach(Array(Set(store.proxies.values.filter { !$0.isGroup }.map { $0.providerName ?? store.activeProfile?.name ?? "配置" })).sorted(),id:\.self) { Text($0).tag($0) }
-                }.labelsHidden().frame(width:180)
+                }.frame(width:180)
             }.controlSize(.regular).padding(.vertical,4)
             if store.groups.isEmpty { EmptyMessage(title:"尚无策略组",detail:"导入并启用订阅后，策略组与节点会显示在这里。") }
             else {

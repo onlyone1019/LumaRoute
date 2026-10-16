@@ -16,16 +16,16 @@ struct RoutingRuleSheet: View {
         VStack(alignment:.leading,spacing:16) {
             Text(isApplication ? "应用分流":"从连接创建分流").font(.title2.bold())
             Text("生效配置："+(store.activeProfile?.name ?? "未选择")).foregroundStyle(.secondary)
-            Picker("匹配方式",selection:$rule.type) {
+            LumaPicker("匹配方式",selection:$rule.type,value:CompositionRouting.types.first { $0.value == rule.type }?.label ?? rule.type,showsLabel:true) {
                 if isApplication { Text("完整进程路径").tag("PROCESS-PATH"); Text("进程名称").tag("PROCESS-NAME") }
                 else { Text("完整域名").tag("DOMAIN"); Text("域名及子域名").tag("DOMAIN-SUFFIX"); Text("IPv4 地址 / 网段").tag("IP-CIDR"); Text("IPv6 地址 / 网段").tag("IP-CIDR6") }
             }
             HStack {
-                TextField(isApplication ? "可执行文件路径或进程名称":"域名或 IP 网段",text:$rule.payload).textFieldStyle(.roundedBorder).accessibilityLabel("分流匹配内容")
+                TextField(isApplication ? "可执行文件路径或进程名称":"域名或 IP 网段",text:$rule.payload).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("分流匹配内容")
                 if isApplication { Button("选择应用…") { importing = true } }
             }
             if isApplication { Text("选择应用会填入主进程路径。浏览器等应用可能使用辅助进程，请从实际连接创建对应规则，或填写辅助进程名称。").font(.caption).foregroundStyle(.secondary) }
-            Picker("目标出口",selection:$rule.target) {
+            LumaPicker("目标出口",selection:$rule.target,value:store.routingTargets.first { $0.name == rule.target }?.label ?? "原目标已不存在："+rule.target,showsLabel:true) {
                 ForEach(store.routingTargets,id:\.name) { Text($0.label).tag($0.name) }
                 if !store.routingTargets.contains(where:{$0.name == rule.target}) { Text("原目标已不存在："+rule.target).tag(rule.target) }
             }

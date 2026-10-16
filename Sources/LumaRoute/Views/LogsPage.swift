@@ -23,8 +23,8 @@ struct LogsPage:View {
             }
             HStack {
                 SearchField(placeholder:"搜索日志",text:$search)
-                Picker("",selection:$level) { Text("全部级别").tag("全部级别"); Text("信息").tag("info"); Text("警告").tag("warning"); Text("错误").tag("error") }.frame(width:150)
-                Picker("",selection:$source) {
+                LumaPicker("日志级别",selection:$level,value:["info":"信息","warning":"警告","error":"错误"][level] ?? level) { Text("全部级别").tag("全部级别"); Text("信息").tag("info"); Text("警告").tag("warning"); Text("错误").tag("error") }.frame(width:150)
+                LumaPicker("日志来源",selection:$source,value:source) {
                     Text("全部来源").tag("全部来源")
                     ForEach(Array(Set(store.logs.map(\.source))).sorted(),id:\.self) { Text($0).tag($0) }
                 }.frame(width:150)

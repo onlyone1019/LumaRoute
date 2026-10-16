@@ -51,7 +51,7 @@ private struct RuleSubscriptionRow: View {
     let edit: () -> Void
     var body: some View {
         Panel {
-            HStack(alignment:.top,spacing:12) {
+            HStack(alignment:.center,spacing:12) {
                 Toggle("启用规则订阅",isOn:Binding(get:{item.enabled},set:{ value in
                     var next=item; next.enabled=value; store.perform { try await store.saveRuleSubscription(next) }
                 })).labelsHidden().toggleStyle(.switch).controlSize(.small).disabled(store.busy)
@@ -68,7 +68,7 @@ private struct RuleSubscriptionRow: View {
                     Button("下移") { store.perform { try await store.moveRuleSubscription(item,direction:1) } }.disabled(last)
                     Divider()
                     Button("删除规则订阅",role:.destructive) { store.perform { try await store.deleteRuleSubscription(item) } }
-                } label: { Image(systemName:"ellipsis") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("规则订阅更多操作")
+                } label: { Image(systemName:"ellipsis").frame(width:28,height:28).contentShape(Rectangle()) }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("规则订阅更多操作")
             }.disabled(store.busy)
         }
     }

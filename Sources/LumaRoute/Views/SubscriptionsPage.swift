@@ -56,7 +56,7 @@ struct SubscriptionsPage:View {
             Image(systemName:"arrow.triangle.2.circlepath").font(.system(size:16)).foregroundStyle(.secondary)
             VStack(alignment:.leading,spacing:2) {
                 Text(!store.database.profiles.contains(where:{$0.isRemote}) ? "本地配置无需自动更新":store.refreshTask?.isCancelled == false ? "自动更新已开启":"自动更新尚未启动").font(.system(size:13,weight:.medium))
-                Text("订阅更新失败时保留上次可用配置 · 也可以把配置文件直接拖入窗口导入").font(.system(size:12)).foregroundStyle(.secondary)
+                Text("订阅更新失败时保留上次可用配置 · 也可以把配置文件拖到此页导入").font(.system(size:12)).foregroundStyle(.secondary)
             }
             Spacer(); Button("管理备份") { store.settingsTab = "更新与备份"; store.page = .settings }
         }

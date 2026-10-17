@@ -33,7 +33,9 @@ if [[ "$SDK_PATH" == *MacOSX27* ]] && [ -d /Library/Developer/CommandLineTools/S
 fi
 BUILD_CONFIGURATION="${LUMAROUTE_BUILD_CONFIGURATION:-release}"
 if [ "$MODE" = "--debug" ]; then BUILD_CONFIGURATION=debug; fi
-BUILD_ARGS=(--configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH")
+# SwiftBuild may resolve an explicit macOS SDK path to the newest SDK.
+# Keep the selected SDK for every compiler and the linker.
+BUILD_ARGS=(--build-system native --configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH")
 SCRATCH_DIR="$ROOT_DIR/.build"
 if [ -n "${LUMAROUTE_ARCH:-}" ]; then
   SCRATCH_DIR="$ROOT_DIR/.build/$ARCH"

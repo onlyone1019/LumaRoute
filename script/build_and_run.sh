@@ -3,6 +3,7 @@ set -euo pipefail
 MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/script/build_environment.sh"
 APP_NAME="LumaRoute"
 BUNDLE_ID="app.lumaroute.desktop"
 APP_BUNDLE="$ROOT_DIR/dist/LumaRoute.app"
@@ -24,25 +25,17 @@ if [ "$MODE" != "--build-only" ]; then
 fi
 if [ ! -x "Resources/Core/mihomo-$ARCH" ]; then python3 script/fetch_core.py; fi
 python3 script/fetch_geodata.py
-SDK_PATH="${LUMAROUTE_SDK:-$(xcrun --show-sdk-path)}"
-SDK_PATH="$(cd "$SDK_PATH" && pwd -P)"
-# CLT 27 ships State macros without the SwiftUIMacros plugin. Use the installed
-# stable SDK in this case; never change the user's global developer directory.
-if [[ "$SDK_PATH" == *MacOSX27* ]] && [ -d /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ] && [ ! -f /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib ]; then
-  SDK_PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
-fi
 BUILD_CONFIGURATION="${LUMAROUTE_BUILD_CONFIGURATION:-release}"
 if [ "$MODE" = "--debug" ]; then BUILD_CONFIGURATION=debug; fi
-# SwiftBuild may resolve an explicit macOS SDK path to the newest SDK.
-# Keep the selected SDK for every compiler and the linker.
-BUILD_ARGS=(--build-system native --configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH")
+BUILD_ARGS=(--build-system native --configuration "$BUILD_CONFIGURATION" --sdk "$SDK_PATH" --triple "$ARCH-apple-macosx14.0")
 SCRATCH_DIR="$ROOT_DIR/.build"
 if [ -n "${LUMAROUTE_ARCH:-}" ]; then
   SCRATCH_DIR="$ROOT_DIR/.build/$ARCH"
-  BUILD_ARGS+=(--triple "$ARCH-apple-macosx14.0" --scratch-path "$SCRATCH_DIR")
+  BUILD_ARGS+=(--scratch-path "$SCRATCH_DIR")
 fi
 swift build "${BUILD_ARGS[@]}"
 BUILD_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+python3 script/verify_macos_sdk.py "$BUILD_DIR/LumaRoute" "$BUILD_DIR/LumaRouteHelper" "$BUILD_DIR/LumaRouteCLI"
 for product in LumaRoute LumaRouteHelper; do
   [ "$(/usr/bin/lipo -archs "$BUILD_DIR/$product")" = "$ARCH" ] || { echo "构建产物架构不匹配：$product" >&2; exit 1; }
 done
@@ -71,8 +64,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>LumaRoute</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.5</string>
-<key>CFBundleVersion</key><string>35</string>
+<key>CFBundleShortVersionString</key><string>0.1.6</string>
+<key>CFBundleVersion</key><string>36</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

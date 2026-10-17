@@ -3,11 +3,14 @@
 Build the package first; --products points to isolated Debug/Release products.
 Only the surrounding AppStore fields/network effects are replaced by a fixture.
 """
+from build_environment import configure
 from pathlib import Path
 import argparse
 import plistlib
 import subprocess
 import tempfile
+
+SDK = configure()
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
@@ -41,7 +44,7 @@ import LumaRouteCore
 ''' + state + document)
     binary = work / 'version-check'
     products = args.products.resolve()
-    command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-I', str(products),
+    command = ['xcrun', 'swiftc', '-sdk', SDK, '-O', '-parse-as-library', '-I', str(products),
                '-I', str(ROOT / '.build/checkouts/Yams/Sources/CYaml/include'),
                str(source), str(ROOT / 'script/check_version_info.swift')]
     command += [str(products / name) for name in ['LumaRouteCore.o', 'Yams.o', 'CYaml.o']]

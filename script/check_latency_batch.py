@@ -1,10 +1,13 @@
 """Exercise the real GUI AppStore against a loopback-only fake Mihomo API."""
+from build_environment import configure
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import subprocess
 import threading
 import time
+
+SDK = configure()
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work/latency-crash-2026-10-14"
@@ -32,7 +35,7 @@ server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 products = ROOT / ".build/out/Products/Release"
 binary = WORK / "check-latency-batch"
-command = ["xcrun", "swiftc", "-O", "-g", "-parse-as-library", "-target", "arm64-apple-macosx14.0", "-sdk", "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk", "-I", str(products), "-I", str(ROOT / ".build/checkouts/Yams/Sources/CYaml/include")]
+command = ["xcrun", "swiftc", "-O", "-g", "-parse-as-library", "-target", "arm64-apple-macosx14.0", "-sdk", SDK, "-I", str(products), "-I", str(ROOT / ".build/checkouts/Yams/Sources/CYaml/include")]
 command += [str(ROOT / name) for name in ["script/check_latency_batch.swift", "Sources/LumaRoute/Stores/AppStore.swift", "Sources/LumaRoute/Stores/RuleSubscriptionStore.swift", "Sources/LumaRoute/Stores/RuntimeData.swift", "Sources/LumaRoute/Support/HelperClient.swift"]]
 command += [str(products / name) for name in ["LumaRouteCore.o", "Yams.o", "CYaml.o"]]
 command += ["-o", str(binary)]

@@ -3,6 +3,7 @@
 Run --baseline before editing, then run without it. Inputs are synthetic; reports
 and frozen baseline sources stay in git-ignored work/memory-optimization-2026-10-16.
 """
+from build_environment import configure
 from pathlib import Path
 import argparse
 import fcntl
@@ -11,6 +12,8 @@ import plistlib
 import shutil
 import subprocess
 import time
+
+SDK = configure()
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / 'work/memory-optimization-2026-10-16'
@@ -41,7 +44,7 @@ app = WORK / (label + '.app')
 (app / 'Contents/MacOS').mkdir(parents=True, exist_ok=True)
 command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-target',
            'arm64-apple-macosx14.0', '-sdk',
-           '/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk',
+           SDK,
            '-I', str(products), '-I', str(ROOT / '.build/checkouts/Yams/Sources/CYaml/include')]
 if not args.baseline:
     command += ['-D', 'MEMORY_OPTIMIZED']

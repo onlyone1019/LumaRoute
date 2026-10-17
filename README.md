@@ -77,21 +77,21 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前正式版：[0.1.5 · Build 35](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.5)** · macOS 14+ · Apple Silicon / Intel
+**当前正式版：[0.1.6 · Build 36](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.6)** · macOS 14+ · Apple Silicon / Intel
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.5/LumaRoute-0.1.5-build.35-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.5/LumaRoute-0.1.5-build.35-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.5/LumaRoute-0.1.5-build.35-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.5/LumaRoute-0.1.5-build.35-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.5/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.6/LumaRoute-0.1.6-build.36-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.6/LumaRoute-0.1.6-build.36-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.6/LumaRoute-0.1.6-build.36-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.6/LumaRoute-0.1.6-build.36-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.6/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.5 发布说明](docs/releases/v0.1.5.md)。
+这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.6 发布说明](docs/releases/v0.1.6.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
@@ -99,18 +99,18 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 ### 环境要求
 
-- **macOS 14 或更新版本**。
-- **包含 Swift 6.0 或更新编译器的 Xcode 或 Apple Command Line Tools**，提供 macOS SDK。应用、Core、Helper、CLI 和测试 target 均使用 Swift 6 语言模式。
+- **应用运行需要 macOS 14 或更新版本**；源码构建主机需满足所用 Xcode 27 的系统要求。
+- **完整 Xcode 27 工具链和 macOS 27.0 SDK**，包含 SwiftUI 宏插件。应用、Core、Helper、CLI 和测试 target 均使用 Swift 6 语言模式；最低运行系统仍为 macOS 14。
 - **Python 3**，用于取得和校验官方内核、调度 GEO 数据离线重建。
 - **Go 1.23 或更新版本**，用于离线重建 GEO 数据；安装包用户无需安装 Go。
 - 首次构建需联网访问 GitHub，获取 Yams 依赖、Mihomo 内核与独立 GEO 附件。GEO 数据使用附件中的固定输入离线重建。
 
 脚本根据本机架构选择 `arm64` 或 `x86_64` 内核。现有运行验收在 Apple Silicon Mac 上完成。
 
-如果还没有安装命令行开发工具：
+安装完整 Xcode 并完成首次启动。默认使用 `/Applications/Xcode.app`；如安装在其他位置，为当前终端指定开发目录：
 
 ```sh
-xcode-select --install
+export DEVELOPER_DIR="/path/to/Xcode.app/Contents/Developer"
 ```
 
 ### 从源码构建
@@ -166,13 +166,13 @@ LUMAROUTE_ARCH=x86_64 ./script/build_and_run.sh --build-only
 <details>
   <summary>高级构建选项</summary>
 
-指定已安装的 SDK：
+指定另一份已安装的 macOS 27.0 SDK：
 
 ```sh
-LUMAROUTE_SDK="/path/to/MacOSX.sdk" ./script/build_and_run.sh --build-only
+LUMAROUTE_SDK="/path/to/MacOSX27.0.sdk" ./script/build_and_run.sh --build-only
 ```
 
-脚本会检查已安装 SDK；CLT 27 缺少 SwiftUI 宏插件且本机装有 26.5 SDK 时，会采用 26.5 SDK，不修改全局 Xcode 配置。最低运行版本与构建 SDK 版本是两项独立设置。
+构建与验证脚本共同使用 `script/build_environment.sh`，将 `SDKROOT` 和 `--sdk` 固定为同一份 macOS 27.0 SDK，并检查最终可执行文件的 SDK 标记为 27.0、最低版本为 14.0。SDK 版本不匹配或缺少 SwiftUI 宏插件时直接报错，不再退回旧 SDK，也不修改全局 Xcode 配置。
 
 如已准备好有效的 Developer ID 身份，可指定签名身份：
 
@@ -311,11 +311,17 @@ Build 21 起，应用业务数据统一保存在 `~/Library/Application Support/
 # 先生成 Release 构建产物
 ./script/build_and_run.sh --build-only
 
+# 单元测试使用相同的 SDK 和完整 Xcode
+source script/build_environment.sh
+swift test --build-system native --sdk "$SDKROOT"
+
 # 原生回归检查
-.build/out/Products/Release/LumaRouteCLI verify
+BUILD_DIR="$(swift build --build-system native --configuration release --sdk "$SDKROOT" --triple "$(uname -m)-apple-macosx14.0" --show-bin-path)"
+codesign --force --sign - "$BUILD_DIR/LumaRouteCLI"
+"$BUILD_DIR/LumaRouteCLI" verify
 ```
 
-命令行验证产物路径取决于本机 Swift 构建系统；若上述路径不存在，可在相同构建配置和 SDK 下通过 `swift build --configuration release --show-bin-path` 查询。
+架构构建使用独立的 `.build/arm64` 或 `.build/x86_64` 目录，查询其产物时增加相应的 `--scratch-path`。打包脚本第二个参数可指定独立输出目录，用于本地验证并保留已有 Release 附件。
 
 | 文档 | 内容 |
 | --- | --- |

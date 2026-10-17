@@ -5,6 +5,7 @@ cd "$ROOT_DIR"
 APP="${1:-$ROOT_DIR/dist/LumaRoute.app}"
 [ -d "$APP" ] || { echo '请先运行 ./script/build_and_run.sh --build-only' >&2; exit 1; }
 /usr/bin/codesign --verify --deep --strict "$APP"
+python3 script/verify_macos_sdk.py "$APP/Contents/MacOS/LumaRoute" "$APP/Contents/Library/LaunchServices/LumaRouteHelper"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
 BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")
 ARCH=$(/usr/bin/lipo -archs "$APP/Contents/MacOS/LumaRoute")
@@ -16,7 +17,7 @@ for file in Contents/Resources/install-local-network-service.command Contents/Re
   [ -x "$APP/$file" ] || { echo "缺少可执行安装资源：$file" >&2; exit 1; }
 done
 TAG="v$VERSION-build.$BUILD"
-OUTPUT="$ROOT_DIR/dist/releases/$TAG"
+OUTPUT="${2:-$ROOT_DIR/dist/releases/$TAG}"
 STEM="LumaRoute-$VERSION-build.$BUILD-macos-$ARCH"
 mkdir -p "$OUTPUT"
 for suffix in dmg zip; do

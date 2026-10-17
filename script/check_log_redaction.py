@@ -3,10 +3,13 @@
 Instrumentation exists only in temporary source copies. No app, core process,
 privileged service, build products or system network settings are used.
 """
+from build_environment import configure
 from pathlib import Path
 import argparse
 import subprocess
 import tempfile
+
+SDK = configure()
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
@@ -40,6 +43,6 @@ with tempfile.TemporaryDirectory(prefix='lumaroute-log-redaction-') as directory
 }
 ''')
     binary = work / 'log-redaction-check'
-    subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', str(source),
+    subprocess.run(['xcrun', 'swiftc', '-sdk', SDK, '-O', '-parse-as-library', str(source),
                     str(ROOT / 'script/check_log_redaction.swift'), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=20)

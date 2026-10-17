@@ -8,6 +8,7 @@ Use --preparation-check for YAML/metadata/UI-heartbeat regressions, and
 """
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from build_environment import configure
 from pathlib import Path
 import argparse
 import json
@@ -98,7 +99,7 @@ try:
         work = Path(directory)
         subscription_file = work / 'subscription.yaml'
         products = args.products.resolve()
-        sdk = args.sdk or subprocess.check_output(['xcrun', '--show-sdk-path'], text=True).strip()
+        sdk = configure(args.sdk)
         store = work / 'AppStore.swift'
         store.write_text(subprocess.check_output(['git', 'show', 'HEAD:Sources/LumaRoute/Stores/AppStore.swift'], cwd=ROOT, text=True)
                          if args.baseline else (args.source_root / 'Sources/LumaRoute/Stores/AppStore.swift').read_text())

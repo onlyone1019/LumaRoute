@@ -3,6 +3,7 @@
 Build the package first. --products selects an isolated build's product folder.
 --baseline checks the current HEAD controller against the same regression cases.
 """
+from build_environment import configure
 from pathlib import Path
 import argparse
 import subprocess
@@ -11,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, default=ROOT / '.build/out/Products/Release')
-parser.add_argument('--sdk', help='SDK used to build the selected products; defaults to the active SDK')
+parser.add_argument('--sdk', help='Path to another macOS 27.0 SDK; defaults to the pinned Xcode SDK')
 parser.add_argument('--baseline', action='store_true')
 args = parser.parse_args()
 
@@ -32,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='lumaroute-helper-apply-') as directory:
     generated.write_text('import Foundation\nimport LumaRouteCore\n' + controller)
     binary = work / 'apply-recovery-check'
     products = args.products.resolve()
-    sdk = args.sdk or subprocess.check_output(['xcrun', '--show-sdk-path'], text=True).strip()
+    sdk = configure(args.sdk)
     command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-target', 'arm64-apple-macosx14.0',
                '-sdk', sdk, '-I', str(products),
                '-I', str(ROOT / '.build/checkouts/Yams/Sources/CYaml/include'),

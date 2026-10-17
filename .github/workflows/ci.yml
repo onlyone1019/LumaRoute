@@ -10,7 +10,9 @@ permissions:
 
 jobs:
   swift:
-    runs-on: macos-15
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.app/Contents/Developer
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -20,6 +22,11 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Pin macOS 27.0 SDK for every build and test
+        run: |
+          source script/build_environment.sh
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          echo "SDKROOT=$SDKROOT" >> "$GITHUB_ENV"
       - name: Check scripts
         run: for script in script/*.sh script/*.command; do bash -n "$script"; done
       - name: Set up pinned Go toolchain
@@ -34,7 +41,7 @@ jobs:
       - name: Test locked core downloads
         run: python3 -m unittest discover -s Tests/Scripts -p 'test_*.py'
       - name: Run host unit tests
-        run: swift test
+        run: swift test --build-system native --sdk "$SDKROOT"
       - name: Rebuild frozen GEO inputs without module downloads
         run: python3 script/rebuild_geodata.py --output work/ci-geodata
       - name: Build signed application
@@ -47,6 +54,7 @@ jobs:
         run: |
           codesign --verify --deep --strict "dist/$TARGET_ARCH/LumaRoute.app"
           test "$(lipo -archs "dist/$TARGET_ARCH/LumaRoute.app/Contents/MacOS/LumaRoute")" = "$TARGET_ARCH"
+          python3 script/verify_macos_sdk.py "dist/$TARGET_ARCH/LumaRoute.app/Contents/MacOS/LumaRoute" "dist/$TARGET_ARCH/LumaRoute.app/Contents/Library/LaunchServices/LumaRouteHelper"
 
   secrets:
     runs-on: ubuntu-latest

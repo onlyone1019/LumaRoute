@@ -6,6 +6,7 @@ launching it, for interactive runners. Results are under work/dock-lifecycle/.
 access, without prompting for permissions. --watch observes an app launched by an
 interactive runner after --prepare; it does not rebuild or launch anything.
 """
+from build_environment import configure
 from pathlib import Path
 import json
 import plistlib
@@ -67,6 +68,7 @@ def observe_until_complete():
 
 if watch_only:
     observe_until_complete()
+SDK = configure()
 source = (ROOT / 'Sources/LumaRoute/App/LumaRouteApp.swift').read_text()
 delegate = source[source.index('@MainActor\nfinal class AppDelegate:'):source.index('/// Identifies only')]
 (WORK / 'AppDelegate.swift').write_text('import AppKit\nimport OSLog\n' + delegate)
@@ -75,7 +77,7 @@ plist_source = re.search(r"<<'PLIST'\n(.*?)\nPLIST", build_script, re.S).group(1
 production_plist = plistlib.loads(plist_source.encode())
 binary = app / 'Contents/MacOS/DockLifecycleCheck'
 binary.parent.mkdir(parents=True, exist_ok=True)
-subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-O',
+subprocess.run(['xcrun', 'swiftc', '-sdk', SDK, '-parse-as-library', '-O',
                 str(WORK / 'AppDelegate.swift'), str(ROOT / 'script/check_dock_lifecycle.swift'),
                 '-o', str(binary)], check=True)
 with (app / 'Contents/Info.plist').open('wb') as file:
@@ -89,7 +91,7 @@ report.unlink(missing_ok=True)
 for name in ['observe-dock', 'dock-phase.json', 'dock-ack.json']:
     (WORK / name).unlink(missing_ok=True)
 if observe:
-    subprocess.run(['xcrun', 'swiftc', '-O', str(ROOT / 'script/read_dock_lifecycle.swift'),
+    subprocess.run(['xcrun', 'swiftc', '-sdk', SDK, '-O', str(ROOT / 'script/read_dock_lifecycle.swift'),
                     '-o', str(inspector)], check=True)
     permission = json.loads(subprocess.check_output([str(inspector), str(app)], text=True))
     if not permission.get('trusted') or 'count' not in permission:

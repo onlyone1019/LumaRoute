@@ -3,10 +3,13 @@
 Requires private input.sqlite and proxies.json under work/ui-optimization-2026-10-15.
 Use --baseline to compile the frozen source snapshot, --interactive for CUA checks.
 """
+from build_environment import configure
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from collections import Counter
 import json, plistlib, subprocess, sys, threading, time
+SDK = configure()
+
 ROOT=Path(__file__).resolve().parents[1]
 WORK=ROOT/'work/ui-optimization-2026-10-15'
 WORK.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -36,7 +39,7 @@ menu.write_text((sources/'App/StatusMenuController.swift').read_text()+'''\nexte
  func checkTracking(_ opened:Bool) { if opened { menuWillOpen(menu) } else { menuDidClose(menu) } }
  func showForQA(_ view:NSView) { menu.popUp(positioning:nil,at:NSPoint(x:20,y:view.bounds.height-20),in:view) }
 }\n''')
-command=['xcrun','swiftc','-O','-parse-as-library','-target','arm64-apple-macosx14.0','-sdk','/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk','-I',str(products),'-I',str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include')]
+command=['xcrun','swiftc','-O','-parse-as-library','-target','arm64-apple-macosx14.0','-sdk',SDK,'-I',str(products),'-I',str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include')]
 if not baseline:command+=['-D','UI_OPTIMIZED']
 command += [str(ROOT/'script/check_ui_responsiveness.swift'),str(menu),str(sources/'App/MenuBarRateLayout.swift')]
 for folder in ['Views','Stores','Support']:command += [str(p) for p in (sources/folder).glob('*.swift')]

@@ -55,6 +55,9 @@ jobs:
           codesign --verify --deep --strict "dist/$TARGET_ARCH/LumaRoute.app"
           test "$(lipo -archs "dist/$TARGET_ARCH/LumaRoute.app/Contents/MacOS/LumaRoute")" = "$TARGET_ARCH"
           python3 script/verify_macos_sdk.py "dist/$TARGET_ARCH/LumaRoute.app/Contents/MacOS/LumaRoute" "dist/$TARGET_ARCH/LumaRoute.app/Contents/Library/LaunchServices/LumaRouteHelper"
+      - name: Continuously refresh the real connections GUI
+        if: matrix.arch == 'arm64'
+        run: python3 script/check_connection_table.py --products .build/arm64/arm64-apple-macosx/release --output work/connection-table-gui
 
   secrets:
     runs-on: ubuntu-latest

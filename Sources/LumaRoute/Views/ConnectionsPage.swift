@@ -40,24 +40,10 @@ struct ConnectionsPage:View {
     }
     private var table:some View {
         @Bindable var state=state
-        return Table(items,selection:$state.selection,sortOrder:$state.sortOrder) {
-            TableColumn("进程",value:\.processName) { Text($0.processName) }.width(min:70,ideal:90)
-            TableColumn("目标",value:\.target) { Text($0.target) }.width(min:110,ideal:150)
-            TableColumn("策略",value:\.policyName) { Text($0.policyName) }.width(min:80,ideal:110)
-            TableColumn("下载",value:\.download) { Text(Format.bytes($0.download)).monospacedDigit() }.width(75)
-            TableColumn("上传",value:\.upload) { Text(Format.bytes($0.upload)).monospacedDigit() }.width(70)
-        }
-        .scrollContentBackground(.hidden).alternatingRowBackgrounds(.disabled).scrollIndicators(.hidden,axes:.horizontal)
-        .contextMenu(forSelectionType:String.self) { ids in
-            if ids.count == 1,let id = ids.first,let connection = items.first(where:{$0.id == id}) {
-                Menu("此域名以后走") {
-                    ForEach(store.routingTargets,id:\.name) { target in Button(target.label) { createRule(connection,application:false,target:target.name) } }
-                }.disabled(store.busy || store.activeProfile == nil)
-                Menu("此应用以后走") {
-                    ForEach(store.routingTargets,id:\.name) { target in Button(target.label) { createRule(connection,application:true,target:target.name) } }
-                }.disabled(store.busy || store.activeProfile == nil || (connection.metadata.process?.isEmpty != false && connection.metadata.processPath?.isEmpty != false))
-            }
-        }
+        return ConnectionTableView(rows:items,selection:$state.selection,sortOrder:$state.sortOrder,
+            targets:store.routingTargets,canCreateRule:!store.busy && store.activeProfile != nil,
+            createRule:{ connection,application,target in createRule(connection,application:application,target:target) })
+        .frame(maxWidth:.infinity,maxHeight:.infinity)
         .overlay {
             if items.isEmpty {
                 EmptyMessage(icon:"network",title:store.connections.isEmpty ? "暂无连接":"没有匹配的连接",detail:store.connections.isEmpty ? "应用通过 LumaRoute 联网后，连接会显示在这里。":"试试其他关键词、协议或策略。")

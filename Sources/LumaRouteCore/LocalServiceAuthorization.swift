@@ -1,6 +1,6 @@
 import Foundation
 
-public enum NetworkServiceSetup: Equatable {
+public enum NetworkServiceSetup: Equatable, Sendable {
     case ready, install, update, enableNetwork
     public static func resolve(installed: Bool,accepted: Bool,healthOnly: Bool) -> Self {
         guard installed else { return .install }

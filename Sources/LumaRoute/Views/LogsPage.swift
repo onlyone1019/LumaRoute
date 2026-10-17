@@ -13,8 +13,8 @@ import LumaRouteCore
     var exporting=false
     var autoScroll=true
     var exportDocument:DiagnosticsDocument?
-    func prepareExport(_ logs:[LogEntry]) {
-        exportDocument=DiagnosticsDocument(text:logs.map { "\($0.date.ISO8601Format()) [\($0.level)] [\($0.source)] \($0.message)" }.joined(separator:"\n"))
+    func prepareExport(_ logs:[LogEntry],coreStatus:String = "尚未运行") {
+        exportDocument=DiagnosticsDocument(text:VersionInfo.current.diagnostics(logs:logs,coreStatus:coreStatus))
         exporting=true
     }
     func finishExport() { exporting=false; exportDocument=nil }
@@ -31,7 +31,7 @@ struct LogsPage:View {
             PageHeader(title:"日志",subtitle:"\(items.count) 条日志") {
                 Button { state.snapshot=state.paused ? []:store.logs; state.paused.toggle() } label:{ Label(state.paused ? "继续":"暂停",systemImage:state.paused ? "play":"pause") }
                 Button { store.logs=[]; state.snapshot=[] } label:{ Label("清空",systemImage:"trash") }
-                Button { state.prepareExport(store.logs) } label:{ Label("导出诊断",systemImage:"square.and.arrow.up") }
+                Button { state.prepareExport(store.logs,coreStatus:store.coreVersion) } label:{ Label("导出诊断",systemImage:"square.and.arrow.up") }
             }
             HStack(spacing:12) {
                 SearchField(placeholder:"搜索日志",text:$state.search)

@@ -204,7 +204,15 @@ actor HelperController {
             if settings.tun || settings.systemProxy { networkOwner = uid } else if networkOwner == uid { networkOwner = nil }
             return HelperResponse(success:true,running:await core.running)
             } catch {
-                await core.stop(); try? await stop(uid:uid)
+                var preserveTakeover = false
+                if let failure = error as? CoreApplyError,failure.recovery == .rolledBack,
+                   request.action == "apply",!changed,!shuttingDown,
+                   runners[uid] === core,appliedSettings[uid] != nil,await core.running {
+                    // A rejected candidate did not replace the old network settings.
+                    // Keep them only while their ownership is still confirmed.
+                    do { try network.verifyOwnership(); preserveTakeover = true } catch {}
+                }
+                if !preserveTakeover { await core.stop(); try? await stop(uid:uid) }
                 if changed { try? updates.cancelSwitch() }
                 throw error
             }
@@ -232,12 +240,12 @@ actor HelperController {
         if networkOwner == uid { networkOwner = nil }
     }
 }
-final class ClientHandler: NSObject, LumaRouteHelperProtocol {
+final class ClientHandler: NSObject, LumaRouteHelperProtocol, Sendable {
     let uid: uid_t
     let controller: HelperController
     let healthOnly:Bool
     init(uid: uid_t,controller: HelperController,healthOnly:Bool) { self.uid = uid; self.controller = controller; self.healthOnly = healthOnly }
-    func perform(_ request: Data,withReply reply: @escaping (Data)->Void) {
+    func perform(_ request: Data,withReply reply: @escaping @Sendable (Data)->Void) {
         guard request.count <= 10*1024*1024 else { reply((try? JSONEncoder().encode(HelperResponse(success:false,message:"请求过大"))) ?? Data()); return }
         Task {
             let response: HelperResponse

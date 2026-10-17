@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-public struct CoreRelease: Codable, Equatable {
+public struct CoreRelease: Codable, Equatable, Sendable {
     public let version: String
     public let assetName: String
     public let downloadURL: URL
@@ -40,7 +40,7 @@ public struct CoreRelease: Codable, Equatable {
     }
     private static func fetch(endpoint: String,session: URLSession) async throws -> CoreRelease {
         var request = URLRequest(url:URL(string:"https://api.github.com/repos/MetaCubeX/mihomo/releases/"+endpoint)!,timeoutInterval:25)
-        request.setValue("LumaRoute/0.1",forHTTPHeaderField:"User-Agent")
+        request.setValue(VersionInfo.current.userAgent,forHTTPHeaderField:"User-Agent")
         let (data,response) = try await session.data(for:request)
         guard let http = response as? HTTPURLResponse,http.statusCode == 200,data.count < 4*1024*1024 else {
             throw LumaError.message("无法读取官方发布信息；请检查网络或稍后重试")
@@ -49,15 +49,15 @@ public struct CoreRelease: Codable, Equatable {
     }
 }
 
-public struct CoreArtifact: Codable, Equatable {
+public struct CoreArtifact: Codable, Equatable, Sendable {
     public let id: UUID
     public let release: CoreRelease
     public let binarySHA256: String
 }
 
 /// Owns downloaded executables and selection state outside the signed app bundle.
-public final class CoreUpdates {
-    public struct Selection: Codable, Equatable {
+public final class CoreUpdates: Sendable {
+    public struct Selection: Codable, Equatable, Sendable {
         public var active: CoreArtifact?
         public var previous: CoreArtifact?
         public var canRollback: Bool = false

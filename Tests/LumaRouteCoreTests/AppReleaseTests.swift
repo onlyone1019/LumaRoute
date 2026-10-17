@@ -73,41 +73,42 @@ final class AppReleaseTests: XCTestCase {
         XCTAssertThrowsError(try AppRelease.parse(Data("not json".utf8)))
     }
     func testLatestUsesPublicStableEndpointAndHandlesFailures() async throws {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [AppReleaseProtocol.self]
-        let session = URLSession(configuration:configuration)
-        defer { session.invalidateAndCancel(); AppReleaseProtocol.handler = nil }
         let data = try JSONSerialization.data(withJSONObject:release(architecture:AppRelease.architecture))
-        AppReleaseProtocol.handler = { request in
+        let fixture = HTTPFixture { request in
             XCTAssertEqual(request.url?.absoluteString,"https://api.github.com/repos/onlyone1019/LumaRoute/releases/latest")
             XCTAssertEqual(request.value(forHTTPHeaderField:"Accept"),"application/vnd.github+json")
+            XCTAssertEqual(request.value(forHTTPHeaderField:"User-Agent"),VersionInfo.current.userAgent)
             XCTAssertNil(request.value(forHTTPHeaderField:"Authorization"))
             return (200,data)
         }
+        defer { fixture.close() }
+        let session = fixture.session
         let latest = try await AppRelease.latest(session:session)
         XCTAssertEqual(latest.version.build,30)
         for (status,message) in [(403,"受到限制"),(429,"受到限制"),(404,"没有可用"),(500,"无法读取")] {
-            AppReleaseProtocol.handler = { _ in (status,Data()) }
+            fixture.setHandler { _ in (status,Data()) }
             do { _ = try await AppRelease.latest(session:session); XCTFail("HTTP \(status) should fail") }
             catch { XCTAssertTrue(error.localizedDescription.contains(message)) }
         }
-        AppReleaseProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
+        fixture.setHandler { _ in throw URLError(.notConnectedToInternet) }
         do { _ = try await AppRelease.latest(session:session); XCTFail("Offline should fail") }
         catch { XCTAssertTrue(error.localizedDescription.contains("检查网络")) }
     }
-}
-
-private final class AppReleaseProtocol: URLProtocol {
-    static var handler: ((URLRequest) throws -> (Int,Data))?
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() {
-        do {
-            guard let handler = Self.handler else { throw URLError(.badServerResponse) }
-            let (status,data) = try handler(request)
-            client?.urlProtocol(self,didReceive:HTTPURLResponse(url:request.url!,statusCode:status,httpVersion:nil,headerFields:nil)!,cacheStoragePolicy:.notAllowed)
-            client?.urlProtocol(self,didLoad:data); client?.urlProtocolDidFinishLoading(self)
-        } catch { client?.urlProtocol(self,didFailWithError:error) }
+    func testConcurrentReleaseSessionsKeepTheirOwnResponses() async throws {
+        let releases = try (40..<64).map { build in
+            (build,try JSONSerialization.data(withJSONObject:release(build:build,architecture:AppRelease.architecture)))
+        }
+        try await withThrowingTaskGroup(of:Void.self) { group in
+            for (build,data) in releases {
+                group.addTask {
+                    let fixture = HTTPFixture { _ in (200,data) }
+                    defer { fixture.close() }
+                    await Task.yield()
+                    let latest = try await AppRelease.latest(session:fixture.session)
+                    XCTAssertEqual(latest.version.build,build,"concurrent sessions must not share handlers")
+                }
+            }
+            try await group.waitForAll()
+        }
     }
-    override func stopLoading() {}
 }

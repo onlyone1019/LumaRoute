@@ -6,9 +6,9 @@ public enum HelperConstants {
     public static let plistName = "app.lumaroute.helper.plist"
 }
 @objc public protocol LumaRouteHelperProtocol {
-    func perform(_ request: Data, withReply reply: @escaping (Data) -> Void)
+    func perform(_ request: Data, withReply reply: @escaping @Sendable (Data) -> Void)
 }
-public struct HelperRequest: Codable {
+public struct HelperRequest: Codable, Sendable {
     public var action: String
     public var source: String?
     public var rules: [CustomRule]?
@@ -27,7 +27,7 @@ public struct HelperRequest: Codable {
         self.systemProxyEnabled = systemProxyEnabled
     }
 }
-public struct HelperResponse: Codable {
+public struct HelperResponse: Codable, Sendable {
     public var success: Bool
     public var message: String
     public var running: Bool

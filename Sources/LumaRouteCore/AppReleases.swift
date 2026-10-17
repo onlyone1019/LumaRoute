@@ -68,7 +68,7 @@ public struct AppRelease: Equatable, Sendable {
     public static func latest(session: URLSession = .shared) async throws -> Self {
         var request = URLRequest(url:URL(string:"https://api.github.com/repos/onlyone1019/LumaRoute/releases/latest")!,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:25)
         request.setValue("application/vnd.github+json",forHTTPHeaderField:"Accept")
-        request.setValue("LumaRoute",forHTTPHeaderField:"User-Agent")
+        request.setValue(VersionInfo.current.userAgent,forHTTPHeaderField:"User-Agent")
         request.setValue("2022-11-28",forHTTPHeaderField:"X-GitHub-Api-Version")
         let data: Data,response: URLResponse
         do { (data,response) = try await session.data(for:request) }

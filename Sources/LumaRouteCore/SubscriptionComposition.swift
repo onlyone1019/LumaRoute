@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SubscriptionDomainRoute: Codable, Equatable, Identifiable {
+public struct SubscriptionDomainRoute: Codable, Equatable, Identifiable, Sendable {
     public var id = UUID()
     public var enabled = true
     public var type = "DOMAIN-SUFFIX"
@@ -26,7 +26,7 @@ public struct SubscriptionDomainRoute: Codable, Equatable, Identifiable {
 
 /// A composition is a local profile. Its member subscriptions remain ordinary
 /// profiles, so existing single-profile selection, scoped overlays and backups work.
-public struct SubscriptionComposition: Codable, Equatable {
+public struct SubscriptionComposition: Codable, Equatable, Sendable {
     public var profileIDs: [UUID] = []
     public var baseProfileID: UUID?
     public var fallbackProfileID: UUID?

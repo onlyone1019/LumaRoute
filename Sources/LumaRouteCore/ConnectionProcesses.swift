@@ -52,10 +52,10 @@ public enum ConnectionProcesses {
                 let address: String
                 if info.insi_vflag & UInt8(INI_IPV4) != 0 {
                     guard inet_ntop(AF_INET,&v4,&buffer,socklen_t(buffer.count)) != nil else { continue }
-                    address = String(cString:buffer)
+                    address = CString.decodeUTF8(buffer)
                 } else {
                     guard inet_ntop(AF_INET6,&v6,&buffer,socklen_t(buffer.count)) != nil else { continue }
-                    address = String(cString:buffer)
+                    address = CString.decodeUTF8(buffer)
                 }
                 for target in requested where target.network == network && target.port == port && (target.destinationPort == foreign || network == "udp" && foreign == 0) && (target.address == address || network == "udp" && ["0.0.0.0","::"].contains(address)) { matches.insert(target) }
             }
@@ -65,7 +65,7 @@ public enum ConnectionProcesses {
             var after = proc_bsdinfo()
             guard proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&after,Int32(MemoryLayout<proc_bsdinfo>.size)) == MemoryLayout<proc_bsdinfo>.size,
                   after.pbi_start_tvsec == bsd.pbi_start_tvsec,after.pbi_start_tvusec == bsd.pbi_start_tvusec else { continue }
-            for match in matches { owners[match,default:[]].insert(String(cString:path)) }
+            for match in matches { owners[match,default:[]].insert(CString.decodeUTF8(path)) }
         }
         return connections.map { original in
             var connection = original

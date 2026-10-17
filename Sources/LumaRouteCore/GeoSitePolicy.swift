@@ -2,7 +2,7 @@ import Foundation
 
 /// Replaces the two reviewed categories while preserving every other protobuf field.
 /// The rule data retains its MIT / CC BY-SA notices in Resources/Licenses.
-public struct GeoSitePolicy {
+public struct GeoSitePolicy: Sendable {
     public static let approvedSHA256 = "b680dbefd475c3c6ff64db3eebfc679f13c9439d1abb85831898793bea18d0cb"
     private struct Document: Decodable { var format: String; var groups: [String:[Rule]] }
     private struct Rule: Decodable { var type: String; var value: String }

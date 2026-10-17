@@ -1,6 +1,6 @@
 import Foundation
 
-public struct GeoAsset {
+public struct GeoAsset: Sendable {
     public let name: String
     public let url: URL
     public let sha256: String
@@ -23,7 +23,7 @@ public struct GeoAsset {
     }
     public static func download(policy: GeoSitePolicy,session: URLSession = .shared) async throws -> [String:Data] {
         let url = URL(string:"https://api.github.com/repos/MetaCubeX/meta-rules-dat/releases/tags/latest")!
-        var request = URLRequest(url:url,timeoutInterval:25); request.setValue("LumaRoute/0.1",forHTTPHeaderField:"User-Agent")
+        var request = URLRequest(url:url,timeoutInterval:25); request.setValue(VersionInfo.current.userAgent,forHTTPHeaderField:"User-Agent")
         let (manifest,response) = try await session.data(for:request)
         guard (response as? HTTPURLResponse)?.statusCode == 200,manifest.count <= 4*1024*1024 else { throw LumaError.message("无法查询官方规则数据库") }
         let assets = try parse(manifest)

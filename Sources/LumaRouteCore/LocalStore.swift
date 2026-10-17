@@ -1,6 +1,6 @@
 import Foundation
 
-public final class LocalStore: @unchecked Sendable {
+public final class LocalStore: Sendable {
     private let ioQueue = DispatchQueue(label:"app.lumaroute.storage",qos:.userInitiated)
     public let root: URL
     public let databaseURL: URL
@@ -11,6 +11,18 @@ public final class LocalStore: @unchecked Sendable {
         var activeProfileID: UUID?
         var hasStrategies: Bool
         var hasRuleSubscriptions: Bool
+        enum CodingKeys: String, CodingKey { case settings, activeProfileID, hasStrategies, hasRuleSubscriptions }
+        init(settings: NetworkSettings,activeProfileID: UUID? = nil,hasStrategies: Bool,hasRuleSubscriptions: Bool) {
+            self.settings = settings; self.activeProfileID = activeProfileID
+            self.hasStrategies = hasStrategies; self.hasRuleSubscriptions = hasRuleSubscriptions
+        }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy:CodingKeys.self)
+            settings = try values.decodeIfPresent(NetworkSettings.self,forKey:.settings) ?? NetworkSettings()
+            activeProfileID = try values.decodeIfPresent(UUID.self,forKey:.activeProfileID)
+            hasStrategies = try values.decodeIfPresent(Bool.self,forKey:.hasStrategies) ?? false
+            hasRuleSubscriptions = try values.decodeIfPresent(Bool.self,forKey:.hasRuleSubscriptions) ?? false
+        }
     }
     public init(root: URL,secrets: SecretStore? = nil,readOnly: Bool = false) throws {
         self.root = root
@@ -80,7 +92,7 @@ public final class LocalStore: @unchecked Sendable {
     public func save(_ database: AppDatabase) throws { try sqlite.transaction { try writeDatabase(database) } }
     // A private serial executor keeps SQLite lock waits and encoding off MainActor.
     // Whole compound operations still use the same connection transaction lock.
-    private func io<T>(_ operation: @escaping () throws -> T) async throws -> T {
+    private func io<T: Sendable>(_ operation: @escaping @Sendable () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             ioQueue.async { continuation.resume(with:Result { try operation() }) }
         }
@@ -111,6 +123,12 @@ public final class LocalStore: @unchecked Sendable {
     }
     public func commitBackupAsync(_ database: AppDatabase,profiles: [UUID:String],from backup: URL) async throws {
         try await io { try self.commitBackup(database,profiles:profiles,from:backup) }
+    }
+    public func profileContentAsync(_ id: UUID) async throws -> String {
+        try await io { try self.profileContent(id) }
+    }
+    public func ruleSubscriptionSnapshotsAsync(_ database: AppDatabase,profileID: UUID?,from root: URL? = nil,pendingContents: [UUID:String] = [:]) async throws -> [RuleSubscriptionSnapshot] {
+        try await io { try self.ruleSubscriptionSnapshots(database,profileID:profileID,from:root,pendingContents:pendingContents) }
     }
     public func profileContent(_ id: UUID) throws -> String {
         guard let data = try sqlite.rows("SELECT content FROM profile_contents WHERE profile_id=? AND version='current'",[.text(id.uuidString)]).first?.first else {

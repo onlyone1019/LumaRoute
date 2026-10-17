@@ -69,8 +69,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>LumaRoute</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.4</string>
-<key>CFBundleVersion</key><string>34</string>
+<key>CFBundleShortVersionString</key><string>0.1.5</string>
+<key>CFBundleVersion</key><string>35</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -78,6 +78,17 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+python3 - "$APP_BUNDLE/Contents/Info.plist" "$ROOT_DIR/Resources/Core/release.json" <<'PY'
+import json, plistlib, re, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+version = json.loads(Path(sys.argv[2]).read_text())["version"]
+if not isinstance(version, str) or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", version):
+    raise SystemExit("Invalid bundled core version")
+info = plistlib.loads(path.read_bytes())
+info["LumaRouteCoreVersion"] = version
+path.write_bytes(plistlib.dumps(info))
+PY
 cat > "$APP_BUNDLE/Contents/Library/LaunchDaemons/app.lumaroute.helper.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

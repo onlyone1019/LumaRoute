@@ -1,11 +1,11 @@
 import Foundation
 
-public protocol SecretStore {
+public protocol SecretStore: Sendable {
     func read(_ key: String) throws -> String?
     func write(_ value: String, key: String) throws
     func delete(_ key: String) throws
 }
-public final class SQLiteSecrets: SecretStore, @unchecked Sendable {
+public final class SQLiteSecrets: SecretStore {
     private let database: SQLiteDatabase
     init(database: SQLiteDatabase) { self.database = database }
     public func read(_ key: String) throws -> String? {

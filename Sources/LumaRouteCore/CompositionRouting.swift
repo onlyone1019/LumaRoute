@@ -28,7 +28,7 @@ public enum CompositionRouting {
             var buffer = [CChar](repeating:0,count:Int(INET6_ADDRSTRLEN))
             let rendered = bytes.withUnsafeBytes { inet_ntop(bytes.count == 4 ? AF_INET:AF_INET6,$0.baseAddress,&buffer,socklen_t(buffer.count)) }
             guard rendered != nil else { throw LumaError.message("IP 网段无效") }
-            return String(cString:buffer)+"/"+String(network.prefix)
+            return CString.decodeUTF8(buffer)+"/"+String(network.prefix)
         default: return value
         }
     }

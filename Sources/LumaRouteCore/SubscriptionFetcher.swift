@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SubscriptionDownload {
+public struct SubscriptionDownload: Sendable {
     public var content: String
     public var usage: SubscriptionUsage?
     public var interval: Double?
@@ -8,7 +8,7 @@ public struct SubscriptionDownload {
 public enum SubscriptionFetcher {
     // Providers negotiate Clash Meta YAML from this recognized capability prefix.
     // Keep the direct and caller-supplied transports consistent.
-    public static let defaultUserAgent = "clash.meta/1.19.32 LumaRoute/0.1.0"
+    public static var defaultUserAgent: String { VersionInfo.current.subscriptionUserAgent }
     public static func normalizedUserAgent(_ value: String?) throws -> String? {
         guard let value else { return nil }
         guard value.utf8.count <= 512, value.utf8.allSatisfy({ (32...126).contains($0) }) else { throw SubscriptionError.invalidUserAgent }
@@ -16,9 +16,9 @@ public enum SubscriptionFetcher {
         return trimmed.isEmpty ? nil : trimmed
     }
     public static func displayURL(_ url: URL) -> String { "\(url.scheme ?? "https")://\(url.host ?? "未知来源")/••••" }
-    public static func fetch(_ source: String, userAgent: String? = nil, session: URLSession? = nil) async throws -> SubscriptionDownload {
+    public static func fetch(_ source: String, userAgent: String? = nil, session: URLSession? = nil,versionInfo: VersionInfo = .current) async throws -> SubscriptionDownload {
         guard let url = URL(string:source), ["https","http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { throw SubscriptionError.invalidAddress }
-        let agent = try normalizedUserAgent(userAgent) ?? defaultUserAgent
+        let agent = try normalizedUserAgent(userAgent) ?? versionInfo.subscriptionUserAgent
         var request = URLRequest(url:url,timeoutInterval:25)
         request.setValue(agent,forHTTPHeaderField:"User-Agent")
         let data: Data

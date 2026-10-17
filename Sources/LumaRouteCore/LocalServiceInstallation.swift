@@ -3,7 +3,7 @@ import Security
 
 /// Administrator-owned metadata binds a local service to one approved build
 /// and user. The GUI cannot update this trust record over RPC.
-public struct LocalServiceInstallation:Codable {
+public struct LocalServiceInstallation: Codable, Sendable {
     public static let root = URL(fileURLWithPath:"/Library/Application Support/LumaRoute/service")
     public static var bundle:URL { root.appendingPathComponent("LumaRoute.app") }
     public static var record:URL { root.appendingPathComponent("installation.plist") }

@@ -1,6 +1,22 @@
 import Foundation
 import Yams
 
+public struct CoreApplyError: LocalizedError {
+    public enum Recovery: Equatable, Sendable { case rolledBack, stateUnknown }
+    public let recovery: Recovery
+    public let original: Error
+    public let rollback: Error?
+    public init(recovery: Recovery,original: Error,rollback: Error? = nil) {
+        self.recovery = recovery; self.original = original; self.rollback = rollback
+    }
+    public var errorDescription: String? {
+        let detail = Redactor.clean(original.localizedDescription)
+        if recovery == .rolledBack { return detail+"；已恢复并确认原配置可用" }
+        let reason = rollback.map { "："+Redactor.clean($0.localizedDescription) } ?? ""
+        return detail+"；原配置恢复未确认，内核状态未知"+reason
+    }
+}
+
 public actor CoreRunner {
     public let binary: URL
     public let home: URL
@@ -19,15 +35,20 @@ public actor CoreRunner {
         environment["SKIP_SYSTEM_IPV6_CHECK"] = "true"
         return environment
     }
-    public var onLog: (@Sendable (String) -> Void)?
+    public var onLog: (@Sendable (RedactedLogMessage) -> Void)?
     public init(binary: URL, home: URL, secret: String,geoPolicy: URL? = nil) {
         self.binary = binary; self.home = home; self.secret = secret
         self.geoPolicyURL = geoPolicy
         self.lease = CoreProcessLease(home:home,binary:binary)
     }
     public var running: Bool { process?.isRunning ?? false }
-    public func setLogHandler(_ handler: @escaping @Sendable (String) -> Void) { onLog = handler }
+    public func setLogHandler(_ handler: @escaping @Sendable (RedactedLogMessage) -> Void) { onLog = handler }
     public func prepare(source: String?, settings: NetworkSettings, rules: [CustomRule], strategies: [GroupStrategy] = [], ruleSubscriptions: [RuleSubscriptionSnapshot] = []) throws -> (String, URL) {
+        let prepared = try prepareWithMetadata(source:source,settings:settings,rules:rules,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
+        return (prepared.yaml,prepared.file)
+    }
+    public func prepareWithMetadata(source: String?, settings: NetworkSettings, rules: [CustomRule], strategies: [GroupStrategy] = [], ruleSubscriptions: [RuleSubscriptionSnapshot] = []) throws -> (yaml: String,file: URL,metadata: ConfigurationMetadata) {
+        try Task.checkCancellation()
         _ = try GeoDataUpdates(home:home)
         try seedBundledGeoData()
         if Date().timeIntervalSince(lastRevisionCleanup) >= 300 {
@@ -35,12 +56,14 @@ public actor CoreRunner {
         }
         let directory = home.appendingPathComponent("revisions/\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories:true, attributes:[.posixPermissions:0o700])
-        let yaml = try ConfigComposer.compose(source:source, settings:settings, rules:rules, secret:secret, resourceRoot:directory,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
-        try seedProviderCaches(for:yaml)
+        let composed = try ConfigComposer.composeDocument(source:source,settings:settings,rules:rules,secret:secret,resourceRoot:directory,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
+        let yaml = composed.yaml
+        try seedProviderCaches(for:composed.configuration["proxy-providers"] as? [String:[String:Any]] ?? [:])
         let file = directory.appendingPathComponent("config.yaml")
         try Data(yaml.utf8).write(to:file, options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600], ofItemAtPath:file.path)
-        return (yaml,file)
+        try Task.checkCancellation()
+        return (yaml,file,composed.metadata)
     }
     /// Retain active references, the newest 20 revisions and all work from the
     /// last hour (validation/in-flight applies). Unknown directories are untouched.
@@ -77,11 +100,10 @@ public actor CoreRunner {
             try? FileManager.default.removeItem(at:entry)
         }
     }
-    private func seedProviderCaches(for yaml: String) throws {
+    private func seedProviderCaches(for next: [String:[String:Any]]) throws {
         let previous = currentYAML ?? (try? String(contentsOf:home.appendingPathComponent("active.yaml"),encoding:.utf8))
         guard let previous,
-              let old = (try? ConfigComposer.parse(previous))?["proxy-providers"] as? [String:[String:Any]],
-              let next = (try ConfigComposer.parse(yaml))["proxy-providers"] as? [String:[String:Any]] else { return }
+              let old = (try? ConfigComposer.parse(previous))?["proxy-providers"] as? [String:[String:Any]] else { return }
         let owned = home.resolvingSymlinksInPath().path+"/"
         for (name,provider) in next where provider["type"] as? String == "http" {
             guard let prior = old[name], prior["url"] as? String == provider["url"] as? String,
@@ -114,7 +136,7 @@ public actor CoreRunner {
             if definitions.keys.allSatisfy({ !(providers[$0]?.proxies ?? []).isEmpty }),liveRules.count >= rules.count,ruleProvidersReady { return }
             try await Task.sleep(nanoseconds:100_000_000)
         }
-        throw LumaError.message("节点提供器或规则订阅没有完整加载，已保留原配置")
+        throw LumaError.message("节点提供器或规则订阅没有完整加载")
     }
     private var bundledGeoDirectory: URL? {
         let resources = binary.deletingLastPathComponent()
@@ -189,7 +211,7 @@ public actor CoreRunner {
         if running { return }
         try FileManager.default.createDirectory(at:home,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         try lease.acquire()
-        do { try await lease.recoverOrphan() }
+        do { try await CoreProcessLease.recoverOrphan(home:home,binary:binary) }
         catch { lease.release(); throw error }
         do { try assertPortAvailable(settings.controllerPort); try assertPortAvailable(settings.mixedPort) }
         catch { lease.release(); throw error }
@@ -203,13 +225,11 @@ public actor CoreRunner {
         task.environment = Self.coreEnvironment
         task.standardOutput = pipe; task.standardError = pipe
         let callback = onLog
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let bytes = handle.availableData
-            if !bytes.isEmpty, let text = String(data:bytes,encoding:.utf8) { callback?(Redactor.clean(text)) }
-        }
+        CoreLogReader { callback?($0) }.attach(to:pipe.fileHandleForReading)
+        outputPipe = pipe
         do {
             try task.run()
-            process = task; outputPipe = pipe
+            process = task
             try lease.record(task.processIdentifier)
         } catch { await stop(); throw error }
         let api = MihomoAPI(port:settings.controllerPort,secret:secret)
@@ -226,20 +246,32 @@ public actor CoreRunner {
         throw LumaError.message("内核控制接口未就绪")
     }
     public func apply(yaml: String, settings: NetworkSettings,force: Bool = true) async throws {
-        if !running { try await start(yaml:yaml,settings:settings); return }
+        if !running {
+            do { try await start(yaml:yaml,settings:settings) }
+            catch { throw CoreApplyError(recovery:.stateUnknown,original:error) }
+            return
+        }
+        let previous = currentYAML
         if let previousSettings = currentSettings,
            previousSettings.controllerPort != settings.controllerPort || previousSettings.mixedPort != settings.mixedPort {
-            let previous = currentYAML
-            await stop()
+            guard await stop() else {
+                throw CoreApplyError(recovery:.stateUnknown,original:LumaError.message("原内核退出尚未确认"))
+            }
             do { try await start(yaml:yaml,settings:settings) }
             catch {
-                if let previous { try? await start(yaml:previous,settings:previousSettings) }
-                throw error
+                let original = error
+                guard let previous else { throw CoreApplyError(recovery:.stateUnknown,original:original) }
+                do {
+                    try await start(yaml:previous,settings:previousSettings)
+                    guard running else { throw LumaError.message("回退后原内核已退出") }
+                }
+                catch { throw CoreApplyError(recovery:.stateUnknown,original:original,rollback:error) }
+                throw CoreApplyError(recovery:.rolledBack,original:original)
             }
             return
         }
         let api = MihomoAPI(port:settings.controllerPort,secret:secret)
-        let previous = currentYAML
+        let previousSettings = currentSettings
         do {
             try await api.reload(yaml:yaml,force:force)
             _ = try await api.version()
@@ -250,8 +282,19 @@ public actor CoreRunner {
             currentYAML = yaml
             currentSettings = settings
         } catch {
-            if let previous { try? await api.reload(yaml:previous,force:force) }
-            throw error
+            let original = error
+            guard let previous,let previousSettings else { throw CoreApplyError(recovery:.stateUnknown,original:original) }
+            do {
+                try await api.reload(yaml:previous,force:force)
+                _ = try await api.version()
+                try await verifyProviders(yaml:previous,api:api)
+                guard running else { throw LumaError.message("回退后原内核已退出") }
+                let file = home.appendingPathComponent("active.yaml")
+                try Data(previous.utf8).write(to:file,options:.atomic)
+                try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
+                currentYAML = previous; currentSettings = previousSettings
+            } catch { throw CoreApplyError(recovery:.stateUnknown,original:original,rollback:error) }
+            throw CoreApplyError(recovery:.rolledBack,original:original)
         }
     }
     /// A running core may replace rules without restarting listeners or streams.
@@ -297,7 +340,7 @@ public actor CoreRunner {
                 if !process.isRunning { break }
                 try? await Task.sleep(nanoseconds:50_000_000)
             }
-            guard !process.isRunning else { onLog?("内核退出尚未确认，保留进程归属记录"); return false }
+            guard !process.isRunning else { onLog?(RedactedLogMessage("内核退出尚未确认，保留进程归属记录")); return false }
         }
         outputPipe?.fileHandleForReading.readabilityHandler = nil
         process = nil; outputPipe = nil; currentYAML = nil; currentSettings = nil
@@ -358,7 +401,7 @@ public actor CoreRunner {
         guard FileManager.default.fileExists(atPath:home.path) else { return }
         try lease.acquire()
         defer { lease.release() }
-        try await lease.recoverOrphan()
+        try await CoreProcessLease.recoverOrphan(home:home,binary:binary)
     }
 }
 

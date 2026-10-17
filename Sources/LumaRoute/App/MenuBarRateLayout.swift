@@ -1,7 +1,7 @@
 import AppKit
 
 /// Keep the status-item footprint stable across digit counts and rate units.
-enum MenuBarRateLayout {
+@MainActor enum MenuBarRateLayout {
     static let font = NSFont.menuBarFont(ofSize:9)
     static let textOrigin:CGFloat = 24 // 3-point inset + 18-point icon + 3-point minimum gap.
     static let trailingInset:CGFloat = 2

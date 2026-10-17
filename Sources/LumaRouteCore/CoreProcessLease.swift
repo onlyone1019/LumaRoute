@@ -28,7 +28,11 @@ final class CoreProcessLease {
         }
         descriptor = fd
     }
-    func recoverOrphan() async throws {
+    // Recovery suspends, but never transfers the mutable lock descriptor out of
+    // CoreRunner. The caller keeps its acquired lease alive until this returns.
+    static func recoverOrphan(home: URL,binary: URL) async throws {
+        let file = home.appendingPathComponent("core-process.json")
+        let binary = binary.resolvingSymlinksInPath()
         guard FileManager.default.fileExists(atPath:file.path) else { return }
         let saved = try JSONDecoder().decode(Identity.self,from:Data(contentsOf:file))
         if let current = try identity(saved.pid), current == saved {
@@ -50,7 +54,7 @@ final class CoreProcessLease {
         try FileManager.default.removeItem(at:file)
     }
     func record(_ pid: Int32) throws {
-        guard let value = try identity(pid),value.uid == geteuid(),value.executable == binary.path else { throw LumaError.message("无法确认已启动内核的进程身份") }
+        guard let value = try Self.identity(pid),value.uid == geteuid(),value.executable == binary.path else { throw LumaError.message("无法确认已启动内核的进程身份") }
         try JSONEncoder().encode(value).write(to:file,options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path)
     }
@@ -61,14 +65,14 @@ final class CoreProcessLease {
     func release() {
         if descriptor >= 0 { flock(descriptor,LOCK_UN); close(descriptor); descriptor = -1 }
     }
-    private func parentPID(_ pid: Int32) -> UInt32? { info(pid)?.pbi_ppid }
-    private func info(_ pid: Int32) -> proc_bsdinfo? {
+    private static func parentPID(_ pid: Int32) -> UInt32? { info(pid)?.pbi_ppid }
+    private static func info(_ pid: Int32) -> proc_bsdinfo? {
         var value = proc_bsdinfo()
         let size = MemoryLayout<proc_bsdinfo>.size
         guard proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&value,Int32(size)) == size else { return nil }
         return value
     }
-    private func identity(_ pid: Int32) throws -> Identity? {
+    private static func identity(_ pid: Int32) throws -> Identity? {
         guard let value = info(pid) else {
             if kill(pid,0) == -1 && errno == ESRCH { return nil }
             throw LumaError.message("无法读取内核进程身份，未终止进程")
@@ -77,6 +81,6 @@ final class CoreProcessLease {
         if value.pbi_status == 5 { return nil }
         var buffer = [CChar](repeating:0,count:4*Int(MAXPATHLEN))
         guard proc_pidpath(pid,&buffer,UInt32(buffer.count)) > 0 else { throw LumaError.message("无法读取内核可执行文件路径") }
-        return Identity(pid:pid,uid:value.pbi_uid,startedSeconds:value.pbi_start_tvsec,startedMicroseconds:value.pbi_start_tvusec,executable:String(cString:buffer))
+        return Identity(pid:pid,uid:value.pbi_uid,startedSeconds:value.pbi_start_tvsec,startedMicroseconds:value.pbi_start_tvusec,executable:CString.decodeUTF8(buffer))
     }
 }

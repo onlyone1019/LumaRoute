@@ -20,17 +20,17 @@ import LumaRouteCore
         print("PASS saving inactive composition validates without disturbing the selected single subscription")
         app.database.activeProfileID = composite.id
         precondition(app.currentCustomRules.isEmpty)
-        let old = try app.activeSource()!
+        let old = try await app.activeSource()!
         let updated = source.replacingOccurrences(of:"18771",with:"18773")
-        let candidate = try app.activeSource(overrides:[b.id:updated])!
+        let candidate = try await app.activeSource(overrides:[b.id:updated])!
         let parsed = try ConfigComposer.parse(candidate)
         let nodes = parsed["proxies"] as! [[String:Any]]
         precondition(nodes.first(where:{$0["name"] as? String == "[B] shared"})?["port"] as? Int == 18773)
-        let retained = try app.activeSource()!
+        let retained = try await app.activeSource()!
         precondition(retained == old)
         print("PASS active composition rebuilds a changed member candidate without overwriting usable content")
         app.database.activeProfileID = a.id
-        let single = try app.activeSource()
+        let single = try await app.activeSource()
         precondition(app.currentCustomRules == app.database.customRules && single == source)
         print("PASS single subscription source and custom rules remain independent")
         do { try await app.deleteProfile(b); fatalError("referenced subscription deletion allowed") } catch {}
@@ -38,7 +38,7 @@ import LumaRouteCore
         print("PASS referenced member cannot be deleted leaving a broken composition")
         let backup = try app.store.backup(app.database)
         let (restored,contents) = try app.store.readBackup(backup)
-        let rebuilt = try app.activeSource(composite.id,configuration:restored,overrides:contents)
+        let rebuilt = try await app.activeSource(composite.id,configuration:restored,overrides:contents)
         precondition(rebuilt == old)
         print("PASS restored composition is regenerated from backup member contents")
         let targets = try await app.compositionPolicyTargets(plan)

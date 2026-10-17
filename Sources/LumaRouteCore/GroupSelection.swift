@@ -1,6 +1,6 @@
 import Foundation
 
-public struct GroupSelection:Codable {
+public struct GroupSelection: Codable, Sendable {
     public var group:String
     public var kind:String
     public var node:String?

@@ -2,7 +2,7 @@ import Foundation
 import Yams
 
 /// Persist only display names, never node credentials or raw configuration fragments.
-public struct SubscriptionChange: Codable, Equatable {
+public struct SubscriptionChange: Codable, Equatable, Sendable {
     public var date: Date
     public var addedNodes: [String]
     public var removedNodes: [String]

@@ -1,13 +1,13 @@
 import Foundation
 
-public enum GroupStrategyMode: String, Codable, CaseIterable, Identifiable {
+public enum GroupStrategyMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case subscription, lowestLatency = "url-test", fallback
     public var id: String { rawValue }
     public var label: String {
         switch self { case .subscription: return "保持订阅策略"; case .lowestLatency: return "自动选择最低延迟"; case .fallback: return "故障转移" }
     }
 }
-public struct GroupStrategy: Codable, Equatable {
+public struct GroupStrategy: Codable, Equatable, Sendable {
     public var profileID: UUID
     public var group: String
     public var mode: GroupStrategyMode

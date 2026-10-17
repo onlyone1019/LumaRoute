@@ -89,8 +89,8 @@ public enum RuleSubscriptionDownload {
         do { (data,response) = try await systemDownload(url) }
         catch is CancellationError { throw CancellationError() }
         catch let error as URLError where error.code == .cancelled { throw CancellationError() }
-        catch let error as URLError {
-            do { (data,response) = try await DirectSubscriptionDownload.fetch(url,userAgent:"LumaRoute/0.1.0") }
+        catch is URLError {
+            do { (data,response) = try await DirectSubscriptionDownload.fetch(url,userAgent:VersionInfo.current.userAgent) }
             catch { throw LumaError.message("规则集连接失败，请检查网络后重试；旧规则已保留") }
         }
         guard let http = response as? HTTPURLResponse,(200...299).contains(http.statusCode) else {
@@ -105,7 +105,7 @@ public enum RuleSubscriptionDownload {
         configuration.timeoutIntervalForRequest = 25; configuration.timeoutIntervalForResource = 40
         let session = URLSession(configuration:configuration)
         defer { session.invalidateAndCancel() }
-        var request = URLRequest(url:url); request.setValue("LumaRoute/0.1.0",forHTTPHeaderField:"User-Agent")
+        var request = URLRequest(url:url); request.setValue(VersionInfo.current.userAgent,forHTTPHeaderField:"User-Agent")
         let (bytes,response) = try await session.bytes(for:request)
         guard response.expectedContentLength <= 8*1024*1024 else { throw LumaError.message("规则集超过 8 MB，已保留旧版本") }
         var data = Data(); data.reserveCapacity(min(8*1024*1024,max(0,Int(response.expectedContentLength))))

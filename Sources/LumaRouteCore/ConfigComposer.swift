@@ -2,6 +2,14 @@ import Foundation
 import Yams
 
 public enum ConfigComposer {
+    // Subscriptions supply routing content and safe client options. New core
+    // features must be reviewed here before a subscription can enable them.
+    private static let subscriptionKeys: Set<String> = [
+        "proxies", "proxy-groups", "proxy-providers", "rule-providers", "rules", "sub-rules",
+        "dns", "hosts", "sniffer", "global-client-fingerprint", "global-ua",
+        "tcp-concurrent", "unified-delay", "keep-alive-idle", "keep-alive-interval", "disable-keep-alive",
+        "geodata-mode", "geodata-loader", "geosite-matcher", "etag-support"
+    ]
     public static func parse(_ yaml: String) throws -> [String: Any] {
         guard yaml.utf8.count <= 8 * 1024 * 1024, !yaml.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { throw LumaError.message("配置为空或超过 8 MB") }
@@ -29,11 +37,16 @@ public enum ConfigComposer {
         return object
     }
     public static func nodeCount(_ yaml: String) throws -> Int {
-        let config = try parse(yaml)
+        countNodes(in:try parse(yaml))
+    }
+    private static func countNodes(in config: [String:Any]) -> Int {
         if let raw = config["_lumaroute_raw_provider"] as? String { return raw.split(whereSeparator: \.isNewline).count }
         return (config["proxies"] as? [Any])?.count ?? 0
     }
     public static func compose(source: String?, settings: NetworkSettings, rules: [CustomRule], secret: String, resourceRoot: URL? = nil, strategies: [GroupStrategy] = [], ruleSubscriptions: [RuleSubscriptionSnapshot] = []) throws -> String {
+        try composeDocument(source:source,settings:settings,rules:rules,secret:secret,resourceRoot:resourceRoot,strategies:strategies,ruleSubscriptions:ruleSubscriptions).yaml
+    }
+    static func composeDocument(source: String?, settings: NetworkSettings, rules: [CustomRule], secret: String, resourceRoot: URL? = nil, strategies: [GroupStrategy] = [], ruleSubscriptions: [RuleSubscriptionSnapshot] = []) throws -> (yaml: String,configuration: [String:Any],metadata: ConfigurationMetadata) {
         guard (1024...65535).contains(settings.mixedPort), (1024...65535).contains(settings.controllerPort),
               settings.mixedPort != settings.controllerPort, (1280...9000).contains(settings.mtu),
               ["system", "mixed", "gvisor", "mips"].contains(settings.stack)
@@ -41,10 +54,12 @@ public enum ConfigComposer {
         var config: [String: Any] = try source.map(parse) ?? [
             "proxies": [], "proxy-groups": [["name": "默认代理", "type": "select", "proxies": ["DIRECT"]]], "rules": ["MATCH,DIRECT"]
         ]
-        // Only LumaRoute owns listeners and file paths. Remote scripts are never executed.
-        for key in ["port", "socks-port", "redir-port", "tproxy-port", "listeners", "external-ui", "external-ui-url", "external-controller-unix", "external-controller-pipe", "external-controller-tls", "post-up", "post-down", "iptables"] {
-            config.removeValue(forKey: key)
-        }
+        let nodeCount = countNodes(in:config)
+        // Consume internal URI-provider data separately; it is never a core option.
+        let raw = config["_lumaroute_raw_provider"] as? String
+        let rawProviders = config["_lumaroute_raw_providers"] as? [String:String]
+        config = config.filter { subscriptionKeys.contains($0.key) }
+        // Listeners, system integration and file paths belong to LumaRoute.
         config["mixed-port"] = settings.mixedPort
         config["external-controller"] = "127.0.0.1:\(settings.controllerPort)"
         config["secret"] = secret
@@ -56,14 +71,14 @@ public enum ConfigComposer {
         config["find-process-mode"] = "always"
         config["geo-auto-update"] = false
         config["profile"] = ["store-selected": true, "store-fake-ip": true]
-        if let raw = config.removeValue(forKey: "_lumaroute_raw_provider") as? String, let resourceRoot {
+        if let raw, let resourceRoot {
             let directory = resourceRoot.appendingPathComponent("providers")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             let file = directory.appendingPathComponent("proxy-0.yaml")
             try Data(raw.utf8).write(to: file, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
         }
-        if let rawProviders = config.removeValue(forKey:"_lumaroute_raw_providers") as? [String:String],let resourceRoot {
+        if let rawProviders,let resourceRoot {
             let providers = config["proxy-providers"] as? [String:Any] ?? [:]
             for (index,name) in providers.keys.sorted().enumerated() {
                 if let content = rawProviders[name] {
@@ -108,7 +123,7 @@ public enum ConfigComposer {
         let activeRules = rules.filter(\.enabled)
         for rule in activeRules { try rule.validate() }
         config["rules"] = activeRules.map(\.yamlRule) + sourceRules
-        return try Yams.dump(object: config, allowUnicode: true, sortKeys: true)
+        return (try Yams.dump(object:config,allowUnicode:true,sortKeys:true),config,ConfigurationMetadata(nodeCount:nodeCount,configuration:config))
     }
     private static func normalizeProviders(_ config: inout [String: Any], key: String, prefix: String, settings: NetworkSettings, resourceRoot: URL?) {
         guard var providers = config[key] as? [String: Any] else { return }

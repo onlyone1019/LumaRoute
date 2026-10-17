@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 import PackageDescription
 let package = Package(
     name: "LumaRoute", platforms: [.macOS(.v14)],
@@ -10,11 +10,16 @@ let package = Package(
     ],
     dependencies: [.package(url: "https://github.com/jpsim/Yams.git", exact: "6.1.0")],
     targets: [
-        .target(name: "LumaRouteCore", dependencies: [.product(name: "Yams", package: "Yams")]),
-        .executableTarget(name: "LumaRoute", dependencies: ["LumaRouteCore"]),
-        .executableTarget(name: "LumaRouteHelper", dependencies: ["LumaRouteCore"]),
-        .executableTarget(name: "LumaRouteCLI", dependencies: ["LumaRouteCore"]),
-        .testTarget(name: "LumaRouteCoreTests", dependencies: ["LumaRouteCore"])
+        .target(name: "LumaRouteCore", dependencies: [.product(name: "Yams", package: "Yams")],
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .executableTarget(name: "LumaRoute", dependencies: ["LumaRouteCore"],
+                          swiftSettings: [.swiftLanguageMode(.v6)]),
+        .executableTarget(name: "LumaRouteHelper", dependencies: ["LumaRouteCore"],
+                          swiftSettings: [.swiftLanguageMode(.v6)]),
+        .executableTarget(name: "LumaRouteCLI", dependencies: ["LumaRouteCore"],
+                          swiftSettings: [.swiftLanguageMode(.v6)]),
+        .testTarget(name: "LumaRouteCoreTests", dependencies: ["LumaRouteCore"],
+                    swiftSettings: [.swiftLanguageMode(.v6)])
     ]
 )
 

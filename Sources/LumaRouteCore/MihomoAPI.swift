@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MihomoAPI {
+public struct MihomoAPI: Sendable {
     public let port: Int
     public let secret: String
     public let session: URLSession
@@ -61,7 +61,7 @@ public struct MihomoAPI {
         guard let delay = object?["delay"] as? Int, delay > 0 else { throw LumaError.message("节点测试超时或不可用") }
         return delay
     }
-    public func stream(_ endpoint: String, query: [URLQueryItem] = [], receive: @escaping (Data) async -> Void) async throws {
+    public func stream(_ endpoint: String, query: [URLQueryItem] = [], receive: @escaping @Sendable (Data) async -> Void) async throws {
         let (bytes, response) = try await session.bytes(for: request([endpoint], query:query, timeout:3600))
         guard let response = response as? HTTPURLResponse, response.statusCode == 200 else { throw LumaError.message("内核状态流连接失败") }
         for try await line in bytes.lines {

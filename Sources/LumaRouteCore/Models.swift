@@ -1,15 +1,15 @@
 import Foundation
 
-public enum LumaError: LocalizedError {
+public enum LumaError: LocalizedError, Sendable {
     case message(String)
     public var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
 }
-public enum RouteMode: String, Codable, CaseIterable, Identifiable {
+public enum RouteMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case rule, global, direct
     public var id: String { rawValue }
     public var label: String { switch self { case .rule: return "规则"; case .global: return "全局"; case .direct: return "直连" } }
 }
-public struct NetworkSettings: Codable, Equatable {
+public struct NetworkSettings: Codable, Equatable, Sendable {
     public var mixedPort = 19790
     public var controllerPort = 19791
     public var mode: RouteMode = .rule
@@ -48,7 +48,7 @@ public struct NetworkSettings: Codable, Equatable {
         return systemProxy != previous.systemProxy && normalized == previous
     }
 }
-public struct SubscriptionUsage: Codable, Equatable {
+public struct SubscriptionUsage: Codable, Equatable, Sendable {
     public var upload: Int64 = 0
     public var download: Int64 = 0
     public var total: Int64?
@@ -75,7 +75,7 @@ public struct SubscriptionUsage: Codable, Equatable {
         }
     }
 }
-public struct Profile: Codable, Identifiable, Equatable {
+public struct Profile: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     public var isRemote: Bool
@@ -96,7 +96,7 @@ public struct Profile: Codable, Identifiable, Equatable {
         created = Date(); nodeCount = 0
     }
 }
-public struct CustomRule: Codable, Identifiable, Equatable {
+public struct CustomRule: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var enabled: Bool
     public var type: String
@@ -115,7 +115,7 @@ public struct CustomRule: Codable, Identifiable, Equatable {
         if type == "PROCESS-NAME",payload.contains("/") { throw LumaError.message("进程名称不包含路径，请选择完整路径匹配") }
     }
 }
-public struct AppDatabase: Codable {
+public struct AppDatabase: Codable, Sendable {
     public var profiles: [Profile] = []
     public var activeProfileID: UUID?
     public var settings = NetworkSettings()
@@ -125,12 +125,12 @@ public struct AppDatabase: Codable {
     public var ruleSubscriptions: [RuleSubscription]?
     public init() {}
 }
-public struct DelaySample: Codable, Equatable {
+public struct DelaySample: Codable, Equatable, Sendable {
     public var time: String
     public var delay: Int
     public init(time:String,delay:Int) { self.time = time; self.delay = delay }
 }
-public struct ProxyNode: Codable, Identifiable, Equatable {
+public struct ProxyNode: Codable, Identifiable, Equatable, Sendable {
     public var name: String
     public var type: String
     public var now: String?
@@ -145,15 +145,15 @@ public struct ProxyNode: Codable, Identifiable, Equatable {
     public var delay: Int? { (history?.last?.delay).flatMap { $0 > 0 ? $0 : nil } }
     enum CodingKeys: String, CodingKey { case name, type, now, all, history, alive, fixed, hidden; case providerName = "provider-name" }
 }
-public struct ProxiesResponse: Codable { public var proxies: [String: ProxyNode] }
-public struct Provider: Codable {
+public struct ProxiesResponse: Codable, Sendable { public var proxies: [String: ProxyNode] }
+public struct Provider: Codable, Sendable {
     public var name: String
     public var vehicleType: String?
     public var proxies: [ProxyNode]?
     public var updatedAt: String?
 }
-public struct ProvidersResponse: Codable { public var providers: [String: Provider] }
-public struct ConnectionMetadata: Codable {
+public struct ProvidersResponse: Codable, Sendable { public var providers: [String: Provider] }
+public struct ConnectionMetadata: Codable, Sendable {
     public var host: String?
     public var destinationIP: String?
     public var destinationPort: String?
@@ -165,7 +165,7 @@ public struct ConnectionMetadata: Codable {
     public var processPath: String?
     public var processSource: String?
 }
-public struct LiveConnection: Codable, Identifiable {
+public struct LiveConnection: Codable, Identifiable, Sendable {
     public var id: String
     public var metadata: ConnectionMetadata
     public var upload: Int64
@@ -187,47 +187,59 @@ public struct LiveConnection: Codable, Identifiable {
     }
     public var target: String { (metadata.host?.isEmpty == false ? metadata.host! : metadata.destinationIP ?? "未知目标") }
 }
-public struct ConnectionsResponse: Codable {
+public struct ConnectionsResponse: Codable, Sendable {
     public var downloadTotal: Int64
     public var uploadTotal: Int64
     public var connections: [LiveConnection]?
 }
-public struct LiveRule: Codable, Identifiable, Equatable {
+public struct LiveRule: Codable, Identifiable, Equatable, Sendable {
     public var type: String
     public var payload: String
     public var proxy: String
     public var index: Int?
     public var id: String { "\(index ?? -1):\(type):\(payload):\(proxy)" }
 }
-public struct RulesResponse: Codable { public var rules: [LiveRule] }
-public struct Traffic: Codable, Equatable {
+public struct RulesResponse: Codable, Sendable { public var rules: [LiveRule] }
+public struct Traffic: Codable, Equatable, Sendable {
     public var up: Int64
     public var down: Int64
     public var upTotal: Int64?
     public var downTotal: Int64?
     public init(up: Int64 = 0, down: Int64 = 0) { self.up = up; self.down = down }
 }
-public struct LogEntry: Codable, Identifiable {
+/// Carries sanitized log text across the core-to-app boundary without another
+/// regex pass. Only sanitization and splitting can create instances.
+public struct RedactedLogMessage: Sendable {
+    public let text: String
+    public init(_ rawText: String) { text = Redactor.clean(rawText) }
+    private init(redactedText: String) { text = redactedText }
+    public var lines: [Self] {
+        text.split(whereSeparator:\.isNewline).map { Self(redactedText:String($0)) }
+    }
+}
+public struct LogEntry: Codable, Identifiable, Sendable {
     public var id = UUID()
     public var date = Date()
     public var level: String
     public var source: String
     public var message: String
     public init(level: String = "info", source: String, message: String) {
-        self.level = level; self.source = source; self.message = Redactor.clean(message)
+        self.init(level:level,source:source,message:RedactedLogMessage(message))
+    }
+    public init(level: String = "info", source: String, message: RedactedLogMessage) {
+        self.level = level; self.source = source; self.message = message.text
     }
 }
 public enum Redactor {
+    private static let expressions: [NSRegularExpression] = [
+        #"(?i)((?:https?|ssr?|vmess|vless|trojan|hysteria2?|hy2|tuic|socks5?|snell|wireguard|anytls)://)[^\s\"']+"#,
+        #"(?i)(authorization[\s\"']*[:=][\s\"']*(?:(?:bearer|basic)\s+)?)[^\s\"',]+"#,
+        #"(?i)((?:password|passwd|secret|token|uuid|private-key|client-id|access_token|auth-str|auth|psk)[\s\"']*[:=][\s\"']*)[^\s\",}]+"#
+    ].map { try! NSRegularExpression(pattern:$0) }
     public static func clean(_ text: String) -> String {
         var output = text
-        let patterns = [
-            #"(?i)((?:https?|ssr?|vmess|vless|trojan|hysteria2?|hy2|tuic|socks5?|snell|wireguard|anytls)://)[^\s\"']+"#,
-            #"(?i)(authorization[\s\"']*[:=][\s\"']*(?:(?:bearer|basic)\s+)?)[^\s\"',]+"#,
-            #"(?i)((?:password|passwd|secret|token|uuid|private-key|client-id|access_token|auth-str|auth|psk)[\s\"']*[:=][\s\"']*)[^\s\",}]+"#
-        ]
-        for (i, pattern) in patterns.enumerated() {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
-            output = regex.stringByReplacingMatches(in: output, range: NSRange(output.startIndex..., in: output), withTemplate: i == 0 ? "$1[已隐藏]" : "$1[已隐藏]")
+        for regex in expressions {
+            output = regex.stringByReplacingMatches(in: output, range: NSRange(output.startIndex..., in: output), withTemplate:"$1[已隐藏]")
         }
         return output
     }

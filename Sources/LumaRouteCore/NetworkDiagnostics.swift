@@ -2,8 +2,8 @@ import Foundation
 import SystemConfiguration
 import Darwin
 
-public struct DiagnosticCheck: Identifiable {
-    public enum State: String { case passed, warning, failed }
+public struct DiagnosticCheck: Identifiable, Sendable {
+    public enum State: String, Sendable { case passed, warning, failed }
     public var title: String
     public var state: State
     public var detail: String

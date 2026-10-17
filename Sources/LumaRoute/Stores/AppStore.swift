@@ -59,9 +59,10 @@ final class AppStore: ObservableObject {
     var nodeErrors:[String:String] { get { runtime.nodeErrors } set { runtime.nodeErrors = newValue } }
     @Published var notice: String?
     @Published var availableCore: CoreRelease?
-    @Published var availableApp: AppRelease?
     @Published var checkingAppUpdate = false
     @Published var appUpdateMessage: String?
+    var appUpdateCheck: (() -> Void)?
+    var appUpdateTargetBuild: Int?
     var applicationVersion: AppVersion? { VersionInfo.current.application }
     private var subscriptionVersionInfo: VersionInfo {
         let selected = (try? coreUpdates?.selection())?.active?.release.version
@@ -160,7 +161,10 @@ final class AppStore: ObservableObject {
         do {
             store = try LocalStore(root:LocalStore.applicationRoot())
             database = try store.load()
-            if !database.settings.connectOnLaunch {
+            let updateRestart = try AppUpdateHandoff.take(in:store.root,currentBuild:applicationVersion?.build ?? 0)
+            if let updateRestart {
+                database.settings.systemProxy = updateRestart.systemProxy; database.settings.tun = updateRestart.tun
+            } else if !database.settings.connectOnLaunch {
                 database.settings.tun = false; database.settings.systemProxy = false
             }
             let key = "controller-secret"
@@ -178,6 +182,13 @@ final class AppStore: ObservableObject {
             // administrator is still approving or updating the service.
             startRuntimeObservation()
             serviceSetup = helper.networkSetup
+            if updateRestart != nil,serviceSetup == .update {
+                // The new build needs its own approval. Cancel leaves the existing
+                // service banner available for a manual retry, without changing preferences.
+                do { try await authorizeService(networkReady:helper.localInstallation?.healthOnly != true) }
+                catch is CancellationError {} catch { report(error,source:"更新后台服务") }
+                return
+            }
             if serviceSetup == .update ||
                 (serviceSetup != .ready && (database.settings.tun || database.settings.systemProxy)) {
                 notice = serviceSetup == .update ? "点击“完成更新”，授权后即可继续使用":"点击“启用网络功能”，授权后即可使用系统代理和 TUN"
@@ -293,7 +304,7 @@ final class AppStore: ObservableObject {
         let prepared = try await runner.prepareWithMetadata(source:content,settings:proposed,rules:customRules,strategies:groupStrategies,ruleSubscriptions:ruleSnapshots)
         let yaml = prepared.yaml,file = prepared.file
         try await runner.validate(file:file)
-        if selectionSnapshot == nil,!keepSelection {
+        if selectionSnapshot == nil,(!keepSelection || !coreReady) {
             selections = prepared.metadata.selections(savedChoices:state.savedChoices)
         }
         try Task.checkCancellation()
@@ -538,7 +549,7 @@ final class AppStore: ObservableObject {
             guard status.serviceUID == 0,status.protocolVersion == 1 else { throw LumaError.message("后台服务身份或协议不符") }
             try Task.checkCancellation()
             guard !shuttingDown else { return }
-            let selections = GroupSelection.capture(proxies)
+            let selections = proxies.isEmpty ? nil:GroupSelection.capture(proxies)
             let fullService = helper.localInstallation?.healthOnly != true
             if fullService || !coreReady {
                 coreReady = false
@@ -1053,17 +1064,9 @@ final class AppStore: ObservableObject {
             throw error
         }
     }
-    func checkAppUpdate(session: URLSession = .shared) async {
-        guard !checkingAppUpdate else { return }
-        checkingAppUpdate = true; availableApp = nil; appUpdateMessage = nil
-        defer { checkingAppUpdate = false }
-        do {
-            guard let current = applicationVersion else { throw LumaError.message("当前应用版本信息无效，请使用打包后的应用") }
-            let release = try await AppRelease.latest(session:session)
-            if release.version > current {
-                availableApp = release; appUpdateMessage = release.version.label
-            } else { appUpdateMessage = "当前已是最新版本" }
-        } catch is CancellationError {} catch { appUpdateMessage = Redactor.clean(error.localizedDescription) }
+    func checkAppUpdate() async {
+        guard let appUpdateCheck else { appUpdateMessage = "更新器尚未就绪，请稍后重试"; return }
+        appUpdateCheck()
     }
     func checkCoreUpdate() async throws {
         availableCore = try await CoreRelease.latest()
@@ -1198,6 +1201,34 @@ final class AppStore: ObservableObject {
     func exportDiagnostics(to url: URL) throws {
         flushLogs()
         try Data(VersionInfo.current.diagnostics(logs:logs,coreStatus:coreVersion).utf8).write(to:url,options:.atomic)
+    }
+    func prepareAppUpdateRestart() async throws {
+        guard let target = appUpdateTargetBuild else { return }
+        guard !busy,!recovering,!serviceInstalling,updatingProfiles.isEmpty,updatingRuleSubscriptions.isEmpty else {
+            throw LumaError.message("当前操作尚未结束，请稍后在更新窗口中重试安装")
+        }
+        busy = true
+        let handoff = AppUpdateHandoff(targetBuild:target,settings:database.settings)
+        do {
+            // Block new work, then let an in-flight read-only refresh observe
+            // the lock and finish. A periodic heartbeat must not cancel an update.
+            let deadline = Date().addingTimeInterval(15)
+            while refreshing {
+                guard Date() < deadline else { throw LumaError.message("网络状态刷新尚未结束，请稍后重试安装") }
+                try await Task.sleep(nanoseconds:50_000_000)
+            }
+            try handoff.save(in:store.root)
+            // Do not allow replacement if privileged network restoration fails.
+            if helperActive {
+                _ = try await helper.send(HelperRequest(action:"stop"))
+                helperActive = false; serviceRunning = false; coreReady = false
+            }
+            guard await runner.stop() else { throw LumaError.message("内核尚未退出，请稍后重试安装更新") }
+        } catch {
+            try? AppUpdateHandoff.clear(in:store.root)
+            busy = false
+            throw error
+        }
     }
     func shutdown() async {
         guard !shuttingDown else { return }; shuttingDown = true

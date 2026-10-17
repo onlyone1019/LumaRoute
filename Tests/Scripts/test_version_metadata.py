@@ -25,8 +25,10 @@ class VersionMetadataTests(unittest.TestCase):
             (app / 'Contents').mkdir(parents=True)
             (root / 'Resources/Core').mkdir(parents=True)
             (root / 'Resources/Core/release.json').write_text(json.dumps({'version': version}))
+            (root / 'Resources/Sparkle').mkdir(parents=True)
+            (root / 'Resources/Sparkle/public-key.txt').write_text((ROOT / 'Resources/Sparkle/public-key.txt').read_text())
             result = subprocess.run(['/bin/bash', '-euo', 'pipefail', '-c',
-                                     'APP_BUNDLE="$1"\nROOT_DIR="$2"\n'+fragment,
+                                     'APP_BUNDLE="$1"\nROOT_DIR="$2"\nARCH=arm64\n'+fragment,
                                      'version-metadata-test', str(app), str(root)], capture_output=True, text=True)
             return result, plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 
@@ -41,6 +43,13 @@ class VersionMetadataTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(info['CFBundleShortVersionString'], '9.8.7')
         self.assertEqual(info['CFBundleVersion'], '123')
+        self.assertEqual(info['CFBundleDevelopmentRegion'], 'zh_CN')
+        self.assertEqual(info['CFBundleLocalizations'], ['zh_CN'])
+        self.assertTrue(info['SURequireSignedFeed'])
+        self.assertTrue(info['SUVerifyUpdateBeforeExtraction'])
+        self.assertFalse(info['SUEnableAutomaticChecks'])
+        self.assertFalse(info['SUAllowsAutomaticUpdates'])
+        self.assertTrue(info['SUFeedURL'].endswith('/appcast-arm64.xml'))
 
     def test_invalid_core_metadata_fails_packaging(self):
         for version in ['v1.2.3\nInjected: value', 'not-a-version', None]:

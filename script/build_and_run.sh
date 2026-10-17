@@ -40,6 +40,12 @@ for product in LumaRoute LumaRouteHelper; do
   [ "$(/usr/bin/lipo -archs "$BUILD_DIR/$product")" = "$ARCH" ] || { echo "构建产物架构不匹配：$product" >&2; exit 1; }
 done
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources/Licenses" "$APP_BUNDLE/Contents/Library/LaunchServices" "$APP_BUNDLE/Contents/Library/LaunchDaemons"
+SPARKLE_ROOT="$SCRATCH_DIR/artifacts/sparkle/Sparkle"
+SPARKLE_FRAMEWORK="$SPARKLE_ROOT/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+rm -rf "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+/usr/bin/ditto "$SPARKLE_FRAMEWORK" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+install -m 644 "$SPARKLE_ROOT/LICENSE" "$APP_BUNDLE/Contents/Resources/Licenses/Sparkle-LICENSE"
 /bin/bash "$ROOT_DIR/script/build_app_icon.sh" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 cp "$BUILD_DIR/LumaRoute" "$APP_BUNDLE/Contents/MacOS/LumaRoute"
 cp "$BUILD_DIR/LumaRouteHelper" "$APP_BUNDLE/Contents/Library/LaunchServices/LumaRouteHelper"
@@ -62,10 +68,12 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>app.lumaroute.desktop</string>
 <key>CFBundleName</key><string>LumaRoute</string>
 <key>CFBundleDisplayName</key><string>LumaRoute</string>
+<key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+<key>CFBundleLocalizations</key><array><string>zh_CN</string></array>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.7</string>
-<key>CFBundleVersion</key><string>37</string>
+<key>CFBundleShortVersionString</key><string>0.1.8</string>
+<key>CFBundleVersion</key><string>38</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -73,7 +81,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-python3 - "$APP_BUNDLE/Contents/Info.plist" "$ROOT_DIR/Resources/Core/release.json" <<'PY'
+python3 - "$APP_BUNDLE/Contents/Info.plist" "$ROOT_DIR/Resources/Core/release.json" "$ROOT_DIR/Resources/Sparkle/public-key.txt" "$ARCH" <<'PY'
 import json, plistlib, re, sys
 from pathlib import Path
 path = Path(sys.argv[1])
@@ -82,6 +90,18 @@ if not isinstance(version, str) or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", 
     raise SystemExit("Invalid bundled core version")
 info = plistlib.loads(path.read_bytes())
 info["LumaRouteCoreVersion"] = version
+import base64
+key = Path(sys.argv[3]).read_text().strip()
+if len(base64.b64decode(key, validate=True)) != 32:
+    raise SystemExit("Invalid Sparkle public key")
+info["SUPublicEDKey"] = key
+info["SUFeedURL"] = "https://github.com/onlyone1019/LumaRoute/releases/latest/download/appcast-" + sys.argv[4] + ".xml"
+info["SUEnableAutomaticChecks"] = False
+info["SUAllowsAutomaticUpdates"] = False
+info["SUAutomaticallyUpdate"] = False
+info["SUEnableSystemProfiling"] = False
+info["SURequireSignedFeed"] = True
+info["SUVerifyUpdateBeforeExtraction"] = True
 path.write_bytes(plistlib.dumps(info))
 PY
 cat > "$APP_BUNDLE/Contents/Library/LaunchDaemons/app.lumaroute.helper.plist" <<'PLIST'
@@ -99,6 +119,14 @@ cat > "$APP_BUNDLE/Contents/Library/LaunchDaemons/app.lumaroute.helper.plist" <<
 PLIST
 chmod +x "$APP_BUNDLE/Contents/MacOS/LumaRoute" "$APP_BUNDLE/Contents/Library/LaunchServices/LumaRouteHelper" "$APP_BUNDLE/Contents/Resources/mihomo"
 IDENTITY="${LUMAROUTE_SIGNING_IDENTITY:--}"
+if [ "$IDENTITY" != '-' ]; then
+  # Re-sign nested Sparkle executables from the inside out for distribution.
+  SPARKLE_VERSION="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework/Versions/B"
+  for nested in XPCServices/Downloader.xpc XPCServices/Installer.xpc Updater.app Autoupdate; do
+    /usr/bin/codesign --force --options runtime --sign "$IDENTITY" "$SPARKLE_VERSION/$nested"
+  done
+  /usr/bin/codesign --force --options runtime --sign "$IDENTITY" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+fi
 /usr/bin/codesign --force --sign "$IDENTITY" --identifier app.lumaroute.core "$APP_BUNDLE/Contents/Resources/mihomo"
 /usr/bin/codesign --force --sign "$IDENTITY" --identifier app.lumaroute.helper "$APP_BUNDLE/Contents/Library/LaunchServices/LumaRouteHelper"
 /usr/bin/codesign --force --sign "$IDENTITY" --identifier "$BUNDLE_ID" "$APP_BUNDLE"

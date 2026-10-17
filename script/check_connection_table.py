@@ -49,7 +49,7 @@ include = ROOT/f'.build/{arch}/checkouts/Yams/Sources/CYaml/include'
 command = ['xcrun', 'swiftc', '-O', '-whole-module-optimization', '-g', '-parse-as-library',
            '-swift-version', '6', '-warnings-as-errors', '-sdk', sdk, '-target', arch+'-apple-macosx14.0',
            '-I', str(products/'Modules'), '-I', str(include), str(ROOT/'script/check_connection_table.swift')]
-command += [str(p) for folder in ['Views', 'Stores', 'Support', 'App'] for p in sorted((source/folder).glob('*.swift')) if p.name != 'LumaRouteApp.swift']
+command += [str(p) for folder in ['Views', 'Stores', 'Support', 'App'] for p in sorted((source/folder).glob('*.swift')) if p.name not in ['LumaRouteApp.swift', 'AppUpdater.swift']]
 command += [str(p) for name in ['LumaRouteCore', 'Yams', 'CYaml'] for p in sorted((products/(name+'.build')).rglob('*.o'))]
 command += ['-o', str(binary)]
 if not args.skip_build:

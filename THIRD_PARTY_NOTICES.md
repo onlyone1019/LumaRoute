@@ -7,6 +7,7 @@ LumaRoute 自行编写的代码、文档与自有素材按根目录 [MIT License
 | 组件 | 用途与版本 | 许可及版权 |
 | --- | --- | --- |
 | [Yams](https://github.com/jpsim/Yams/tree/6.1.0) | YAML 解析；SwiftPM 固定 6.1.0 | MIT，Copyright (c) 2016 JP Simard；见 [Yams-LICENSE](Resources/Licenses/Yams-LICENSE)。源码中 libyaml 文件自身的版权注释保留在上游源码中。 |
+| [Sparkle](https://github.com/sparkle-project/Sparkle/tree/2.10.0) | 应用更新下载、校验、安装与重新启动；SwiftPM 固定 2.10.0 | 上游版权及第三方许可随框架保留，并包含于应用内的 `Licenses/Sparkle-LICENSE`。 |
 | [Mihomo](https://github.com/MetaCubeX/mihomo/tree/v1.19.32) | 独立运行的代理内核，v1.19.32；通过进程启动和本机 HTTP API 使用，不链接到 Swift 可执行文件 | GNU GPL v3；见 [Mihomo-LICENSE](Resources/Licenses/Mihomo-LICENSE) 及 [上游说明](Resources/Licenses/Mihomo-README.md)。安装包仅进行代码签名，未修改内核功能源码。 |
 | [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | 预置 `GeoIP.dat`、`GeoSite.dat`、`geoip.metadb`；文件名、上游地址、更新时间与 SHA-256 见 [下载清单](Resources/GeoData/release.json) | 聚合仓库 GNU GPL v3；GeoIP 包含 CC BY-SA 4.0 数据，GeoSite 包含 MIT、GPL、LGPL、WTFPL 等不同来源；完整署名、正文及授权边界见 [GEO 专项声明](Resources/Licenses/GeoData-NOTICE.md)。另见 [许可](Resources/Licenses/Meta-rules-dat-LICENSE) 和 [来源及原始数据项目说明](Resources/Licenses/Meta-rules-dat-README.md)。聚合数据中各来源的权利和声明仍归原作者，不能统一改为 MIT。 |
 

@@ -6,6 +6,7 @@ APP="${1:-$ROOT_DIR/dist/LumaRoute.app}"
 [ -d "$APP" ] || { echo '请先运行 ./script/build_and_run.sh --build-only' >&2; exit 1; }
 /usr/bin/codesign --verify --deep --strict "$APP"
 python3 script/verify_macos_sdk.py "$APP/Contents/MacOS/LumaRoute" "$APP/Contents/Library/LaunchServices/LumaRouteHelper"
+[ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo '缺少 Sparkle 更新框架' >&2; exit 1; }
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
 BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")
 ARCH=$(/usr/bin/lipo -archs "$APP/Contents/MacOS/LumaRoute")
@@ -17,6 +18,7 @@ for file in Contents/Resources/install-local-network-service.command Contents/Re
   [ -x "$APP/$file" ] || { echo "缺少可执行安装资源：$file" >&2; exit 1; }
 done
 TAG="v$VERSION-build.$BUILD"
+RELEASE_TAG="${LUMAROUTE_RELEASE_TAG:-$TAG}"
 OUTPUT="${2:-$ROOT_DIR/dist/releases/$TAG}"
 STEM="LumaRoute-$VERSION-build.$BUILD-macos-$ARCH"
 mkdir -p "$OUTPUT"
@@ -39,6 +41,9 @@ LumaRoute $VERSION · Build $BUILD · $ARCH
 4. 首次使用可点击“启用网络功能”，或直接开启系统代理 / TUN 进入授权。
 5. 授权后自动连接服务，无需打开 Terminal、重启或手动重新检查。
 6. 自行导入订阅并选择节点；从网络开关进入授权时，会继续应用刚才的选择。
+
+安装本版后，可在“检查更新”窗口直接下载、安装并自动重新启动，
+无需再次手动拖动覆盖。更新会保留配置，后台服务同步可能需要管理员授权。
 
 主窗口打开或最小化时保留 Dock 图标，关闭全部主窗口后隐藏。
 可从菜单栏重新打开控制台，应用继续在后台运行。
@@ -63,6 +68,9 @@ macOS 仍不允许打开时，可从仓库按 README 在本机自行构建。
 项目：https://github.com/onlyone1019/LumaRoute
 EOF
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUTPUT/$STEM.zip"
+SPARKLE_TOOLS="$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin"
+if [ ! -x "$SPARKLE_TOOLS/sign_update" ]; then SPARKLE_TOOLS="$ROOT_DIR/.build/$ARCH/artifacts/sparkle/Sparkle/bin"; fi
+python3 script/generate_appcast.py --app "$APP" --archive "$OUTPUT/$STEM.zip" --tag "$RELEASE_TAG" --output "$OUTPUT" --tools "$SPARKLE_TOOLS"
 /usr/bin/hdiutil create -volname "LumaRoute $VERSION" -srcfolder "$STAGING" -fs HFS+ -format UDZO -imagekey zlib-level=9 "$OUTPUT/$STEM.dmg"
 (
   cd "$OUTPUT"

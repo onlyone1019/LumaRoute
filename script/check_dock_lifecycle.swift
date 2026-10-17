@@ -6,6 +6,8 @@ import AppKit
     var error:String?
     func setMainWindowVisible(_ visible:Bool) {}
     func shutdown() async {}
+    func prepareAppUpdateRestart() async throws {}
+    func report(_ error:Error,source:String) {}
     func prepareForSleep() {}
     func resumeAfterNetworkChange() async {}
 }

@@ -92,16 +92,11 @@ struct SettingsMaintenanceTab:View {
         VStack(spacing:18) {
             SettingsGroup(title:"版本与维护") {
                 NativeRow(title:"LumaRoute",detail:store.applicationVersion?.label ?? "开发版本") {
-                    Button(store.checkingAppUpdate ? "正在检查…":"检查更新") { Task { await store.checkAppUpdate() } }.disabled(store.checkingAppUpdate)
+                    Button(store.checkingAppUpdate ? "更新进行中…":"检查更新") { Task { await store.checkAppUpdate() } }.disabled(store.checkingAppUpdate)
                 }
                 if let message = store.appUpdateMessage {
                     RowDivider()
-                    NativeRow(title:store.availableApp == nil ? "应用更新":"发现新版本",detail:message) {
-                        if let release = store.availableApp {
-                            Link("更新说明",destination:release.releaseURL)
-                            Link("下载新版",destination:release.downloadURL).buttonStyle(.borderedProminent)
-                        }
-                    }
+                    NativeRow(title:"应用更新",detail:message) { EmptyView() }
                 }
                 RowDivider()
                 NativeRow(title:"Mihomo",detail:store.coreVersion) {

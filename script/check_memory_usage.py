@@ -49,7 +49,7 @@ command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-target',
 if not args.baseline:
     command += ['-D', 'MEMORY_OPTIMIZED']
 command += [str(ROOT / 'script/check_memory_usage.swift')]
-command += [str(p) for p in (sources / 'App').glob('*.swift') if p.name != 'LumaRouteApp.swift']
+command += [str(p) for p in (sources / 'App').glob('*.swift') if p.name not in ['LumaRouteApp.swift', 'AppUpdater.swift']]
 for folder in ['Views', 'Stores', 'Support']:
     command += [str(p) for p in (sources / folder).glob('*.swift')]
 command += [str(products / n) for n in ['LumaRouteCore.o', 'Yams.o', 'CYaml.o']]

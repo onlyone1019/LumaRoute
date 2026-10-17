@@ -14,6 +14,10 @@ struct LumaRouteApp: App {
                 .frame(minWidth:1050,minHeight:720)
                 .preferredColorScheme(store.database.settings.appearance == "light" ? .light : store.database.settings.appearance == "dark" ? .dark:nil)
                 .task {
+                    if store.appUpdateCheck == nil {
+                        let updater = AppUpdater(store:store)
+                        store.appUpdateCheck = { updater.checkForUpdates() }
+                    }
                     delegate.configure(store:store,openMainWindow:{ openWindow(id:"main") })
                     if store.runner == nil { await store.bootstrap() }
                 }
@@ -195,7 +199,17 @@ final class AppDelegate: NSObject,NSApplicationDelegate {
         if terminating { return .terminateNow }
         terminating = true
         cancelDockHide()
-        Task { await store?.shutdown(); sender.reply(toApplicationShouldTerminate:true) }
+        Task {
+            do {
+                try await store?.prepareAppUpdateRestart()
+                await store?.shutdown()
+                sender.reply(toApplicationShouldTerminate:true)
+            } catch {
+                terminating = false
+                store?.report(error,source:"应用更新")
+                sender.reply(toApplicationShouldTerminate:false)
+            }
+        }
         return .terminateLater
     }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {

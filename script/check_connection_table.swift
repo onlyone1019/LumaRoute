@@ -17,6 +17,49 @@ import LumaRouteCore
     var heightViolations=0
     var soakUpdates=0
     var soakElapsed=0.0
+    var scrollMemory:[[String:Any]]=[]
+    func footprint()->Double {
+        var info=task_vm_info_data_t()
+        var count=mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size/MemoryLayout<integer_t>.size)
+        let status=withUnsafeMutablePointer(to:&info) {
+            $0.withMemoryRebound(to:integer_t.self,capacity:Int(count)) { task_info(mach_task_self_,task_flavor_t(TASK_VM_INFO),$0,&count) }
+        }
+        check(status == KERN_SUCCESS,"physical footprint query succeeded")
+        return Double(info.phys_footprint)/1048576
+    }
+    func scrollReuseChecks(_ table:NSTableView) async throws {
+        store.connections=try connections(2000,generation:0)
+        await settle()
+        let baseline=footprint()
+        var scrolled:[Double]=[]
+        for round in 0..<3 {
+            for row in stride(from:0,to:table.numberOfRows,by:20) {
+                table.scrollRowToVisible(row)
+                try await Task.sleep(for:.milliseconds(4))
+                host.layoutSubtreeIfNeeded();host.displayIfNeeded()
+            }
+            table.scrollRowToVisible(table.numberOfRows-1);await settle()
+            let mb=footprint();scrolled.append(mb)
+            scrollMemory.append(["stage":"scrolled-\(round)","footprint_mb":mb])
+            check(table.rows(in:table.visibleRect).contains(table.numberOfRows-1),"complete traversal reaches the last connection")
+            sampleHeight(table)
+            if mode == "container" {
+                let start=ContinuousClock.now
+                store.page = .overview;await settle()
+                let elapsed=start.duration(to:.now).components
+                let ms=Double(elapsed.seconds)*1000+Double(elapsed.attoseconds)/1e15
+                scrollMemory.append(["stage":"overview-\(round)","footprint_mb":footprint(),"milliseconds":ms])
+                check(ms<500,"navigation remains responsive after full connection traversal")
+                store.page = .connections;await settle()
+                check(find(NSTableView.self,in:host) === table,"scroll regression retains the cached connection table")
+            }
+        }
+        if let first=scrolled.first,let last=scrolled.last {
+            check(last-first<32,"repeated full traversals do not retain another set of row views each round")
+            check((scrolled.max() ?? baseline)-baseline<96,"2000 connection scroll footprint growth stays below 96 MiB")
+        }
+        store.connections=try connections(80,generation:0);await settle()
+    }
     func sampleHeight(_ table:NSTableView) {
         heightSamples+=1
         if table.usesAutomaticRowHeights { heightViolations+=1 }
@@ -87,6 +130,7 @@ import LumaRouteCore
             "header_height":table.headerView?.frame.height ?? 0,"column_widths":table.tableColumns.map(\.width)]
         try JSONSerialization.data(withJSONObject:nativeStyle,options:.prettyPrinted).write(to:folder.appendingPathComponent(mode+"-style.json"))
         sampleHeight(table)
+        try await scrollReuseChecks(table)
         for step in 0..<240 {
             let count=[0,1,500,3,1200,5,0,180][step%8]
             store.connections=try connections(count,generation:step)
@@ -225,7 +269,7 @@ import LumaRouteCore
         finish()
     }
     func finish() {
-        let report:[String:Any]=["pid":ProcessInfo.processInfo.processIdentifier,"mode":mode,"updates":updates,"soak_updates":soakUpdates,"soak_seconds":soakElapsed,"height_samples":heightSamples,"automatic_height_violations":heightViolations,"checks":checks,"failures":failures]
+        let report:[String:Any]=["pid":ProcessInfo.processInfo.processIdentifier,"mode":mode,"updates":updates,"soak_updates":soakUpdates,"soak_seconds":soakElapsed,"height_samples":heightSamples,"automatic_height_violations":heightViolations,"scroll_memory":scrollMemory,"checks":checks,"failures":failures]
         try? JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:folder.appendingPathComponent(mode+".json"),options:.atomic)
         NSApp.terminate(nil)
     }

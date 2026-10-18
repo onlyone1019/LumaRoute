@@ -58,6 +58,9 @@ jobs:
       - name: Continuously refresh the real connections GUI
         if: matrix.arch == 'arm64'
         run: python3 script/check_connection_table.py --products .build/arm64/arm64-apple-macosx/release --output work/connection-table-gui
+      - name: Scroll live rules and check navigation memory
+        if: matrix.arch == 'arm64'
+        run: python3 script/check_live_rules.py --products .build/arm64/arm64-apple-macosx/release --rows 6000 --output work/live-rules-gui
 
   secrets:
     runs-on: ubuntu-latest

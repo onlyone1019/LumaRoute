@@ -81,11 +81,8 @@ struct RulesPage:View {
         }
     }
     private var live:some View {
-        Table(store.liveRules.filter { search.isEmpty || $0.payload.localizedCaseInsensitiveContains(search) || $0.proxy.localizedCaseInsensitiveContains(search) }) {
-            TableColumn("类型",value:\.type).width(150)
-            TableColumn("匹配内容",value:\.payload)
-            TableColumn("目标策略",value:\.proxy).width(180)
-        }.scrollContentBackground(.hidden).alternatingRowBackgrounds(.disabled)
+        LiveRulesTableView(rows:store.liveRules.filter { search.isEmpty || $0.payload.localizedCaseInsensitiveContains(search) || $0.proxy.localizedCaseInsensitiveContains(search) })
+            .frame(maxWidth:.infinity,maxHeight:.infinity)
             .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
             .clipShape(RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
     }

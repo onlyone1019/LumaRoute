@@ -115,7 +115,12 @@ struct ConnectionTableView:NSViewRepresentable {
             let text=column.text(displayed[row]);cell.textField?.stringValue=text;cell.toolTip=text
             return cell
         }
-        func tableView(_ tableView:NSTableView,rowViewForRow row:Int)->NSTableRowView? { RowView() }
+        func tableView(_ tableView:NSTableView,rowViewForRow row:Int)->NSTableRowView? {
+            let identifier=NSUserInterfaceItemIdentifier("connection-row")
+            if let reused=tableView.makeView(withIdentifier:identifier,owner:self) as? NSTableRowView { return reused }
+            let view=RowView();view.identifier=identifier
+            return view
+        }
         func tableViewSelectionDidChange(_ notification:Notification) {
             guard !updating,let table=notification.object as? NSTableView else { return }
             let id=displayed.indices.contains(table.selectedRow) ? displayed[table.selectedRow].id:nil

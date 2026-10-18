@@ -23,8 +23,16 @@ import LumaRouteCore
 struct LogsPage:View {
     @EnvironmentObject var store:AppStore
     @State var state=LogsPageState()
-    var items:[LogEntry] { (state.paused ? state.snapshot:store.logs).filter { (state.search.isEmpty || $0.message.localizedCaseInsensitiveContains(state.search) || $0.source.localizedCaseInsensitiveContains(state.search)) && (state.level=="全部级别" || $0.level==state.level) && (state.source=="全部来源" || $0.source==state.source) } }
-    var selected:LogEntry? { items.first { $0.id==state.selection } }
+    var items:[LogEntry] {
+        let logs=state.paused ? state.snapshot:store.logs
+        let search=state.search,level=state.level,source=state.source
+        guard !search.isEmpty || level != "全部级别" || source != "全部来源" else { return logs }
+        return logs.filter { (search.isEmpty || $0.message.localizedCaseInsensitiveContains(search) || $0.source.localizedCaseInsensitiveContains(search)) && (level=="全部级别" || $0.level==level) && (source=="全部来源" || $0.source==source) }
+    }
+    var selected:LogEntry? {
+        guard let id=state.selection else { return nil }
+        return items.first { $0.id==id }
+    }
     var body:some View {
         @Bindable var state=state
         VStack(spacing:16) {
@@ -62,26 +70,9 @@ struct LogsPage:View {
     }
     private var list:some View {
         @Bindable var state=state
-        return ScrollViewReader { proxy in
-            List(selection:$state.selection) {
-                ForEach(items) { entry in
-                    HStack(alignment:.top,spacing:12) {
-                        Text(entry.date.formatted(date:.omitted,time:.standard)).monospacedDigit().foregroundStyle(.secondary).frame(width:72,alignment:.leading)
-                        HStack(spacing:6) { Circle().fill(color(entry.level)).frame(width:7,height:7); Text(label(entry.level)) }.frame(width:64,alignment:.leading)
-                        Text(entry.source).foregroundStyle(.secondary).frame(width:90,alignment:.leading).lineLimit(1)
-                        Text(entry.message).frame(maxWidth:.infinity,alignment:.leading).lineLimit(2)
-                    }.font(.system(size:12)).padding(.vertical,5).tag(entry.id).id(entry.id)
-                    .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top:0,leading:8,bottom:0,trailing:8))
-                    .contextMenu { Button("复制详情") { copy(entry) } }
-                }
-            }.listStyle(.plain).scrollContentBackground(.hidden)
-            .onAppear { if state.autoScroll && !state.paused,let id=items.last?.id { proxy.scrollTo(id,anchor:.bottom) } }
-            .onChange(of:items.last?.id) { _,id in if state.autoScroll && !state.paused,let id { proxy.scrollTo(id,anchor:.bottom) } }
-            .onChange(of:state.autoScroll) { _,enabled in if enabled && !state.paused,let id=items.last?.id { proxy.scrollTo(id,anchor:.bottom) } }
-        }
+        return LogsTableView(rows:items,selection:$state.selection,followsTail:state.autoScroll && !state.paused)
     }
-    private func color(_ level:String)->Color { level=="error" ? .red:level=="warning" ? .orange:.green }
-    private func label(_ level:String)->String { level=="error" ? "错误":level=="warning" ? "警告":level=="info" ? "信息":level }
+
     private func copy(_ entry:LogEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.message,forType:.string) }
 }
 struct DiagnosticsDocument:FileDocument {

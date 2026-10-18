@@ -78,25 +78,25 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前正式版：[0.1.9 · Build 39](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.9)** · macOS 14+ · Apple Silicon / Intel
+**当前正式版：[0.1.10 · Build 40](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.10)** · macOS 14+ · Apple Silicon / Intel
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.9/LumaRoute-0.1.9-build.39-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.9/LumaRoute-0.1.9-build.39-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.9/LumaRoute-0.1.9-build.39-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.9/LumaRoute-0.1.9-build.39-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.9/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.10/LumaRoute-0.1.10-build.40-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.10/LumaRoute-0.1.10-build.40-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.10/LumaRoute-0.1.10-build.40-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.10/LumaRoute-0.1.10-build.40-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.10/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-0.1.9 修复生效规则滚动后内存上涨、切页卡顿，以及连接页重复滚动时的行视图累积，保留现有 UI。
+0.1.10 改善日志页打开与持续刷新速度，修复日志表格重入警告和缩放窗口后的自动滚动问题，保留现有 UI。此前 0.1.9 的生效规则与连接页内存修复继续保留。
 
 0.1.8 已接入应用内更新：在原有“检查更新”入口下载新版，完成后选择“安装并重新启动”，应用会自动退出、替换并重新打开，保留订阅、规则、节点选择和外观设置。下载期间继续使用；安装时短暂暂停代理，重启后按更新前的状态恢复。后台服务绑定构建，重启后可能弹出管理员授权；取消后可通过原有“完成更新”入口重试。第一版仅手动检查更新，不自动下载或安装。0.1.7 及更早版本首次迁移仍需手动安装一次；已安装带 Sparkle 版本的用户可直接检查更新。发布流程见 [应用内更新说明](docs/app-updates.md)。
 
-这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.9 发布说明](docs/releases/v0.1.9.md)。
+这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.10 发布说明](docs/releases/v0.1.10.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
@@ -337,6 +337,16 @@ python3 script/check_connection_table.py --products .build/x86_64/x86_64-apple-m
 ```
 
 该检查在隔离窗口中运行真实连接页和完整页面容器，使用合成连接与私有 SQLite，覆盖持续增删、清空、排序、筛选、原生行选择、右键分流、窄窗口滚动和页面重建。进程崩溃、超时、AppKit 表格重入警告或连接表格重新启用自动测高都会使检查失败；不会启动真实内核、后台服务或改动系统网络。报告与截图保存在命令输出的目录，可用 `--output` 指定位置。CI 在 Apple Silicon 构建后运行该 GUI 检查。
+
+日志页的打开、筛选与持续追加也有隔离 GUI 回归：
+
+```sh
+python3 script/check_logs_page.py --output work/logs-page-gui
+# 只构建测试宿主，供 Instruments 录制：
+python3 script/check_logs_page.py --output work/logs-page-gui --prepare-only
+```
+
+检查使用 2,000 条合成日志，覆盖页面回收后重建、筛选、选择详情、暂停／继续、自动滚动、清空、深浅主题和窗口缩放；AppKit 表格重入警告会使检查失败。输出包含每次打开与刷新耗时、行高和截图。性能对比应使用相同 SDK、构建参数、测试脚本与数据；耗时包含主线程更新和布局，不代表端到端显示延迟。
 
 架构构建使用独立的 `.build/arm64` 或 `.build/x86_64` 目录，查询其产物时增加相应的 `--scratch-path`。打包脚本第二个参数可指定独立输出目录，用于本地验证并保留已有 Release 附件。
 

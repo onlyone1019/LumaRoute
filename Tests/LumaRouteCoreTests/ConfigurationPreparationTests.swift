@@ -94,6 +94,42 @@ final class ConfigurationPreparationTests: XCTestCase {
         XCTAssertEqual(refreshed,candidate,"loader must reread SQLite instead of retaining stale parsed content")
     }
 
+    func testHTTPRuleCacheSurvivesSwitchingAwayAndRestartingTheRunner() async throws {
+        let root = try root(),initial = runner(root)
+        let source = "rule-providers: {remote: {type: http, behavior: domain, url: 'https://example.org/rules'}}\nrules: ['RULE-SET,remote,DIRECT', 'MATCH,DIRECT']"
+        let first = try await initial.prepareWithMetadata(source:source,settings:NetworkSettings(),rules:[])
+        let cache = first.file.deletingLastPathComponent().appendingPathComponent("providers/rule-0.yaml")
+        try FileManager.default.createDirectory(at:cache.deletingLastPathComponent(),withIntermediateDirectories:true)
+        try Data("payload: [example.org]".utf8).write(to:cache)
+        let other = try await initial.prepareWithMetadata(source:source.replacingOccurrences(of:"example.org/rules",with:"other.example.org/rules"),settings:NetworkSettings(),rules:[])
+        try other.yaml.write(to:root.appendingPathComponent("active.yaml"),atomically:true,encoding:.utf8)
+        let restored = try await runner(root).prepareWithMetadata(source:source,settings:NetworkSettings(),rules:[])
+        let copied = restored.file.deletingLastPathComponent().appendingPathComponent("providers/rule-0.yaml")
+        XCTAssertEqual(try Data(contentsOf:copied),try Data(contentsOf:cache))
+        XCTAssertEqual((try FileManager.default.attributesOfItem(atPath:copied.path)[.posixPermissions] as? NSNumber)?.intValue,0o600)
+        XCTAssertTrue(FileManager.default.fileExists(atPath:cache.path),"rollback revision must retain its own cache")
+    }
+
+    func testHTTPRuleCacheRejectsChangedDefinitionsAndExternalPaths() async throws {
+        let root = try root(),runner = runner(root)
+        let source = "rule-providers: {remote: {type: http, behavior: domain, url: 'https://example.org/rules', header: {Authorization: [fixture]}}}\nrules: ['RULE-SET,remote,DIRECT', 'MATCH,DIRECT']"
+        let first = try await runner.prepareWithMetadata(source:source,settings:NetworkSettings(),rules:[])
+        let cache = first.file.deletingLastPathComponent().appendingPathComponent("providers/rule-0.yaml")
+        try FileManager.default.createDirectory(at:cache.deletingLastPathComponent(),withIntermediateDirectories:true)
+        try Data("payload: [example.org]".utf8).write(to:cache)
+        for changed in [source.replacingOccurrences(of:"example.org/rules",with:"other.example.org/rules"),source.replacingOccurrences(of:"behavior: domain",with:"behavior: classical"),source.replacingOccurrences(of:"[fixture]",with:"[different]")] {
+            let next = try await runner.prepareWithMetadata(source:changed,settings:NetworkSettings(),rules:[])
+            XCTAssertFalse(FileManager.default.fileExists(atPath:next.file.deletingLastPathComponent().appendingPathComponent("providers/rule-0.yaml").path))
+        }
+        let external = try self.root().appendingPathComponent("external.yaml")
+        try Data("payload: [private.example]".utf8).write(to:external)
+        let externalYAML = first.yaml.replacingOccurrences(of:cache.path,with:external.path)
+        try externalYAML.write(to:first.file,atomically:true,encoding:.utf8)
+        try externalYAML.write(to:root.appendingPathComponent("active.yaml"),atomically:true,encoding:.utf8)
+        let next = try await runner.prepareWithMetadata(source:source,settings:NetworkSettings(),rules:[])
+        XCTAssertFalse(FileManager.default.fileExists(atPath:next.file.deletingLastPathComponent().appendingPathComponent("providers/rule-0.yaml").path))
+    }
+
     func testLoaderSingleMissingAndNoActiveProfileBehavior() async throws {
         let store = try LocalStore(root:root()),loader = ConfigurationLoader()
         var state = AppDatabase()

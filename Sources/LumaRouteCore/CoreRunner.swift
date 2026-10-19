@@ -59,6 +59,7 @@ public actor CoreRunner {
         let composed = try ConfigComposer.composeDocument(source:source,settings:settings,rules:rules,secret:secret,resourceRoot:directory,strategies:strategies,ruleSubscriptions:ruleSubscriptions)
         let yaml = composed.yaml
         try seedProviderCaches(for:composed.configuration["proxy-providers"] as? [String:[String:Any]] ?? [:])
+        try seedRuleProviderCaches(for:composed.configuration["rule-providers"] as? [String:[String:Any]] ?? [:])
         let file = directory.appendingPathComponent("config.yaml")
         try Data(yaml.utf8).write(to:file, options:.atomic)
         try FileManager.default.setAttributes([.posixPermissions:0o600], ofItemAtPath:file.path)
@@ -114,6 +115,50 @@ public actor CoreRunner {
             try FileManager.default.createDirectory(at:destination.deletingLastPathComponent(),withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
             try FileManager.default.copyItem(at:source,to:destination)
             try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:destination.path)
+        }
+    }
+    /// Each revision owns separate files so a failed apply can roll back safely.
+    /// Reuse unchanged HTTP rules from recent revisions, including after A → B → A.
+    private func seedRuleProviderCaches(for next: [String:[String:Any]]) throws {
+        var missing = next.filter { $0.value["type"] as? String == "http" }
+        guard !missing.isEmpty else { return }
+        let owned = home.resolvingSymlinksInPath().path+"/"
+        func seed(_ yaml: String) throws {
+            guard let old = (try? ConfigComposer.parse(yaml))?["rule-providers"] as? [String:[String:Any]] else { return }
+            for name in Array(missing.keys) {
+                guard var provider = missing[name],var prior = old[name],
+                      let from = prior.removeValue(forKey:"path") as? String,
+                      let to = provider.removeValue(forKey:"path") as? String,
+                      NSDictionary(dictionary:provider).isEqual(to:prior) else { continue }
+                let source = URL(fileURLWithPath:from).resolvingSymlinksInPath()
+                let destination = URL(fileURLWithPath:to).resolvingSymlinksInPath()
+                guard source.path.hasPrefix(owned),destination.path.hasPrefix(owned),
+                      FileManager.default.fileExists(atPath:source.path),!FileManager.default.fileExists(atPath:destination.path) else { continue }
+                try FileManager.default.createDirectory(at:destination.deletingLastPathComponent(),withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+                try FileManager.default.copyItem(at:source,to:destination)
+                try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:destination.path)
+                missing.removeValue(forKey:name)
+            }
+        }
+        if let previous = currentYAML ?? (try? String(contentsOf:home.appendingPathComponent("active.yaml"),encoding:.utf8)) {
+            try seed(previous)
+        }
+        guard !missing.isEmpty else { return }
+        let root = home.appendingPathComponent("revisions")
+        let keys: Set<URLResourceKey> = [.isDirectoryKey,.isSymbolicLinkKey,.contentModificationDateKey]
+        let entries = (try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:Array(keys))) ?? []
+        let recent: [(URL,Date)] = entries.compactMap { entry in
+            guard UUID(uuidString:entry.lastPathComponent) != nil,
+                  let values = try? entry.resourceValues(forKeys:keys),values.isDirectory == true,values.isSymbolicLink != true else { return nil }
+            return (entry,values.contentModificationDate ?? .distantPast)
+        }.sorted { $0.1 > $1.1 }
+        // Match the retained revision window and bound YAML parsing on a cache miss.
+        for (entry,_) in recent.prefix(20) {
+            let file = entry.appendingPathComponent("config.yaml")
+            guard (try? file.resourceValues(forKeys:[.isSymbolicLinkKey]))?.isSymbolicLink != true,
+                  let yaml = try? String(contentsOf:file,encoding:.utf8) else { continue }
+            try seed(yaml)
+            if missing.isEmpty { break }
         }
     }
     private func verifyProviders(yaml: String,api: MihomoAPI) async throws {

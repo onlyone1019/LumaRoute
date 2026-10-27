@@ -685,11 +685,12 @@ final class AppStore: ObservableObject {
             delay = min(delay*2,16)
         }
     }
-    func importRemote(name: String,url: String,userAgent: String = "") async throws {
+    func importRemote(name: String,url: String,userAgent: String = "",downloadRoute: SubscriptionDownloadRoute = .direct) async throws {
         let agent = try SubscriptionFetcher.normalizedUserAgent(userAgent)
-        let download = try await SubscriptionFetcher.fetch(url,userAgent:agent,versionInfo:subscriptionVersionInfo)
+        let download = try await SubscriptionFetcher.fetch(url,userAgent:agent,versionInfo:subscriptionVersionInfo,route:downloadRoute,localProxyPort:coreReady ? database.settings.mixedPort:nil)
         var profile = Profile(name:name.isEmpty ? URL(string:url)?.host ?? "新订阅":name,isRemote:true,displaySource:SubscriptionFetcher.displayURL(URL(string:url)!))
         profile.userAgent = agent
+        profile.downloadRoute = downloadRoute
         profile.usage = download.usage
         profile.updateHours = max(1,download.interval ?? database.settings.updateIntervalHours)
         let metadata = try await validateRemoteSource(download.content)
@@ -736,11 +737,12 @@ final class AppStore: ObservableObject {
         catch is CancellationError { throw CancellationError() }
         catch { throw SubscriptionError.configuration(error.localizedDescription) }
     }
-    func saveSubscriptionOptions(_ profile: Profile,userAgent: String) async throws {
+    func saveSubscriptionOptions(_ profile: Profile,userAgent: String,downloadRoute: SubscriptionDownloadRoute? = nil) async throws {
         let agent = try SubscriptionFetcher.normalizedUserAgent(userAgent)
         guard let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index].isRemote else { throw LumaError.message("此远程订阅已不存在") }
         var next = database
         next.profiles[index].userAgent = agent
+        if let downloadRoute { next.profiles[index].downloadRoute = downloadRoute }
         try await store.saveAsync(next)
         database = next
     }
@@ -778,7 +780,7 @@ final class AppStore: ObservableObject {
         var attemptedApply = false
         do {
             guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在本机数据库，请重新导入") }
-            let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent,versionInfo:subscriptionVersionInfo)
+            let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent,versionInfo:subscriptionVersionInfo,route:profile.downloadRoute,localProxyPort:coreReady ? database.settings.mixedPort:nil)
             if background { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
             try Task.checkCancellation()
             guard !shuttingDown,let index = database.profiles.firstIndex(where:{$0.id == profile.id}),

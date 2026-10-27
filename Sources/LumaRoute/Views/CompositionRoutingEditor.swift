@@ -7,6 +7,7 @@ struct DomainRoutesEditor: View {
     @Binding var routes: [SubscriptionDomainRoute]
     let composition: SubscriptionComposition
     let profiles: [Profile]
+    var additionalPolicies: [String] = []
     var policyLoader: ((SubscriptionComposition) async throws -> [String])? = nil
     @State private var policies: [String] = []
     @State private var loadedPolicyKey: String?
@@ -18,7 +19,7 @@ struct DomainRoutesEditor: View {
     @State private var resolvedIP = ""
     @State private var process = ""
     @State private var verdict: String?
-    private var policyKey: String { composition.profileIDs.map(\.uuidString).joined()+String(describing:composition.baseProfileID)+profiles.map { $0.name+String(describing:$0.lastUpdated) }.joined() }
+    private var policyKey: String { composition.profileIDs.map(\.uuidString).joined()+String(describing:composition.baseProfileID)+profiles.map { $0.name+String(describing:$0.lastUpdated) }.joined()+additionalPolicies.joined() }
     private var policiesReady: Bool { loadedPolicyKey == policyKey }
     var body: some View {
         Panel(padding:12) {
@@ -89,7 +90,7 @@ struct DomainRoutesEditor: View {
                 if let policyLoader { loaded = try await policyLoader(composition) }
                 else { loaded = try await store.compositionPolicyTargets(composition) }
                 guard !Task.isCancelled,key == policyKey else { return }
-                policies = loaded
+                policies = loaded + additionalPolicies.filter { !loaded.contains($0) }
                 loadedPolicyKey = key
             } catch {
                 guard !Task.isCancelled,key == policyKey else { return }

@@ -290,6 +290,14 @@ public actor CoreRunner {
         await stop()
         throw LumaError.message("内核控制接口未就绪")
     }
+    /// Listener and credential changes restart the core, so the old bind and old password stop at once.
+    private static func listenersChanged(from previous: String?, to candidate: String) -> Bool {
+        guard let previous else { return false }
+        let keys: Set<String> = ["allow-lan", "bind-address", "authentication", "skip-auth-prefixes", "lan-allowed-ips"]
+        func listeners(_ yaml: String) throws -> NSDictionary { NSDictionary(dictionary: try ConfigComposer.parse(yaml).filter { keys.contains($0.key) }) }
+        guard let before = try? listeners(previous), let after = try? listeners(candidate) else { return true }
+        return !before.isEqual(to: after)
+    }
     public func apply(yaml: String, settings: NetworkSettings,force: Bool = true) async throws {
         if !running {
             do { try await start(yaml:yaml,settings:settings) }
@@ -298,7 +306,7 @@ public actor CoreRunner {
         }
         let previous = currentYAML
         if let previousSettings = currentSettings,
-           previousSettings.controllerPort != settings.controllerPort || previousSettings.mixedPort != settings.mixedPort {
+           previousSettings.controllerPort != settings.controllerPort || previousSettings.mixedPort != settings.mixedPort || Self.listenersChanged(from: previous, to: yaml) {
             guard await stop() else {
                 throw CoreApplyError(recovery:.stateUnknown,original:LumaError.message("原内核退出尚未确认"))
             }

@@ -16,18 +16,21 @@ public enum SubscriptionFetcher {
         return trimmed.isEmpty ? nil : trimmed
     }
     public static func displayURL(_ url: URL) -> String { "\(url.scheme ?? "https")://\(url.host ?? "未知来源")/••••" }
-    public static func fetch(_ source: String, userAgent: String? = nil, session: URLSession? = nil,versionInfo: VersionInfo = .current) async throws -> SubscriptionDownload {
+    public static func fetch(_ source: String, userAgent: String? = nil, session: URLSession? = nil,versionInfo: VersionInfo = .current,route: SubscriptionDownloadRoute = .direct,localProxyPort: Int? = nil) async throws -> SubscriptionDownload {
         guard let url = URL(string:source), ["https","http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { throw SubscriptionError.invalidAddress }
         let agent = try normalizedUserAgent(userAgent) ?? versionInfo.subscriptionUserAgent
         var request = URLRequest(url:url,timeoutInterval:25)
         request.setValue(agent,forHTTPHeaderField:"User-Agent")
         let data: Data
         let response: URLResponse
-        // Subscription retrieval defaults to direct transport, like Clash Verge Rev.
-        // The caller can explicitly supply a configured session for proxy downloads.
+        // Existing profiles keep direct downloads. Proxy routes are explicit,
+        // scoped to this subscription, and never silently fall back to direct.
         do {
             if let session { (data,response) = try await session.data(for:request) }
-            else { (data,response) = try await DirectSubscriptionDownload.fetch(url,userAgent:agent) }
+            else {
+                let proxy = try route.proxyURL(for:url,localProxyPort:localProxyPort)
+                (data,response) = try await SubscriptionTransport.fetch(url,userAgent:agent,proxy:proxy)
+            }
         } catch is CancellationError { throw CancellationError() }
         catch let error as URLError where error.code == .cancelled { throw CancellationError() }
         catch let error as SubscriptionError { throw error }

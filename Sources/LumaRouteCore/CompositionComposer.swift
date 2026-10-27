@@ -4,7 +4,7 @@ import Yams
 /// Namespaces each source before merging. Only the selected base contributes
 /// global DNS/rules; include-all groups stay scoped to their original source.
 public enum CompositionComposer {
-    public static func compose(_ composition: SubscriptionComposition,profiles: [Profile],contents: [UUID:String],settings: NetworkSettings = NetworkSettings()) throws -> String {
+    public static func compose(_ composition: SubscriptionComposition,profiles: [Profile],contents: [UUID:String],settings: NetworkSettings = NetworkSettings(),additionalTargets: [String] = []) throws -> String {
         try composition.validate(profiles:profiles)
         let aliases = composition.aliases(profiles:profiles)
         var mergedNodes: [[String:Any]] = [], mergedGroups: [[String:Any]] = []
@@ -114,7 +114,7 @@ public enum CompositionComposer {
         }
         mergedGroups.append(["name":SubscriptionComposition.automaticGroup,"type":"url-test","proxies":allNodes,"use":allProviders,"url":settings.testURL,"timeout":settings.testTimeout,"interval":300,"lazy":true,"empty-fallback":"REJECT","exclude-type":"Direct|Reject|Pass"])
         mergedGroups.append(["name":SubscriptionComposition.aggregateGroup,"type":"select","proxies":[SubscriptionComposition.automaticGroup]+allNodes,"use":allProviders,"empty-fallback":"REJECT"])
-        let targets = Set(mergedGroups.compactMap { $0["name"] as? String } + ["DIRECT","REJECT"])
+        let targets = Set(mergedGroups.compactMap { $0["name"] as? String } + ["DIRECT","REJECT"] + additionalTargets)
         for route in composition.domainRoutes where route.enabled {
             if let target = route.target,!targets.contains(target) { throw LumaError.message("分流规则的目标策略组已不存在，请重新选择或停用规则") }
         }

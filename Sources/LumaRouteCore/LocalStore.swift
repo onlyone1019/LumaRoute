@@ -207,7 +207,12 @@ public final class LocalStore: Sendable {
                 var contents: [UUID:String] = [:]
                 for profile in database.profiles { contents[profile.id] = try profileContent(profile.id) }
                 let rules = try ruleContentsFor(database)
-                try target.commit(database,profiles:contents,ruleContents:rules)
+                // The LAN password is a credential like the control secret: backups carry neither,
+                // so a restored backup starts with LAN sharing off.
+                var snapshot = database
+                snapshot.settings.allowLAN = false
+                snapshot.settings.lanPassword = ""
+                try target.commit(snapshot,profiles:contents,ruleContents:rules)
                 for profile in database.profiles {
                     if let row = try sqlite.rows("SELECT content FROM profile_contents WHERE profile_id=? AND version='previous'",[.text(profile.id.uuidString)]).first {
                         try target.sqlite.execute("INSERT INTO profile_contents(profile_id,version,content) VALUES(?,'previous',?)",[.text(profile.id.uuidString),.text(String(decoding:row[0],as:UTF8.self))])

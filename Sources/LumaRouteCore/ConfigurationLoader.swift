@@ -15,9 +15,9 @@ public actor ConfigurationLoader {
                 try Task.checkCancellation()
                 contents[member] = try overrides[member] ?? store.profileContent(member)
             }
-            result = try CompositionComposer.compose(composition,profiles:configuration.profiles,contents:contents,settings:configuration.settings)
+            result = try CompositionComposer.compose(composition,profiles:configuration.profiles,contents:contents,settings:configuration.settings,additionalTargets:(profile?.proxyChains ?? []).filter(\.enabled).map(\.groupName))
         } else { result = try overrides[id] ?? store.profileContent(id) }
         try Task.checkCancellation()
-        return result
+        return try ProxyChainComposer.compose(source:result,chains:profile?.proxyChains ?? [],settings:configuration.settings)
     }
 }

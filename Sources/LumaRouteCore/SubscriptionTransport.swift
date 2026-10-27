@@ -1,9 +1,9 @@
 import Foundation
 
-/// A scoped direct retry using macOS' TLS-validating transport. Foundation on some
-/// macOS versions still consults system proxies despite per-session proxy disables.
-enum DirectSubscriptionDownload {
-    static func fetch(_ url: URL, userAgent: String) async throws -> (Data, URLResponse) {
+/// Curl keeps the selected route explicit without weakening TLS validation.
+/// Foundation can consult system proxies despite per-session proxy disables.
+enum SubscriptionTransport {
+    static func fetch(_ url: URL, userAgent: String,proxy: URL?) async throws -> (Data, URLResponse) {
         let download = Task.detached {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("LumaRoute-download-"+UUID().uuidString)
             try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
@@ -13,15 +13,17 @@ enum DirectSubscriptionDownload {
             for file in [body,headers] { try Data().write(to:file); try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:file.path) }
             let task = Process(); let input = Pipe()
             task.executableURL = URL(fileURLWithPath:"/usr/bin/curl")
-            task.arguments = ["--disable","--config","-","--noproxy","*","--silent","--location","--max-redirs","10","--proto","=http,https","--proto-redir","=https","--connect-timeout","10","--max-time","25","--max-filesize","8388608","--dump-header",headers.path,"--output",body.path]
+            task.arguments = ["--disable","--config","-","--noproxy",proxy == nil ? "*":"","--silent","--location","--max-redirs","10","--proto","=http,https","--proto-redir","=https","--connect-timeout","10","--max-time","25","--max-filesize","8388608","--dump-header",headers.path,"--output",body.path]
             task.standardInput = input
             task.standardOutput = FileHandle.nullDevice; task.standardError = FileHandle.nullDevice
             // The bearer URL is sent through stdin, never process arguments or a config file.
-            let escaped = url.absoluteString.replacingOccurrences(of:"\\",with:"\\\\").replacingOccurrences(of:"\"",with:"\\\"").replacingOccurrences(of:"\n",with:"\\n").replacingOccurrences(of:"\r",with:"\\r")
-            let escapedAgent = userAgent.replacingOccurrences(of:"\\",with:"\\\\").replacingOccurrences(of:"\"",with:"\\\"")
+            func escaped(_ value: String) -> String {
+                value.replacingOccurrences(of:"\\",with:"\\\\").replacingOccurrences(of:"\"",with:"\\\"").replacingOccurrences(of:"\n",with:"\\n").replacingOccurrences(of:"\r",with:"\\r")
+            }
             try task.run()
             defer { if task.isRunning { task.terminate() } }
-            try input.fileHandleForWriting.write(contentsOf:Data(("url = \""+escaped+"\"\nuser-agent = \""+escapedAgent+"\"\n").utf8))
+            let configuration = "url = \""+escaped(url.absoluteString)+"\"\nuser-agent = \""+escaped(userAgent)+"\"\nproxy = \""+escaped(proxy?.absoluteString ?? "")+"\"\n"
+            try input.fileHandleForWriting.write(contentsOf:Data(configuration.utf8))
             try input.fileHandleForWriting.close()
             while task.isRunning { try Task.checkCancellation(); try await Task.sleep(nanoseconds:50_000_000) }
             switch task.terminationStatus {

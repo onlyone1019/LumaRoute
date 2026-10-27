@@ -18,6 +18,10 @@ public struct NetworkSettings: Codable, Equatable, Sendable {
     public var autoRoute = true
     public var autoDetectInterface = true
     public var excludeLAN = true
+    /// Shares the mixed proxy port with other LAN devices; requires the credential below.
+    public var allowLAN = false
+    public var lanUsername = "lumaroute"
+    public var lanPassword = ""
     public var mtu = 1500
     public var dnsHijack = true
     public var fakeIP = true
@@ -32,6 +36,11 @@ public struct NetworkSettings: Codable, Equatable, Sendable {
     public var appearance = "system"
     public var updateIntervalHours = 6.0
     public init() {}
+    /// Sixteen unambiguous characters, easy to type on TVs and phones.
+    public static func makeLANPassword() -> String {
+        let alphabet = Array("abcdefghjkmnpqrstuvwxyz23456789")
+        return String((0..<16).map { _ in alphabet.randomElement()! })
+    }
     /// Application preferences do not affect YAML or system network settings.
     public func isApplicationOnlyChange(from previous: Self) -> Bool {
         var normalized = self
@@ -88,7 +97,9 @@ public struct Profile: Codable, Identifiable, Equatable, Sendable {
     public var updateHours: Double
     public var nodeCount: Int
     public var userAgent: String?
+    public var downloadRoute: SubscriptionDownloadRoute = .direct
     public var composition: SubscriptionComposition?
+    public var proxyChains: [ProxyChain]?
     public var lastChange: SubscriptionChange?
     public init(name: String, isRemote: Bool, displaySource: String = "本地配置", updateHours: Double = 6) {
         id = UUID(); self.name = name; self.isRemote = isRemote

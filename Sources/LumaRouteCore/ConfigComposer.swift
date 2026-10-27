@@ -63,8 +63,18 @@ public enum ConfigComposer {
         config["mixed-port"] = settings.mixedPort
         config["external-controller"] = "127.0.0.1:\(settings.controllerPort)"
         config["secret"] = secret
-        config["allow-lan"] = false
-        config["bind-address"] = "127.0.0.1"
+        // The controller keeps its loopback address; only the proxy listener can be shared.
+        config["allow-lan"] = settings.allowLAN
+        config["bind-address"] = settings.allowLAN ? "*" : "127.0.0.1"
+        if settings.allowLAN {
+            let user = settings.lanUsername.trimmingCharacters(in: .whitespaces)
+            guard !user.isEmpty, !user.contains(":"), !settings.lanPassword.isEmpty else { throw LumaError.message("局域网共享需要有效的用户名和密码") }
+            config["authentication"] = ["\(user):\(settings.lanPassword)"]
+            // Local clients use the macOS system proxy and cannot send credentials.
+            config["skip-auth-prefixes"] = ["127.0.0.1/32", "::1/128"]
+            // The allow list applies to loopback too, so the macOS system proxy must stay reachable.
+            config["lan-allowed-ips"] = ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "fc00::/7", "fe80::/10"]
+        }
         config["mode"] = settings.mode.rawValue
         config["ipv6"] = settings.ipv6
         config["log-level"] = "info"

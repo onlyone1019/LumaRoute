@@ -35,6 +35,8 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 | **订阅兼容** | 每个订阅独立设置 User-Agent；区分网络、HTTP、格式及内核校验错误；失败保留上次可用配置 |
 | **多订阅组合** | 勾选多个订阅聚合节点；可按域名指定订阅、选择基础规则和兜底出口；保留单订阅模式 |
 | **节点与策略组** | 保留原分组名称、顺序与引用；节点切换、分组测速、批量测速、地区筛选与延迟排序 |
+| **链式代理** | 在代理页选择前置节点或策略组与 VPS 落地，创建独立链路出口；支持编辑、停用、删除和完整链路测速 |
+| **局域网共享** | 可将混合代理端口共享给私网设备，强制用户名密码认证；默认关闭，控制接口仍仅监听本机 |
 | **自动切换** | 保持订阅策略、最低延迟选择、故障转移；按订阅保存本地策略，支持恢复自动选择 |
 | **规则订阅** | 内置 Loyalsoldier 的 13 个规则集；选择目标策略组、匹配优先级与更新周期；失败保留旧规则 |
 | **自定义规则** | 域名、域名后缀、关键词、IPv4 / IPv6 网段；支持排序、撤销与应用 |
@@ -78,25 +80,25 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前正式版：[0.1.11 · Build 41](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.11)** · macOS 14+ · Apple Silicon / Intel
+**当前正式版：[0.1.12 · Build 42](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.12)** · macOS 14+ · Apple Silicon / Intel
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.11/LumaRoute-0.1.11-build.41-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.11/LumaRoute-0.1.11-build.41-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.11/LumaRoute-0.1.11-build.41-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.11/LumaRoute-0.1.11-build.41-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.11/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.12/LumaRoute-0.1.12-build.42-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.12/LumaRoute-0.1.12-build.42-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.12/LumaRoute-0.1.12-build.42-macos-x86_64.dmg) | Intel Mac；打开后安装到应用程序 |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.12/LumaRoute-0.1.12-build.42-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.12/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-0.1.11 修复切换订阅时重复下载远程规则的问题，复用近期配置中的相同规则缓存，减少等待。保留现有 UI，以及此前的日志页、规则页和连接页性能修复。
+0.1.12 新增链式代理、订阅下载方式选择和带认证的局域网共享，并修复后台服务注册冲突和安装后的自动重连。保留现有原生 UI，以及此前的规则缓存、日志页和连接页性能修复。
 
 0.1.8 已接入应用内更新：在原有“检查更新”入口下载新版，完成后选择“安装并重新启动”，应用会自动退出、替换并重新打开，保留订阅、规则、节点选择和外观设置。下载期间继续使用；安装时短暂暂停代理，重启后按更新前的状态恢复。后台服务绑定构建，重启后可能弹出管理员授权；取消后可通过原有“完成更新”入口重试。第一版仅手动检查更新，不自动下载或安装。0.1.7 及更早版本首次迁移仍需手动安装一次；已安装带 Sparkle 版本的用户可直接检查更新。发布流程见 [应用内更新说明](docs/app-updates.md)。
 
-这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.11 发布说明](docs/releases/v0.1.11.md)。
+这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.12 发布说明](docs/releases/v0.1.12.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 
@@ -199,6 +201,7 @@ LUMAROUTE_SIGNING_IDENTITY='Developer ID Application: 你的身份' \
 - 订阅链接保存在本机 SQLite 数据库中。
 - 默认使用 Clash Meta 兼容 User-Agent；可为每个订阅单独指定。
 - 已有订阅可在 **更多 → 订阅设置** 中修改或恢复默认 User-Agent。
+- 可在添加订阅或订阅设置中选择 **直连 / 系统代理 / LumaRoute 代理**，下载方式按订阅保存，手动和自动更新沿用。VPS 订阅直连超时时，可通过现有代理客户端的系统代理下载；使用 LumaRoute 下载需先启用可用配置。
 - 导入、更新会经过格式与内核校验；失败时显示原因并保留已有可用配置。
 
 导入成功后，点击该配置的 **启用**。
@@ -216,6 +219,10 @@ LUMAROUTE_SIGNING_IDENTITY='Developer ID Application: 你的身份' \
 | 故障转移 | 按候选顺序选择可用节点 |
 
 自动组手动选择节点后会进入固定状态；点击 **恢复自动** 可交回自动策略。
+
+打开 **代理 → 链式代理 → 新建链路**：选择机场节点或策略组作前置，再选择 VPS 节点作落地。保存后，在自定义规则、应用分流或组合分流中选择“链式 · 链路名称”，目标网站看到的是 VPS 的出口 IP。全局模式可在 GLOBAL 中选择此链路。
+
+链路按当前配置保存，订阅刷新后继续生效，原节点仍可单独使用。机场与 VPS 属于不同订阅时，先创建并启用组合订阅。修改或移除被引用的节点后需重新选择；分流规则正在使用的链路须先修改对应规则，再停用、删除或改名。配置和验证说明见 [链式代理验收记录](docs/proxy-chains-2026-10-27.md)。
 
 ### 3. 开启网络接管
 

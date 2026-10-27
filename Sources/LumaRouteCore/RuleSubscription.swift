@@ -90,7 +90,7 @@ public enum RuleSubscriptionDownload {
         catch is CancellationError { throw CancellationError() }
         catch let error as URLError where error.code == .cancelled { throw CancellationError() }
         catch is URLError {
-            do { (data,response) = try await DirectSubscriptionDownload.fetch(url,userAgent:VersionInfo.current.userAgent) }
+            do { (data,response) = try await SubscriptionTransport.fetch(url,userAgent:VersionInfo.current.userAgent,proxy:nil) }
             catch { throw LumaError.message("规则集连接失败，请检查网络后重试；旧规则已保留") }
         }
         guard let http = response as? HTTPURLResponse,(200...299).contains(http.statusCode) else {

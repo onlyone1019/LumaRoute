@@ -39,6 +39,23 @@ struct SettingsNetworkTab:View {
                     TextField("",text:Binding(get:{draft.bypass.joined(separator:", ")},set:{draft.bypass=$0.split(separator:",").map { $0.trimmingCharacters(in:.whitespaces) }})).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("绕过地址")
                 }.padding(.vertical,12).frame(maxWidth:.infinity,alignment:.leading)
             }
+            SettingsGroup(title:"局域网共享") {
+                NativeRow(title:"允许局域网设备使用",detail:"手机、电视等设备可将代理设为本机局域网 IP 与端口 \(draft.mixedPort)",compact:true) {
+                    Toggle("允许局域网设备使用",isOn:Binding(get:{draft.allowLAN},set:{ enabled in
+                        draft.allowLAN = enabled
+                        if enabled && draft.lanPassword.isEmpty { draft.lanPassword = NetworkSettings.makeLANPassword() }
+                    })).labelsHidden().toggleStyle(.switch)
+                }
+                if draft.allowLAN {
+                    RowDivider()
+                    NativeRow(title:"用户名",compact:true) { TextField("",text:$draft.lanUsername).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("局域网用户名").frame(width:200) }
+                    RowDivider()
+                    NativeRow(title:"密码",detail:"其他设备连接代理时需要输入",compact:true) {
+                        Text(draft.lanPassword).font(.system(size:13,design:.monospaced)).textSelection(.enabled).foregroundStyle(.secondary)
+                        Button("重新生成") { draft.lanPassword = NetworkSettings.makeLANPassword() }
+                    }
+                }
+            }
             SettingsGroup(title:"TUN 模式") {
                 NativeRow(title:"启用 TUN",detail:"接管未使用系统代理的应用流量",compact:true) { Toggle("启用 TUN",isOn:$draft.tun).labelsHidden().toggleStyle(.switch) }
                 RowDivider()

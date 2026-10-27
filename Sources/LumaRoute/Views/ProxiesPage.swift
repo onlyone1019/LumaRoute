@@ -15,6 +15,7 @@ struct ProxyNodeFilter {
 struct ProxiesPage: View {
     @EnvironmentObject var store: AppStore
     @State private var filter = ProxyNodeFilter()
+    @State private var tab = "groups"
     var visibleGroups: [ProxyNode] {
         store.groups.filter { group in
             (filter.search.isEmpty && filter.region == "全部地区" && filter.source == "全部来源") ||
@@ -29,9 +30,21 @@ struct ProxiesPage: View {
     var body: some View {
         VStack(spacing:14) {
             PageHeader(title:"代理",subtitle:store.database.settings.mode == .global ? "全局模式 · 在 GLOBAL 中选择节点" : "\(store.groups.count) 个策略组 · 按订阅顺序排列") {
-                SearchField(placeholder:"搜索策略组或节点",text:$filter.search).frame(width:210)
-                Button("测试全部") { store.testNodes(testCandidates) }.buttonStyle(.borderedProminent).disabled(!store.coreReady || testCandidates.isEmpty)
+                if tab == "groups" {
+                    SearchField(placeholder:"搜索策略组或节点",text:$filter.search).frame(width:210)
+                    Button("测试全部") { store.testNodes(testCandidates) }.buttonStyle(.borderedProminent).disabled(!store.coreReady || testCandidates.isEmpty)
+                }
             }
+            HStack {
+                Picker("代理页面",selection:$tab) { Text("策略组").tag("groups"); Text("链式代理").tag("chains") }.labelsHidden().pickerStyle(.segmented).fixedSize()
+                Spacer()
+            }
+            if tab == "chains" { ProxyChainsView() }
+            else { strategyGroups }
+        }
+    }
+    private var strategyGroups: some View {
+        VStack(spacing:14) {
             HStack {
                 Picker("代理模式",selection:Binding(get:{store.database.settings.mode},set:{store.setMode($0)})) {
                     ForEach(RouteMode.allCases) { Text($0.label).tag($0) }

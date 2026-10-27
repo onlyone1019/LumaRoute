@@ -4,7 +4,7 @@ import Foundation
 // options while preserving errors for malformed values and required identities.
 extension NetworkSettings {
     enum CodingKeys: String, CodingKey {
-        case mixedPort, controllerPort, mode, tun, stack, autoRoute, autoDetectInterface, excludeLAN, mtu
+        case mixedPort, controllerPort, mode, tun, stack, autoRoute, autoDetectInterface, excludeLAN, allowLAN, lanUsername, lanPassword, mtu
         case dnsHijack, fakeIP, ipv6, systemProxy, bypass, autoLaunch, connectOnLaunch
         case testURL, testTimeout, testConcurrency, appearance, updateIntervalHours
     }
@@ -19,6 +19,9 @@ extension NetworkSettings {
         autoRoute = try values.decodeIfPresent(Bool.self,forKey:.autoRoute) ?? autoRoute
         autoDetectInterface = try values.decodeIfPresent(Bool.self,forKey:.autoDetectInterface) ?? autoDetectInterface
         excludeLAN = try values.decodeIfPresent(Bool.self,forKey:.excludeLAN) ?? excludeLAN
+        allowLAN = try values.decodeIfPresent(Bool.self,forKey:.allowLAN) ?? allowLAN
+        lanUsername = try values.decodeIfPresent(String.self,forKey:.lanUsername) ?? lanUsername
+        lanPassword = try values.decodeIfPresent(String.self,forKey:.lanPassword) ?? lanPassword
         mtu = try values.decodeIfPresent(Int.self,forKey:.mtu) ?? mtu
         dnsHijack = try values.decodeIfPresent(Bool.self,forKey:.dnsHijack) ?? dnsHijack
         fakeIP = try values.decodeIfPresent(Bool.self,forKey:.fakeIP) ?? fakeIP
@@ -50,7 +53,7 @@ extension SubscriptionUsage {
 extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isRemote, displaySource, created, lastUpdated, lastAttempt, lastError, usage
-        case updateHours, nodeCount, userAgent, composition, lastChange
+        case updateHours, nodeCount, userAgent, downloadRoute, composition, proxyChains, lastChange
     }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy:CodingKeys.self)
@@ -66,7 +69,9 @@ extension Profile {
         updateHours = try values.decodeIfPresent(Double.self,forKey:.updateHours) ?? updateHours
         nodeCount = try values.decodeIfPresent(Int.self,forKey:.nodeCount) ?? nodeCount
         userAgent = try values.decodeIfPresent(String.self,forKey:.userAgent)
+        downloadRoute = try values.decodeIfPresent(SubscriptionDownloadRoute.self,forKey:.downloadRoute) ?? .direct
         composition = try values.decodeIfPresent(SubscriptionComposition.self,forKey:.composition)
+        proxyChains = try values.decodeIfPresent([ProxyChain].self,forKey:.proxyChains)
         lastChange = try values.decodeIfPresent(SubscriptionChange.self,forKey:.lastChange)
     }
 }

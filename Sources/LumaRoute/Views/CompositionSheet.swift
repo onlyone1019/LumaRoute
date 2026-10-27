@@ -54,7 +54,7 @@ struct CompositionSheet: View {
                             Text("兜底用于基础规则未匹配的流量。聚合节点可手动选择，或使用“聚合自动”测速选优。").font(.caption).foregroundStyle(.secondary)
                         }.padding(10)
                     }
-                    DomainRoutesEditor(routes:$draft.domainRoutes,composition:draft,profiles:members)
+                    DomainRoutesEditor(routes:$draft.domainRoutes,composition:draft,profiles:members,additionalPolicies:(profile.proxyChains ?? []).filter(\.enabled).map(\.groupName))
                 }.padding(.trailing,4)
             }
             if let failure { Text(failure).font(.callout).foregroundStyle(.red).fixedSize(horizontal:false,vertical:true) }
@@ -90,7 +90,7 @@ struct DomainRoutingView: View {
                         Button("切换规则模式") { store.setMode(.rule) }.disabled(store.busy)
                     }
                 }
-                ScrollView { DomainRoutesEditor(routes:$draft,composition:composition,profiles:store.subscriptionProfiles.filter { composition.profileIDs.contains($0.id) }) }
+                ScrollView { DomainRoutesEditor(routes:$draft,composition:composition,profiles:store.subscriptionProfiles.filter { composition.profileIDs.contains($0.id) },additionalPolicies:(active.proxyChains ?? []).filter(\.enabled).map(\.groupName)) }
                 if let failure { Text(failure).foregroundStyle(.red) }
                 HStack {
                     Text(draft == composition.domainRoutes ? "分流规则已保存":"有未应用的修改").font(.caption).foregroundStyle(.secondary)

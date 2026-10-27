@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 
 enum FixtureError: Error { case unregister, stop }
 enum LumaError: Error { case message(String) }

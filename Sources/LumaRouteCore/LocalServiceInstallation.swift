@@ -10,6 +10,9 @@ public struct LocalServiceInstallation: Codable, Sendable {
     public let ownerUID:UInt32
     public let protocolVersion:Int
     public let healthOnly:Bool
+    /// Missing on installations that shared the managed service's identifier.
+    public let serviceID:String?
+    public var needsMigration:Bool { serviceID != HelperConstants.localServiceID }
     public static func load() throws -> Self {
         for path in [root.deletingLastPathComponent(),root,bundle,record] {
             let attributes = try FileManager.default.attributesOfItem(atPath:path.path)
@@ -38,7 +41,7 @@ public struct LocalServiceInstallation: Codable, Sendable {
             code.map { SecCodeCheckValidity($0,[],requirement) == errSecSuccess } == true
     }
     public func acceptsCurrentApp() -> Bool {
-        ownerUID == getuid() && (try? Self.requirement(for:Self.bundle)).map(Self.currentProcessMatches) == true
+        !needsMigration && ownerUID == getuid() && (try? Self.requirement(for:Self.bundle)).map(Self.currentProcessMatches) == true
     }
     public var helperRequirement:String {
         get throws { try Self.requirement(for:Self.bundle.appendingPathComponent("Contents/Library/LaunchServices/LumaRouteHelper")) }

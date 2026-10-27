@@ -2,8 +2,10 @@
 set -euo pipefail
 SERVICE_ROOT='/Library/Application Support/LumaRoute/service'
 APP_COPY="$SERVICE_ROOT/LumaRoute.app"
-JOB='/Library/LaunchDaemons/app.lumaroute.helper.plist'
-LABEL='app.lumaroute.helper'
+LABEL='app.lumaroute.local-helper'
+JOB="/Library/LaunchDaemons/$LABEL.plist"
+LEGACY_LABEL='app.lumaroute.helper'
+LEGACY_JOB="/Library/LaunchDaemons/$LEGACY_LABEL.plist"
 MODE="${1:-}"
 if [ "$(id -u)" != 0 ] || [ -z "${SUDO_UID:-}" ] || [ "$SUDO_UID" = 0 ]; then
   echo '请从 LumaRoute 的管理员授权窗口或通过 sudo 运行安装器。' >&2
@@ -19,7 +21,7 @@ wait_job_stopped() {
   local task_deadline=$((SECONDS + 35))
   # bootout can return while launchd still exposes a terminating job. Never
   # remove its executable or replace its snapshot until that job is gone.
-  while launchctl print "system/$LABEL" >/dev/null 2>&1; do
+  while launchctl print "system/$1" >/dev/null 2>&1; do
     if (( SECONDS >= task_deadline )); then
       echo '服务尚未退出，保留文件。请稍后重试。' >&2
       return 1
@@ -47,14 +49,23 @@ PY
     fi
   fi
 fi
-if [ -e "$JOB" ]; then
-  check_owned "$JOB"
-  [ "$(plutil -extract Program raw "$JOB")" = "$APP_COPY/Contents/Library/LaunchServices/LumaRouteHelper" ] || { echo '发现其他安装方式的服务，请先卸载原服务。' >&2; exit 1; }
-fi
+# Only migrate jobs that belong to this root-owned installation. A managed
+# registration without our old absolute-path plist remains a separate job.
+for task_job in "$JOB" "$LEGACY_JOB"; do
+  if [ -e "$task_job" ]; then
+    check_owned "$task_job"
+    [ "$(plutil -extract Program raw "$task_job")" = "$APP_COPY/Contents/Library/LaunchServices/LumaRouteHelper" ] || { echo '发现其他安装方式的服务，请先卸载原服务。' >&2; exit 1; }
+  fi
+done
 if [ "$MODE" = '--remove' ]; then
-  if [ -e "$JOB" ]; then launchctl bootout "system/$LABEL" || true; fi
-  wait_job_stopped
-  rm -f "$JOB" "$SERVICE_ROOT/installation.plist"
+  for task_label in "$LABEL" "$LEGACY_LABEL"; do
+    if [ -e "/Library/LaunchDaemons/$task_label.plist" ]; then
+      if launchctl print "system/$task_label" >/dev/null 2>&1; then launchctl bootout "system/$task_label"; fi
+      wait_job_stopped "$task_label"
+      rm -f "/Library/LaunchDaemons/$task_label.plist"
+    fi
+  done
+  rm -f "$SERVICE_ROOT/installation.plist"
   if [ -e "$APP_COPY" ]; then check_owned "$APP_COPY"; rm -rf "$APP_COPY"; fi
   echo '本机后台服务已卸载；订阅、钥匙串和用户数据均已保留。'
   exit 0
@@ -65,7 +76,21 @@ SOURCE_APP="$2"
 codesign --verify --deep --strict "$SOURCE_APP"
 [ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$SOURCE_APP/Contents/Info.plist")" = app.lumaroute.desktop ] || { echo '不是 LumaRoute 应用。' >&2; exit 1; }
 STAGING=$(mktemp -d "$SERVICE_ROOT/.stage.XXXXXX")
-trap 'rm -rf "$STAGING"' EXIT
+ROLLBACK_NEEDED=false
+REPLACED=false
+cleanup() {
+  local task_result=$?
+  trap - EXIT
+  if [ "$ROLLBACK_NEEDED" = true ]; then
+    if ! rollback_installation; then
+      echo "恢复未完成，保留备份，请勿删除：$STAGING" >&2
+      exit 1
+    fi
+  fi
+  rm -rf "$STAGING"
+  exit "$task_result"
+}
+trap cleanup EXIT
 /usr/bin/ditto "$SOURCE_APP" "$STAGING/LumaRoute.app"
 chown -R root:wheel "$STAGING/LumaRoute.app"
 chmod -R a+rX,go-w "$STAGING/LumaRoute.app"
@@ -74,6 +99,7 @@ codesign --verify --strict "$STAGING/LumaRoute.app/Contents/Library/LaunchServic
 plutil -create xml1 "$STAGING/installation.plist"
 plutil -insert ownerUID -integer "$SUDO_UID" "$STAGING/installation.plist"
 plutil -insert protocolVersion -integer 1 "$STAGING/installation.plist"
+plutil -insert serviceID -string "$LABEL" "$STAGING/installation.plist"
 HEALTH_ONLY=true
 if [ "${3:-}" = '--network-ready' ]; then HEALTH_ONLY=false; fi
 plutil -insert healthOnly -bool "$HEALTH_ONLY" "$STAGING/installation.plist"
@@ -81,11 +107,11 @@ cat > "$STAGING/job.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>Label</key><string>app.lumaroute.helper</string>
+<key>Label</key><string>app.lumaroute.local-helper</string>
 <key>Program</key><string>/Library/Application Support/LumaRoute/service/LumaRoute.app/Contents/Library/LaunchServices/LumaRouteHelper</string>
 <key>ProgramArguments</key><array><string>/Library/Application Support/LumaRoute/service/LumaRoute.app/Contents/Library/LaunchServices/LumaRouteHelper</string><string>--local</string></array>
 <key>UserName</key><string>root</string>
-<key>MachServices</key><dict><key>app.lumaroute.helper</key><true/></dict>
+<key>MachServices</key><dict><key>app.lumaroute.local-helper</key><true/></dict>
 <key>AssociatedBundleIdentifiers</key><array><string>app.lumaroute.desktop</string></array>
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><true/>
@@ -94,27 +120,81 @@ cat > "$STAGING/job.plist" <<'PLIST'
 </dict></plist>
 PLIST
 plutil -lint "$STAGING/job.plist"
-# Installation never enables network takeover. Existing network journals must
-# be settled before replacing a service; the GUI enables takeover explicitly.
-if launchctl print "system/$LABEL" >/dev/null 2>&1; then
-  [ -e "$JOB" ] || { echo '存在未归属当前安装器的服务，停止安装。' >&2; exit 1; }
-  launchctl bootout "system/$LABEL"
-  wait_job_stopped
-fi
-if [ -e "$APP_COPY" ]; then check_owned "$APP_COPY"; mv "$APP_COPY" "$STAGING/previous.app"; fi
+wait_job_started() {
+  local task_deadline=$((SECONDS + 10)) task_snapshot task_pid task_program task_last_pid=''
+  while (( SECONDS < task_deadline )); do
+    task_snapshot=$(launchctl print "system/$LABEL" 2>/dev/null) || task_snapshot=''
+    task_pid=$(sed -n 's/^[[:space:]]*pid = \([0-9][0-9]*\)$/\1/p' <<< "$task_snapshot")
+    task_program=$(sed -n 's/^[[:space:]]*program = //p' <<< "$task_snapshot")
+    if [[ "$task_snapshot" == *"state = running"* &&
+          "$task_program" = "$APP_COPY/Contents/Library/LaunchServices/LumaRouteHelper" &&
+          "$task_pid" =~ ^[1-9][0-9]*$ ]]; then
+      if [ "$task_pid" = "$task_last_pid" ]; then return 0; fi
+      task_last_pid="$task_pid"
+    else
+      task_last_pid=''
+    fi
+    /bin/sleep 0.2
+  done
+  echo '后台服务未能正常启动，正在恢复此前安装。' >&2
+  return 1
+}
+rollback_installation() {
+  if [ "$REPLACED" = true ]; then
+    if launchctl print "system/$LABEL" >/dev/null 2>&1; then
+      launchctl bootout "system/$LABEL" || return 1
+      wait_job_stopped "$LABEL" || return 1
+    fi
+    rm -rf "$APP_COPY" || return 1
+    rm -f "$JOB" || return 1
+    if [ -e "$STAGING/previous.app" ]; then mv "$STAGING/previous.app" "$APP_COPY" || return 1; fi
+    if [ -e "$STAGING/previous.plist" ]; then
+      cp "$STAGING/previous.plist" "$SERVICE_ROOT/installation.plist" || return 1
+    else
+      rm -f "$SERVICE_ROOT/installation.plist" || return 1
+    fi
+  fi
+  for task_label in "$LABEL" "$LEGACY_LABEL"; do
+    task_job="/Library/LaunchDaemons/$task_label.plist"
+    if [ -e "$STAGING/$task_label.plist" ]; then
+      cp "$STAGING/$task_label.plist" "$task_job" || return 1
+      if [ -e "$STAGING/$task_label.running" ] && ! launchctl print "system/$task_label" >/dev/null 2>&1; then
+        launchctl bootstrap system "$task_job" || return 1
+      fi
+    fi
+  done
+  echo '加载或启动失败，已恢复此前的安装文件。' >&2
+}
+# Save all rollback state and validate ownership before stopping either job.
+# Existing network journals must be settled; installation never enables takeover.
+if [ -e "$APP_COPY" ]; then check_owned "$APP_COPY"; fi
+if [ -e "$SERVICE_ROOT/startup.log" ]; then check_owned "$SERVICE_ROOT/startup.log"; fi
 if [ -e "$SERVICE_ROOT/installation.plist" ]; then cp "$SERVICE_ROOT/installation.plist" "$STAGING/previous.plist"; fi
-if [ -e "$JOB" ]; then cp "$JOB" "$STAGING/previous-job.plist"; fi
+for task_label in "$LABEL" "$LEGACY_LABEL"; do
+  task_job="/Library/LaunchDaemons/$task_label.plist"
+  if [ -e "$task_job" ]; then
+    cp "$task_job" "$STAGING/$task_label.plist"
+    if launchctl print "system/$task_label" >/dev/null 2>&1; then touch "$STAGING/$task_label.running"; fi
+  elif [ "$task_label" = "$LABEL" ] && launchctl print "system/$LABEL" >/dev/null 2>&1; then
+    echo '存在未归属当前安装器的服务，停止安装。' >&2
+    exit 1
+  fi
+done
+ROLLBACK_NEEDED=true
+for task_label in "$LABEL" "$LEGACY_LABEL"; do
+  if [ -e "$STAGING/$task_label.running" ]; then
+    launchctl bootout "system/$task_label"
+    wait_job_stopped "$task_label"
+  fi
+done
+if [ -e "$APP_COPY" ]; then mv "$APP_COPY" "$STAGING/previous.app"; fi
+REPLACED=true
 mv "$STAGING/LumaRoute.app" "$APP_COPY"
 install -o root -g wheel -m 644 "$STAGING/installation.plist" "$SERVICE_ROOT/installation.plist"
 install -o root -g wheel -m 644 "$STAGING/job.plist" "$JOB"
-if [ -e "$SERVICE_ROOT/startup.log" ]; then check_owned "$SERVICE_ROOT/startup.log"; else install -o root -g wheel -m 600 /dev/null "$SERVICE_ROOT/startup.log"; fi
-if ! launchctl bootstrap system "$JOB"; then
-  launchctl bootout "system/$LABEL" >/dev/null 2>&1 || true
-  rm -rf "$APP_COPY"
-  if [ -e "$STAGING/previous.app" ]; then mv "$STAGING/previous.app" "$APP_COPY"; fi
-  if [ -e "$STAGING/previous.plist" ]; then cp "$STAGING/previous.plist" "$SERVICE_ROOT/installation.plist"; else rm -f "$SERVICE_ROOT/installation.plist"; fi
-  if [ -e "$STAGING/previous-job.plist" ]; then cp "$STAGING/previous-job.plist" "$JOB"; launchctl bootstrap system "$JOB" || true; else rm -f "$JOB"; fi
-  echo '加载失败，已恢复此前的安装文件。' >&2
-  exit 1
-fi
-echo '服务已加载，尚未开启网络接管。LumaRoute 会自动刷新服务状态并恢复内核，无需重启或点击“重新检查”。'
+if [ ! -e "$SERVICE_ROOT/startup.log" ]; then install -o root -g wheel -m 600 /dev/null "$SERVICE_ROOT/startup.log"; fi
+if ! launchctl bootstrap system "$JOB" || ! wait_job_started; then exit 1; fi
+# Delete the old boot-time definition only after the replacement is running.
+rm -f "$LEGACY_JOB"
+ROLLBACK_NEEDED=false
+echo '服务已启动，尚未开启网络接管。LumaRoute 会自动刷新服务状态并恢复内核，无需重启或点击“重新检查”。'

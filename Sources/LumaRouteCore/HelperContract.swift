@@ -3,6 +3,9 @@ import Foundation
 public enum HelperConstants {
     public static let appID = "app.lumaroute.desktop"
     public static let serviceID = "app.lumaroute.helper"
+    // A manually installed LaunchDaemon must never share an SMAppService job
+    // label or Mach endpoint: macOS can restore the managed job after a reboot.
+    public static let localServiceID = "app.lumaroute.local-helper"
     public static let plistName = "app.lumaroute.helper.plist"
 }
 @objc public protocol LumaRouteHelperProtocol {

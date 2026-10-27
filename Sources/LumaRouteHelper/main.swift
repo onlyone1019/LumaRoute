@@ -280,8 +280,9 @@ do {
     let local = CommandLine.arguments.contains("--local")
     let installation = local ? try LocalServiceInstallation.load():nil
     guard !local || app == LocalServiceInstallation.bundle else { throw LumaError.message("本机服务必须从管理员安装目录运行") }
+    guard installation?.needsMigration != true else { throw LumaError.message("本机服务注册需要更新，请在应用中完成更新") }
     let delegate = try ListenerDelegate(app:app,installation:installation)
-    let listener = NSXPCListener(machServiceName:HelperConstants.serviceID)
+    let listener = NSXPCListener(machServiceName:local ? HelperConstants.localServiceID:HelperConstants.serviceID)
     listener.delegate = delegate
     signal(SIGTERM,SIG_IGN)
     let termination = DispatchSource.makeSignalSource(signal:SIGTERM,queue:.global())

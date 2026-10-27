@@ -544,7 +544,9 @@ final class AppStore: ObservableObject {
         busy = true
         defer { busy = false }
         do {
-            helper.disconnect()
+            // Installation/signature changes already invalidate the connection
+            // in HelperClient. Disconnecting on every retry asks the helper to
+            // stop this user's core and races the next status/start request.
             let status = try await helper.send(HelperRequest(action:"status"))
             guard status.serviceUID == 0,status.protocolVersion == 1 else { throw LumaError.message("后台服务身份或协议不符") }
             try Task.checkCancellation()

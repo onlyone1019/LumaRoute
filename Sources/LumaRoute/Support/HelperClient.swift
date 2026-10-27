@@ -11,7 +11,7 @@ final class HelperClient {
         let modified: Date?
         let healthOnly: Bool?
     }
-    private let service = SMAppService.daemon(plistName:HelperConstants.plistName)
+    private lazy var service = SMAppService.daemon(plistName:HelperConstants.plistName)
     private var connection: NSXPCConnection?
     private var cachedLocalRecord:LocalServiceInstallation?
     private var cachedLocalStamp:Date?
@@ -66,6 +66,10 @@ final class HelperClient {
     func register(networkReady:Bool = false) async throws {
         if !supportsPrivilegedService || localInstallation != nil {
             _ = try LocalServiceInstallation.requirement(for:Bundle.main.bundleURL)
+            // Retire a managed registration when the signing identity supports
+            // it. Ad-hoc builds lack the removal entitlement and must use the
+            // administrator installer, whose independent label avoids overlap.
+            if supportsPrivilegedService { try await unregisterManagedService(allowMissing:true) }
             try await LocalServiceAuthorization.install(app:Bundle.main.bundleURL,ownerUID:getuid(),networkReady:networkReady)
             connection?.invalidate(); connection = nil
             cachedLocalStamp = nil
@@ -88,9 +92,18 @@ final class HelperClient {
         }
         _ = try? await send(HelperRequest(action:"stop"))
         connection?.invalidate(); connection = nil
+        try await unregisterManagedService()
+    }
+    private func unregisterManagedService(allowMissing:Bool = false) async throws {
         // Keep the non-Sendable service on MainActor on older SDKs too.
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
             service.unregister { error in
+                if let error = error as NSError?,allowMissing,
+                   // The named domain constant is only available on macOS 15;
+                   // its string value also works on our macOS 14 minimum.
+                   error.domain == "SMAppServiceErrorDomain",error.code == kSMErrorJobNotFound {
+                    continuation.resume(); return
+                }
                 if let error { continuation.resume(throwing:error) }
                 else { continuation.resume() }
             }
@@ -103,7 +116,7 @@ final class HelperClient {
         try requireAvailableService()
         guard status == .enabled else { throw LumaError.message("请先在设置中安装并授权后台服务") }
         if connection == nil {
-            let new = NSXPCConnection(machServiceName:HelperConstants.serviceID,options:.privileged)
+            let new = NSXPCConnection(machServiceName:localInstallation == nil ? HelperConstants.serviceID:HelperConstants.localServiceID,options:.privileged)
             new.remoteObjectInterface = NSXPCInterface(with:LumaRouteHelperProtocol.self)
             if localInstallation != nil {
                 guard let requirement = cachedHelperRequirement else { throw LumaError.message("本机服务签名快照无效") }

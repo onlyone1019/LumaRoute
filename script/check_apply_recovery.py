@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, default=ROOT / '.build/out/Products/Release')
-parser.add_argument('--sdk', help='Path to another macOS 27.0 SDK; defaults to the pinned Xcode SDK')
+parser.add_argument('--sdk', help='Path to another macOS 27.2 SDK; defaults to the pinned Xcode SDK')
 parser.add_argument('--baseline', action='store_true')
 args = parser.parse_args()
 

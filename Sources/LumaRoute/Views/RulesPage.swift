@@ -30,28 +30,30 @@ struct RulesPage:View {
         VStack(spacing:14) {
             HStack(spacing:8) { Text("启用").frame(width:30); Text("类型").frame(width:140,alignment:.leading); Text("匹配内容").frame(maxWidth:.infinity,alignment:.leading); Text("目标策略").frame(width:200,alignment:.leading); Spacer().frame(width:90) }
                 .font(.system(size:12)).foregroundStyle(.secondary).padding(.horizontal,14)
-            List {
-                ForEach($draft) { $rule in
-                    if search.isEmpty || rule.payload.localizedCaseInsensitiveContains(search) || rule.target.localizedCaseInsensitiveContains(search) || rule.type.localizedCaseInsensitiveContains(search) {
-                        HStack(spacing:8) {
-                            Toggle("启用规则",isOn:$rule.enabled).labelsHidden().toggleStyle(.checkbox).frame(width:30)
-                            LumaPicker("规则类型",selection:$rule.type,value:CompositionRouting.types.first { $0.value == rule.type }?.label ?? rule.type) {
-                                Text("域名").tag("DOMAIN"); Text("域名后缀").tag("DOMAIN-SUFFIX"); Text("域名关键词").tag("DOMAIN-KEYWORD"); Text("IP 网段").tag("IP-CIDR"); Text("IPv6 网段").tag("IP-CIDR6"); Text("进程名称").tag("PROCESS-NAME"); Text("进程路径").tag("PROCESS-PATH")
-                            }.frame(width:140)
-                            TextField("匹配内容",text:$rule.payload).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("规则匹配内容")
-                            LumaPicker("目标策略",selection:$rule.target,value:rule.target == "DIRECT" ? "直连":rule.target == "REJECT" ? "拒绝":rule.target) {
-                                Text("直连").tag("DIRECT"); Text("拒绝").tag("REJECT"); ForEach(store.groups) { Text($0.name).tag($0.name) }
-                                if !["DIRECT","REJECT"].contains(rule.target),!store.groups.contains(where:{$0.name == rule.target}) { Text("已失效："+rule.target).tag(rule.target) }
-                            }.frame(width:200)
-                            RuleOrderButtons(canMoveUp:search.isEmpty && draft.first?.id != rule.id,canMoveDown:search.isEmpty && draft.last?.id != rule.id,moveUp:{ moveRule(rule.id,direction:-1) },moveDown:{ moveRule(rule.id,direction:1) })
-                            Button { draft.removeAll { $0.id==rule.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除规则").accessibilityLabel("删除规则")
-                        }.padding(.horizontal,14).padding(.vertical,8)
-                        .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:12,style:.continuous))
-                        .listRowSeparator(.hidden).listRowBackground(Color.clear).listRowInsets(EdgeInsets(top:3,leading:0,bottom:3,trailing:0))
-                        .moveDisabled(!search.isEmpty)
+            // Native List treats clicks outside the text glyphs as row selection.
+            // A scrolling stack lets the whole text field accept editing clicks.
+            ScrollView {
+                LazyVStack(spacing:6) {
+                    ForEach($draft) { $rule in
+                        if search.isEmpty || rule.payload.localizedCaseInsensitiveContains(search) || rule.target.localizedCaseInsensitiveContains(search) || rule.type.localizedCaseInsensitiveContains(search) {
+                            HStack(spacing:8) {
+                                Toggle("启用规则",isOn:$rule.enabled).labelsHidden().toggleStyle(.checkbox).frame(width:30)
+                                LumaPicker("规则类型",selection:$rule.type,value:CompositionRouting.types.first { $0.value == rule.type }?.label ?? rule.type) {
+                                    Text("域名").tag("DOMAIN"); Text("域名后缀").tag("DOMAIN-SUFFIX"); Text("域名关键词").tag("DOMAIN-KEYWORD"); Text("IP 网段").tag("IP-CIDR"); Text("IPv6 网段").tag("IP-CIDR6"); Text("进程名称").tag("PROCESS-NAME"); Text("进程路径").tag("PROCESS-PATH")
+                                }.frame(width:140)
+                                TextField("匹配内容",text:$rule.payload).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("规则匹配内容")
+                                LumaPicker("目标策略",selection:$rule.target,value:rule.target == "DIRECT" ? "直连":rule.target == "REJECT" ? "拒绝":rule.target) {
+                                    Text("直连").tag("DIRECT"); Text("拒绝").tag("REJECT"); ForEach(store.groups) { Text($0.name).tag($0.name) }
+                                    if !["DIRECT","REJECT"].contains(rule.target),!store.groups.contains(where:{$0.name == rule.target}) { Text("已失效："+rule.target).tag(rule.target) }
+                                }.frame(width:200)
+                                RuleOrderButtons(canMoveUp:search.isEmpty && draft.first?.id != rule.id,canMoveDown:search.isEmpty && draft.last?.id != rule.id,moveUp:{ moveRule(rule.id,direction:-1) },moveDown:{ moveRule(rule.id,direction:1) })
+                                Button { draft.removeAll { $0.id==rule.id } } label:{ Image(systemName:"trash").frame(width:28,height:LumaControl.height) }.buttonStyle(.borderless).help("删除规则").accessibilityLabel("删除规则")
+                            }.padding(.horizontal,14).padding(.vertical,8)
+                            .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:12,style:.continuous))
+                        }
                     }
-                }.onMove { if search.isEmpty { draft.move(fromOffsets:$0,toOffset:$1) } }
-            }.listStyle(.plain).scrollContentBackground(.hidden).padding(.horizontal,-8)
+                }.padding(.vertical,3)
+            }
                 .overlay {
                     if draft.isEmpty { EmptyMessage(icon:"list.bullet.rectangle",title:"暂无自定义规则",detail:"使用“添加规则”创建规则；订阅规则仍会正常生效。") }
                 }

@@ -242,11 +242,19 @@ import LumaRouteCore
         table.tableColumns[1].width=160
         if mode=="container",let container=find(PageContainerView.self,in:host) {
             store.page = .rules;await settle()
-            if let rules=find(NSTableView.self,in:host) {
-                check(rules.usesAutomaticRowHeights,"unrelated rule list keeps its row sizing")
+            // Keep the global row-height isolation check independent of which
+            // production pages happen to use SwiftUI's native List container.
+            let unrelatedList=NSHostingView(rootView:List { Text("独立列表测试") })
+            unrelatedList.sizingOptions=[]
+            unrelatedList.frame=NSRect(x:0,y:0,width:400,height:160)
+            host.addSubview(unrelatedList);await settle()
+            if let unrelatedTable=find(NSTableView.self,in:unrelatedList) {
+                check(unrelatedTable.usesAutomaticRowHeights,"unrelated list keeps its row sizing")
                 store.connections=try connections(20,generation:50);await settle()
-                check(rules.usesAutomaticRowHeights,"hidden connection updates do not reconfigure rule list")
-            } else { check(false,"unrelated rule list exists") }
+                check(unrelatedTable.usesAutomaticRowHeights,"hidden connection updates do not reconfigure unrelated list")
+                check(unrelatedTable.numberOfRows==1,"hidden connection updates preserve unrelated list content")
+            } else { check(false,"unrelated native list fixture exists") }
+            unrelatedList.removeFromSuperview()
             store.page = .settings;await settle()
             store.connections=try connections(9,generation:100)
             container.releaseInactivePages()

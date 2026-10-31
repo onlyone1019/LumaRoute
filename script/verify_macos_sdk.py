@@ -19,9 +19,9 @@ def verify(path):
         block = block.split('Load command', 1)[0]
         sdk = re.search(r'\bsdk\s+(\S+)', block)
         minimum = re.search(r'\bminos\s+(\S+)', block)
-        if not sdk or not minimum or version(sdk[1]) != (27, 2, 0) or version(minimum[1]) != (14, 0, 0):
-            raise ValueError(f'{path}: expected SDK 27.2 / minimum macOS 14.0; found {block.strip()}')
-    print(f'PASS SDK 27.2 / minimum macOS 14.0: {Path(path).name}')
+        if not sdk or not minimum or version(sdk[1]) not in ((27, 0, 0), (27, 2, 0)) or version(minimum[1]) != (14, 0, 0):
+            raise ValueError(f'{path}: expected SDK 27.0 or 27.2 / minimum macOS 14.0; found {block.strip()}')
+    print(f'PASS SDK {sdk[1]} / minimum macOS 14.0: {Path(path).name}')
 
 
 if __name__ == '__main__':

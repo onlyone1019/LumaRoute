@@ -36,7 +36,7 @@ class BuildSDKTests(unittest.TestCase):
         version = subprocess.check_output(
             ['xcrun', '--sdk', sdk, '--show-sdk-version'],
             env={**os.environ, 'DEVELOPER_DIR': developer, 'SDKROOT': sdk}, text=True).strip()
-        self.assertEqual(version, '27.2')
+        self.assertIn(version, ['27.0', '27.2'])
 
     def fake_sdk(self, directory, version):
         sdk = Path(directory) / 'Developer/SDKs' / ('MacOSX'+version+'.sdk')
@@ -48,18 +48,19 @@ class BuildSDKTests(unittest.TestCase):
         (sdk / 'SDKSettings.plist').write_bytes(plistlib.dumps(settings))
         return sdk
 
-    def test_older_or_newer_sdk_is_rejected_without_fallback(self):
-        for version in ['27.0', '27.3']:
+    def test_unsupported_sdk_is_rejected_without_fallback(self):
+        for version in ['26.5', '27.1', '27.3']:
             with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
                 result = self.select(self.fake_sdk(directory, version))
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn('固定使用 macOS 27.2 SDK', result.stderr)
+                self.assertIn('仅支持 macOS 27.0 / 27.2 SDK', result.stderr)
 
     def test_missing_swiftui_plugin_is_rejected_without_fallback(self):
-        with tempfile.TemporaryDirectory() as directory:
-            result = self.select(self.fake_sdk(directory, '27.2'))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('缺少 SwiftUI 宏插件', result.stderr)
+        for version in ['27.0', '27.2']:
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
+                result = self.select(self.fake_sdk(directory, version))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('缺少 SwiftUI 宏插件', result.stderr)
 
     def patch_build_version(self, path, field, value):
         data = bytearray(path.read_bytes())
@@ -98,7 +99,7 @@ class BuildSDKTests(unittest.TestCase):
                     bad_sdk = root / (arch+'-wrong-sdk')
                     bad_sdk.write_bytes(binary.read_bytes())
                     self.patch_build_version(bad_sdk, 16, (26 << 16) | (5 << 8))
-                    with self.assertRaisesRegex(ValueError, 'expected SDK 27.2'):
+                    with self.assertRaisesRegex(ValueError, 'expected SDK 27.0 or 27.2'):
                         verifier.verify(bad_sdk)
                     bad_minimum = root / (arch+'-wrong-minimum')
                     bad_minimum.write_bytes(binary.read_bytes())

@@ -107,7 +107,7 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 ### 环境要求
 
 - **应用运行需要 macOS 14 或更新版本**；源码构建主机需满足所用 Xcode 27 的系统要求。
-- **完整 Xcode 27 工具链和 macOS 27.2 SDK**，包含 SwiftUI 宏插件。应用、Core、Helper、CLI 和测试 target 均使用 Swift 6 语言模式；最低运行系统仍为 macOS 14。
+- **完整 Xcode 27 工具链和 macOS 27.0 或 27.2 SDK**，包含 SwiftUI 宏插件。应用、Core、Helper、CLI 和测试 target 均使用 Swift 6 语言模式；最低运行系统仍为 macOS 14。
 - **Python 3**，用于取得和校验官方内核、调度 GEO 数据离线重建。
 - **Go 1.23 或更新版本**，用于离线重建 GEO 数据；安装包用户无需安装 Go。
 - 首次构建需联网访问 GitHub，获取 Yams 依赖、Mihomo 内核与独立 GEO 附件。GEO 数据使用附件中的固定输入离线重建。
@@ -173,13 +173,13 @@ LUMAROUTE_ARCH=x86_64 ./script/build_and_run.sh --build-only
 <details>
   <summary>高级构建选项</summary>
 
-指定另一份已安装的 macOS 27.2 SDK：
+指定另一份已安装的受支持 macOS SDK（27.0 / 27.2）：
 
 ```sh
 LUMAROUTE_SDK="/path/to/MacOSX27.2.sdk" ./script/build_and_run.sh --build-only
 ```
 
-构建与验证脚本共同使用 `script/build_environment.sh`，将 `SDKROOT` 和 `--sdk` 固定为同一份 macOS 27.2 SDK，并检查最终可执行文件的 SDK 标记为 27.2、最低版本为 14.0。SDK 版本不匹配或缺少 SwiftUI 宏插件时直接报错，不再退回旧 SDK，也不修改全局 Xcode 配置。
+构建与验证脚本共同使用 `script/build_environment.sh`，默认选择当前完整 Xcode 的 macOS SDK（仅接受 27.0 / 27.2），将 `SDKROOT` 和 `--sdk` 固定为同一份 SDK，并检查最终可执行文件使用受支持的 SDK、最低版本为 14.0。其他 SDK 版本或缺少 SwiftUI 宏插件时直接报错，不退回旧 SDK，也不修改全局 Xcode 配置。
 
 如已准备好有效的 Developer ID 身份，可指定签名身份：
 

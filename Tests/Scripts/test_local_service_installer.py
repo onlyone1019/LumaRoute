@@ -64,7 +64,12 @@ elif name=='launchctl':
         print('program = '+job['Program'])
         if not job.get('failed'): print('pid = 12345')
     elif action=='bootout':
-        state.pop(args[1].split('/')[-1],None)
+        label=args[1].split('/')[-1]
+        if os.environ.get('FAIL_STOP')==label: sys.exit(5)
+        if os.environ.get('RESTORE_ON_STOP')==label:
+            journal=root/'Library/Application Support/LumaRoute/users/501/network-journal.plist'
+            journal.write_bytes(plistlib.dumps({}))
+        state.pop(label,None)
     elif action=='bootstrap':
         job=plistlib.loads(pathlib.Path(args[2]).read_bytes())
         label=job['Label']
@@ -90,7 +95,20 @@ else: sys.exit('unexpected fixture command')
     def bundle(self, app, marker):
         (app / 'Contents/Library/LaunchServices').mkdir(parents=True)
         (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'app.lumaroute.desktop'}))
-        (app / 'Contents/Library/LaunchServices/LumaRouteHelper').write_text(marker)
+        helper = app / 'Contents/Library/LaunchServices/LumaRouteHelper'
+        helper.write_text("""#!/usr/bin/env python3
+import os,sys,pathlib,json,plistlib
+root=pathlib.Path(os.environ['FIXTURE_ROOT'])
+if sys.argv[1:] != ['--restore-network-for-maintenance']: sys.exit(21)
+if not (pathlib.Path(__file__).parents[3]/'new').exists(): sys.exit(22)
+if not (root/'Library/Application Support/LumaRoute/service/LumaRoute.app/old').exists(): sys.exit(23)
+with (root/'events').open('a') as log: log.write('maintenance-restore\\n')
+if os.environ.get('FAIL_MAINTENANCE'): sys.exit(24)
+if os.environ.get('RESTORE_ON_MAINTENANCE'):
+    journal=root/'Library/Application Support/LumaRoute/users/501/network-journal.plist'
+    journal.write_bytes(plistlib.dumps({}))
+""")
+        helper.chmod(0o755)
         (app / marker).touch()
 
     def existing(self, label=LEGACY):
@@ -179,7 +197,19 @@ else: sys.exit('unexpected fixture command')
         self.assertTrue(Path(state[LOCAL]['Program']).is_absolute())
         self.assertNotIn('BundleProgram', state[LOCAL])
 
-    def test_active_network_journal_blocks_migration_before_stopping_jobs(self):
+    def test_upgrade_restores_network_through_the_old_helper_before_replacement(self):
+        self.existing(LOCAL)
+        journal = self.service.parent / 'users/501/network-journal.plist'
+        journal.parent.mkdir(parents=True)
+        journal.write_bytes(plistlib.dumps({'fixture': {'applied': {'HTTPEnable': 1}}}))
+        result = self.run_installer(RESTORE_ON_STOP=LOCAL)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(plistlib.loads(journal.read_bytes()), {})
+        self.assertTrue((self.service / 'LumaRoute.app/new').exists())
+        events = self.events.read_text()
+        self.assertLess(events.index('bootout system/' + LOCAL), events.index('bootstrap system'))
+
+    def test_incomplete_network_restore_preserves_files_and_restarts_old_service(self):
         self.existing()
         journal = self.service.parent / 'users/501/network-journal.plist'
         journal.parent.mkdir(parents=True)
@@ -187,7 +217,43 @@ else: sys.exit('unexpected fixture command')
         result = self.run_installer()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(set(json.loads(self.state.read_text())), {LEGACY})
+        self.assertTrue((self.service / 'LumaRoute.app/old').exists())
+        self.assertFalse((self.service / 'LumaRoute.app/new').exists())
+        self.assertIn('maintenance-restore', self.events.read_text())
+
+    def test_stale_journal_is_recovered_by_staged_helper_before_replacement(self):
+        self.existing(LOCAL)
+        journal = self.service.parent / 'users/501/network-journal.plist'
+        journal.parent.mkdir(parents=True)
+        journal.write_bytes(plistlib.dumps({'deleted:Proxies': {'applied': {}}}))
+        result = self.run_installer(RESTORE_ON_MAINTENANCE='1')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(plistlib.loads(journal.read_bytes()), {})
+        self.assertTrue((self.service / 'LumaRoute.app/new').exists())
+        events = self.events.read_text()
+        self.assertLess(events.index('bootout system/' + LOCAL), events.index('maintenance-restore'))
+        self.assertLess(events.index('maintenance-restore'), events.index('bootstrap system'))
+
+    def test_failed_maintenance_recovery_retains_old_installation(self):
+        self.existing(LOCAL)
+        journal = self.service.parent / 'users/501/network-journal.plist'
+        journal.parent.mkdir(parents=True)
+        journal.write_bytes(plistlib.dumps({'live:Proxies': {'applied': {}}}))
+        result = self.run_installer(FAIL_MAINTENANCE='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.service / 'LumaRoute.app/old').exists())
+        self.assertIn(LOCAL, json.loads(self.state.read_text()))
+        self.assertTrue(plistlib.loads(journal.read_bytes()))
+
+    def test_active_journal_blocks_uninstall_before_stopping_jobs(self):
+        self.existing(LOCAL)
+        journal = self.service.parent / 'users/501/network-journal.plist'
+        journal.parent.mkdir(parents=True)
+        journal.write_bytes(plistlib.dumps({'live:Proxies': {'applied': {}}}))
+        result = self.run_installer('--remove')
+        self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.events.exists())
+        self.assertTrue((self.service / 'LumaRoute.app/old').exists())
 
     def test_uninstall_removes_both_owned_service_plists(self):
         self.existing()

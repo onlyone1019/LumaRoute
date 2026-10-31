@@ -42,6 +42,11 @@ actor HelperController {
     var shuttingDown = false
     init(app: URL) { self.app = app }
     func prepareHealthOnly() { startupReady = true }
+    func restoreNetworkForMaintenance(uid:uid_t) throws {
+        let directory=URL(fileURLWithPath:"/Library/Application Support/LumaRoute/users/\(uid)")
+        try checkOwnership(directory)
+        try SystemNetwork(journal:directory.appendingPathComponent("network-journal.plist")).restore()
+    }
     func shutdown() async {
         shuttingDown = true
         let deadline = Date().addingTimeInterval(20)
@@ -277,6 +282,21 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
 do {
     guard geteuid() == 0 else { throw LumaError.message("后台服务需要 launchd 管理员授权") }
     let app = try containingApp()
+    // The administrator installer invokes the staged, verified helper only
+    // after stopping the old job. This never exposes a new XPC action.
+    if CommandLine.arguments.contains("--restore-network-for-maintenance") {
+        let installation=try LocalServiceInstallation.load()
+        let controller=HelperController(app:LocalServiceInstallation.bundle)
+        Task {
+            do { try await controller.restoreNetworkForMaintenance(uid:installation.ownerUID);exit(0) }
+            catch {
+                FileHandle.standardError.write(Data(("网络恢复未完成："+Redactor.clean(error.localizedDescription)+"\n").utf8))
+                exit(1)
+            }
+        }
+        RunLoop.main.run()
+        exit(1)
+    }
     let local = CommandLine.arguments.contains("--local")
     let installation = local ? try LocalServiceInstallation.load():nil
     guard !local || app == LocalServiceInstallation.bundle else { throw LumaError.message("本机服务必须从管理员安装目录运行") }

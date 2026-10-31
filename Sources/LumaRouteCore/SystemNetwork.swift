@@ -7,8 +7,12 @@ public final class SystemNetwork {
     private var records: [String: [String: Any]] = [:]
     public init(journal: URL) throws {
         self.journal = journal
-        if FileManager.default.fileExists(atPath:journal.path),
-           let object = try PropertyListSerialization.propertyList(from:Data(contentsOf:journal),format:nil) as? [String: [String:Any]] { records = object }
+        if FileManager.default.fileExists(atPath:journal.path) {
+            guard let object = try PropertyListSerialization.propertyList(from:Data(contentsOf:journal),format:nil) as? [String: [String:Any]] else {
+                throw LumaError.message("网络恢复记录格式无效，已保留原文件")
+            }
+            records = object
+        }
     }
     public func apply(settings: NetworkSettings) throws {
         try apply(settings:settings,includeDNS:true)
@@ -23,6 +27,16 @@ public final class SystemNetwork {
         guard let services = SCNetworkServiceCopyAll(prefs) as? [SCNetworkService] else { throw LumaError.message("无法读取网络服务") }
         let previous = records
         var restored: Set<String> = []
+        // Removed services no longer own live settings. Retire their snapshots
+        // only after preferences commit and apply successfully.
+        let serviceIDs=Set(services.compactMap { SCNetworkServiceGetServiceID($0) as String? })
+        for key in records.keys {
+            guard let separator=key.lastIndex(of:":") else { continue }
+            let serviceID=String(key[..<separator]),type=String(key[key.index(after:separator)...])
+            if [kSCNetworkProtocolTypeProxies as String,kSCNetworkProtocolTypeDNS as String].contains(type),!serviceIDs.contains(serviceID) {
+                restored.insert(key)
+            }
+        }
         do { for service in services {
             guard let identifier = SCNetworkServiceGetServiceID(service) else { continue }
             let serviceID = identifier as String
@@ -46,8 +60,8 @@ public final class SystemNetwork {
         try persist()
     }
     private func setProtocol(service: SCNetworkService,serviceID: String,type: CFString,desired: [String:Any]?) throws -> Bool {
-        guard let proto = SCNetworkServiceCopyProtocol(service,type) else { return false }
         let key = serviceID + ":" + (type as String)
+        guard let proto = SCNetworkServiceCopyProtocol(service,type) else { return records[key] != nil }
         let current = SCNetworkProtocolGetConfiguration(proto) as? [String:Any]
         if let desired {
             if let record = records[key], !Self.owns(current,record:record) {

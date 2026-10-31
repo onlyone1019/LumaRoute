@@ -7,6 +7,7 @@ JOB="/Library/LaunchDaemons/$LABEL.plist"
 LEGACY_LABEL='app.lumaroute.helper'
 LEGACY_JOB="/Library/LaunchDaemons/$LEGACY_LABEL.plist"
 MODE="${1:-}"
+JOURNAL=''
 if [ "$(id -u)" != 0 ] || [ -z "${SUDO_UID:-}" ] || [ "$SUDO_UID" = 0 ]; then
   echo '请从 LumaRoute 的管理员授权窗口或通过 sudo 运行安装器。' >&2
   exit 1
@@ -40,15 +41,23 @@ if [ -e "$SERVICE_ROOT/installation.plist" ]; then
     JOURNAL="/Library/Application Support/LumaRoute/users/$SUDO_UID/network-journal.plist"
     if [ -e "$JOURNAL" ]; then
       check_owned "$JOURNAL"
-      /usr/bin/python3 - "$JOURNAL" <<'PY'
-import plistlib,sys
-with open(sys.argv[1],'rb') as f:
-    if plistlib.load(f):
-        sys.exit('请先在应用中关闭接管并恢复网络，再维护服务。')
-PY
     fi
   fi
 fi
+require_network_restored() {
+  if [ -n "$JOURNAL" ] && [ -e "$JOURNAL" ]; then
+    check_owned "$JOURNAL"
+    /usr/bin/python3 - "$JOURNAL" <<'PY'
+import plistlib,sys
+with open(sys.argv[1],'rb') as f:
+    records=plistlib.load(f)
+    if not isinstance(records,dict) or any(not isinstance(v,dict) for v in records.values()):
+        sys.exit('网络恢复记录无效，已保留原服务。')
+    if records:
+        sys.exit('原服务尚未完成网络恢复，已保留原安装，请稍后重试。')
+PY
+  fi
+}
 # Only migrate jobs that belong to this root-owned installation. A managed
 # registration without our old absolute-path plist remains a separate job.
 for task_job in "$JOB" "$LEGACY_JOB"; do
@@ -58,6 +67,7 @@ for task_job in "$JOB" "$LEGACY_JOB"; do
   fi
 done
 if [ "$MODE" = '--remove' ]; then
+  require_network_restored
   for task_label in "$LABEL" "$LEGACY_LABEL"; do
     if [ -e "/Library/LaunchDaemons/$task_label.plist" ]; then
       if launchctl print "system/$task_label" >/dev/null 2>&1; then launchctl bootout "system/$task_label"; fi
@@ -187,6 +197,13 @@ for task_label in "$LABEL" "$LEGACY_LABEL"; do
     wait_job_stopped "$task_label"
   fi
 done
+# A new ad-hoc build cannot ask the old pinned helper to stop over XPC.
+# Let the owned old job exit first, then recover with the staged helper while
+# rollback is armed and the old installation is still intact.
+if ! require_network_restored 2>/dev/null; then
+  "$STAGING/LumaRoute.app/Contents/Library/LaunchServices/LumaRouteHelper" --restore-network-for-maintenance
+fi
+require_network_restored
 if [ -e "$APP_COPY" ]; then mv "$APP_COPY" "$STAGING/previous.app"; fi
 REPLACED=true
 mv "$STAGING/LumaRoute.app" "$APP_COPY"

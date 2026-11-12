@@ -57,7 +57,19 @@ final class AppStore: ObservableObject {
     var testTotal:Int { get { runtime.testTotal } set { runtime.testTotal = newValue } }
     var testRunning:Bool { get { runtime.testRunning } set { runtime.testRunning = newValue } }
     var nodeErrors:[String:String] { get { runtime.nodeErrors } set { runtime.nodeErrors = newValue } }
-    @Published var notice: String?
+    @Published var notice: String? {
+        didSet {
+            noticeDismissTask?.cancel()
+            noticeDismissTask = nil
+            guard notice != nil else { return }
+            noticeDismissTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
+                self?.notice = nil
+            }
+        }
+    }
+    private var noticeDismissTask: Task<Void,Never>?
     @Published var availableCore: CoreRelease?
     @Published var checkingAppUpdate = false
     @Published var appUpdateMessage: String?

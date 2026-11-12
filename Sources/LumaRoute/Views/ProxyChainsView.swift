@@ -10,21 +10,17 @@ struct ProxyChainsView: View {
             HStack {
                 VStack(alignment:.leading,spacing:4) {
                     Text(store.activeProfile.map { "当前配置："+$0.name } ?? "请先启用订阅").font(.headline)
-                    Text("电脑 → 前置节点 → VPS 落地 → 目标网站").font(.callout).foregroundStyle(.secondary)
+                    Text("电脑 → 前置代理 → 落地节点 → 目标网站").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button { editing = ProxyChain() } label: { Label("新建链路",systemImage:"plus") }
                     .buttonStyle(.borderedProminent).disabled(store.activeProfile == nil || !store.coreReady || store.busy)
             }
-            Panel {
-                VStack(alignment:.leading,spacing:6) {
-                    Text("选择机场节点作前置，用 VPS 的 IP 访问目标网站。保存后，在“规则”中将需要的域名或应用指向“链式 · 链路名称”。")
-                    Text("机场和 VPS 在不同订阅时，先前往“订阅 → 组合订阅”。链路仅用于当前配置，原节点仍可单独使用。").foregroundStyle(.secondary)
-                    if !store.coreReady { Text("内核就绪后可从当前配置选择节点。").foregroundStyle(.orange) }
-                }.font(.system(size:13)).fixedSize(horizontal:false,vertical:true)
+            if store.activeProfile != nil && !store.coreReady {
+                Text("内核就绪后可选择节点。").font(.callout).foregroundStyle(.orange)
             }
             if chains.isEmpty {
-                EmptyMessage(icon:"point.3.connected.trianglepath.dotted",title:"尚未配置链式代理",detail:"先导入机场订阅和 VPS 节点，再新建链路选择前置与落地。")
+                EmptyMessage(icon:"point.3.connected.trianglepath.dotted",title:"尚未配置链式代理",detail:"新建链路时，选择前置代理和落地节点。")
             } else {
                 ScrollView {
                     LazyVStack(spacing:10) {
@@ -99,22 +95,21 @@ struct ProxyChainSheet: View {
     var body: some View {
         VStack(alignment:.leading,spacing:18) {
             Text("配置链式代理").font(.title2.bold())
-            TextField("链路名称，例如 香港到美国 VPS",text:$chain.name).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("链路名称")
+            TextField("链路名称，例如 香港到美国",text:$chain.name).textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("链路名称")
             SearchField(placeholder:"筛选节点或策略组",text:$search)
             Panel {
                 VStack(alignment:.leading,spacing:16) {
                     LumaPicker("前置",selection:Binding(get:{chain.upstream},set:{ name in
                         chain.upstream = name; chain.upstreamProvider = candidates.first { $0.name == name }?.providerName
-                    }),value:chain.upstream.isEmpty ? "选择机场节点或策略组":chain.upstream,showsLabel:true) {
+                    }),value:chain.upstream.isEmpty ? "选择节点或策略组":chain.upstream,showsLabel:true) {
                         Text("选择前置").tag("")
                         ForEach(options(landing:false)) { node in Text(node.name+(node.isGroup ? "（策略组）":"")).tag(node.name) }
                         if !chain.upstream.isEmpty,!candidates.contains(where:{$0.name == chain.upstream}) { Text("已失效："+chain.upstream).tag(chain.upstream) }
                     }
-                    Text("可选单个机场节点，或跟随现有策略组切换香港、日本等线路。").font(.caption).foregroundStyle(.secondary)
                     RowDivider()
                     LumaPicker("落地",selection:Binding(get:{chain.landing},set:{ name in
                         chain.landing = name; chain.landingProvider = candidates.first { $0.name == name }?.providerName
-                    }),value:chain.landing.isEmpty ? "选择 VPS 节点":chain.landing,showsLabel:true) {
+                    }),value:chain.landing.isEmpty ? "选择落地节点":chain.landing,showsLabel:true) {
                         Text("选择落地").tag("")
                         ForEach(options(landing:true)) { Text($0.name).tag($0.name) }
                         if !chain.landing.isEmpty,!candidates.contains(where:{$0.name == chain.landing}) { Text("已失效："+chain.landing).tag(chain.landing) }
@@ -122,7 +117,7 @@ struct ProxyChainSheet: View {
                     Text("目标网站看到落地节点的出口 IP。建议先使用 Shadowsocks；其他协议需确认前置支持。").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Text("电脑 → \(chain.upstream.isEmpty ? "前置节点":chain.upstream) → \(chain.landing.isEmpty ? "VPS 落地":chain.landing) → 目标网站")
+            Text("电脑 → \(chain.upstream.isEmpty ? "前置代理":chain.upstream) → \(chain.landing.isEmpty ? "落地节点":chain.landing) → 目标网站")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             Toggle("启用此链路",isOn:$chain.enabled).toggleStyle(.checkbox)
             if let failure { Text(failure).font(.callout).foregroundStyle(.red).fixedSize(horizontal:false,vertical:true) }

@@ -7,7 +7,7 @@ import json
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "v1.19.33"
+VERSION = "v1.19.34"
 
 
 def fetch(url):

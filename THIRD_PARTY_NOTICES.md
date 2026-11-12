@@ -8,14 +8,14 @@ LumaRoute 自行编写的代码、文档与自有素材按根目录 [MIT License
 | --- | --- | --- |
 | [Yams](https://github.com/jpsim/Yams/tree/6.1.0) | YAML 解析；SwiftPM 固定 6.1.0 | MIT，Copyright (c) 2016 JP Simard；见 [Yams-LICENSE](Resources/Licenses/Yams-LICENSE)。源码中 libyaml 文件自身的版权注释保留在上游源码中。 |
 | [Sparkle](https://github.com/sparkle-project/Sparkle/tree/2.10.0) | 应用更新下载、校验、安装与重新启动；SwiftPM 固定 2.10.0 | 上游版权及第三方许可随框架保留，并包含于应用内的 `Licenses/Sparkle-LICENSE`。 |
-| [Mihomo](https://github.com/MetaCubeX/mihomo/tree/v1.19.32) | 独立运行的代理内核，v1.19.32；通过进程启动和本机 HTTP API 使用，不链接到 Swift 可执行文件 | GNU GPL v3；见 [Mihomo-LICENSE](Resources/Licenses/Mihomo-LICENSE) 及 [上游说明](Resources/Licenses/Mihomo-README.md)。安装包仅进行代码签名，未修改内核功能源码。 |
+| [Mihomo](https://github.com/MetaCubeX/mihomo/tree/v1.19.34) | 独立运行的代理内核，v1.19.34；通过进程启动和本机 HTTP API 使用，不链接到 Swift 可执行文件 | GNU GPL v3；见 [Mihomo-LICENSE](Resources/Licenses/Mihomo-LICENSE) 及 [上游说明](Resources/Licenses/Mihomo-README.md)。安装包仅进行代码签名，未修改内核功能源码。 |
 | [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | 预置 `GeoIP.dat`、`GeoSite.dat`、`geoip.metadb`；文件名、上游地址、更新时间与 SHA-256 见 [下载清单](Resources/GeoData/release.json) | 聚合仓库 GNU GPL v3；GeoIP 包含 CC BY-SA 4.0 数据，GeoSite 包含 MIT、GPL、LGPL、WTFPL 等不同来源；完整署名、正文及授权边界见 [GEO 专项声明](Resources/Licenses/GeoData-NOTICE.md)。另见 [许可](Resources/Licenses/Meta-rules-dat-LICENSE) 和 [来源及原始数据项目说明](Resources/Licenses/Meta-rules-dat-README.md)。聚合数据中各来源的权利和声明仍归原作者，不能统一改为 MIT。 |
 
 Yams 的源文件中还包含 libyaml，MIT 许可，Copyright (c) 2017-2020 Ingy döt Net、Copyright (c) 2006-2016 Kirill Simonov。另保留 [LibYAML-LICENSE](Resources/Licenses/LibYAML-LICENSE)，具体源码以 Yams 锁定版本内的 CYaml 为准。
 
 ### 对应源码和构建材料
 
-- Mihomo v1.19.32：[源码目录](https://github.com/MetaCubeX/mihomo/tree/v1.19.32)、[源码归档](https://github.com/MetaCubeX/mihomo/archive/refs/tags/v1.19.32.tar.gz)。上游构建脚本、Go 模块清单和依赖锁定文件包含在源码中；内核原始文件校验值见 [Core/release.json](Resources/Core/release.json)。
+- Mihomo v1.19.34：[源码目录](https://github.com/MetaCubeX/mihomo/tree/v1.19.34)、[源码归档](https://github.com/MetaCubeX/mihomo/archive/refs/tags/v1.19.34.tar.gz)。上游构建脚本、Go 模块清单和依赖锁定文件包含在源码中；内核原始文件校验值见 [Core/release.json](Resources/Core/release.json)。
 - Yams 6.1.0：[源码归档](https://github.com/jpsim/Yams/archive/refs/tags/6.1.0.tar.gz)，具体 SwiftPM revision 见 [Package.resolved](Package.resolved)。
 - GEO 数据：[独立分发及离线重建说明](Resources/GeoData/README.md)。完整规范化输入、固定工具、捕获来源和全部依赖源码放在 Release 的独立 GEO 附件中，不提交到当前应用源码树。基础快照从现有产物无损还原，当前快照及应用内在线更新 / 回退共同使用 V2Ray MIT / ACL4SSR CC BY-SA 4.0 的固定来源替换 biliintl 和 sharepoint；其他基础数据不冒充原始网络采集记录。应用源码附件与 GEO 附件分别提供，摘要由 `source-manifest.json` 和 `SHA256SUMS.txt` 指定。
 - GEO 重建工具：独立 GEO 附件中的 `tools/geodata-snapshot/` 采用 GPL v3，保留 MetaCubeX/geo 固定 revision 的来源及修改说明；vendored 依赖分别保留其原始许可证。它不链接进 LumaRoute 的 Swift 可执行程序，也不改变自有 Swift 代码的 MIT 授权。

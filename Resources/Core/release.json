@@ -1,22 +1,22 @@
 {
-  "version": "v1.19.33",
+  "version": "v1.19.34",
   "repository": "MetaCubeX/mihomo",
   "assets": [
     {
       "arch": "arm64",
-      "name": "mihomo-darwin-arm64-v1.19.33.gz",
-      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-darwin-arm64-v1.19.33.gz",
-      "release_sha256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
-      "github_digest": "sha256:060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
-      "binary_sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+      "name": "mihomo-darwin-arm64-v1.19.34.gz",
+      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.34/mihomo-darwin-arm64-v1.19.34.gz",
+      "release_sha256": "1a7a20eca63fbbaec90137717465bfde488d0db2a3a79b8fadebf9b2545b6e4c",
+      "github_digest": "sha256:1a7a20eca63fbbaec90137717465bfde488d0db2a3a79b8fadebf9b2545b6e4c",
+      "binary_sha256": "a55a9073f9b7b1fa596a82c034d2dae3407ec34732102b6e42c5513ce3033f34"
     },
     {
       "arch": "x86_64",
-      "name": "mihomo-darwin-amd64-compatible-v1.19.33.gz",
-      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-darwin-amd64-compatible-v1.19.33.gz",
-      "release_sha256": "eefe967b74312f70b64efa0dfa54929d00c7af8e94416e1b12df09863a40f35b",
-      "github_digest": "sha256:eefe967b74312f70b64efa0dfa54929d00c7af8e94416e1b12df09863a40f35b",
-      "binary_sha256": "97b004815986817249c9bf0e2b583a3cc0ee85130deb6eafab005b448d467089"
+      "name": "mihomo-darwin-amd64-compatible-v1.19.34.gz",
+      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.34/mihomo-darwin-amd64-compatible-v1.19.34.gz",
+      "release_sha256": "703bceaa494732fa456f47e6ac2f06bf0bc5593d4c927d5f61e10f1a31039c37",
+      "github_digest": "sha256:703bceaa494732fa456f47e6ac2f06bf0bc5593d4c927d5f61e10f1a31039c37",
+      "binary_sha256": "3be524b2d34da2caaaac35dec0de3aa8c793add9994a4140dbac048543f7202d"
     }
   ]
 }

@@ -77,7 +77,7 @@ public enum ProxyChainComposer {
             if let provider = chain.upstreamProvider { pending.append("provider:"+provider) }
             while let name = pending.popLast() {
                 guard seen.insert(name).inserted else { continue }
-                if chainNames.contains(name) { throw LumaError.message("前置策略不能引用链式代理，请选择独立的机场节点或策略组") }
+                if chainNames.contains(name) { throw LumaError.message("前置策略不能引用链式代理，请选择独立的代理节点或策略组") }
                 if name.hasPrefix("provider:"),let provider = originalProviders[String(name.dropFirst(9))] {
                     if let proxy = provider["proxy"] as? String { pending.append(proxy) }
                     if let dialer = (provider["override"] as? [String:Any])?["dialer-proxy"] as? String { pending.append(dialer) }

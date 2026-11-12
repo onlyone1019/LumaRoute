@@ -23,7 +23,7 @@ if [ "$MODE" != "--build-only" ]; then
     fi
   fi
 fi
-if [ ! -x "Resources/Core/mihomo-$ARCH" ]; then python3 script/fetch_core.py; fi
+python3 script/fetch_core.py
 python3 script/fetch_geodata.py
 BUILD_CONFIGURATION="${LUMAROUTE_BUILD_CONFIGURATION:-release}"
 if [ "$MODE" = "--debug" ]; then BUILD_CONFIGURATION=debug; fi
@@ -72,8 +72,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleLocalizations</key><array><string>zh_CN</string></array>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.15</string>
-<key>CFBundleVersion</key><string>45</string>
+<key>CFBundleShortVersionString</key><string>0.1.16</string>
+<key>CFBundleVersion</key><string>46</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

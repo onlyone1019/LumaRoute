@@ -38,7 +38,7 @@ final class AppStore: ObservableObject {
     @Published var groupOrder: [String] = []
     let runtime = RuntimeData()
     let menuStateDidChange = PassthroughSubject<Void,Never>()
-    var connections:[LiveConnection] { get { runtime.connections } set { runtime.connections = newValue } }
+    var connections:[LiveConnection] { get { runtime.connections } set { if runtime.connections != newValue { runtime.connections = newValue } } }
     var liveRules:[LiveRule] { get { runtime.liveRules } set { if runtime.liveRules != newValue { runtime.liveRules = newValue } } }
     var traffic:Traffic {
         get { runtime.traffic }

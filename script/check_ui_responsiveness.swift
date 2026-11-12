@@ -88,6 +88,7 @@ import LumaRouteCore
         if let name=store.groups.first?.name,var group=store.proxies[name],let alternate=group.all?.last {
             group.now=alternate;store.proxies[name]=group
             let child=menu.checkMenu().items.first(where:{$0.submenu?.title==name})?.submenu
+            if let child { menu.menuNeedsUpdate(child) }
             check(child?.items.contains(where:{$0.toolTip?.hasPrefix(alternate)==true && $0.state == .on})==true,"reused menu follows live group selection")
             menu.checkTracking(true)
             group.all?.append("fixture-added-node");store.proxies[name]=group

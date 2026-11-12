@@ -29,14 +29,11 @@ struct LogsPage:View {
         guard !search.isEmpty || level != "全部级别" || source != "全部来源" else { return logs }
         return logs.filter { (search.isEmpty || $0.message.localizedCaseInsensitiveContains(search) || $0.source.localizedCaseInsensitiveContains(search)) && (level=="全部级别" || $0.level==level) && (source=="全部来源" || $0.source==source) }
     }
-    var selected:LogEntry? {
-        guard let id=state.selection else { return nil }
-        return items.first { $0.id==id }
-    }
     var body:some View {
         @Bindable var state=state
-        VStack(spacing:16) {
-            PageHeader(title:"日志",subtitle:"\(items.count) 条日志") {
+        let snapshot=items
+        return VStack(spacing:16) {
+            PageHeader(title:"日志",subtitle:"\(snapshot.count) 条日志") {
                 Button { state.snapshot=state.paused ? []:store.logs; state.paused.toggle() } label:{ Label(state.paused ? "继续":"暂停",systemImage:state.paused ? "play":"pause") }
                 Button { store.logs=[]; state.snapshot=[] } label:{ Label("清空",systemImage:"trash") }
                 Button { state.prepareExport(store.logs,coreStatus:store.coreVersion) } label:{ Label("导出诊断",systemImage:"square.and.arrow.up") }
@@ -57,20 +54,20 @@ struct LogsPage:View {
                     Text("来源").frame(width:90,alignment:.leading)
                     Text("内容").frame(maxWidth:.infinity,alignment:.leading)
                 }.font(.system(size:12)).foregroundStyle(.secondary).padding(.horizontal,16).padding(.top,12).padding(.bottom,4)
-                list
+                list(snapshot)
             }
             .background(LumaPalette.card,in:RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
             .clipShape(RoundedRectangle(cornerRadius:LumaPalette.cardRadius,style:.continuous))
-            if let entry=selected { Panel { VStack(alignment:.leading,spacing:12) { Text("日志详情").font(.system(size:14,weight:.semibold)); Text(entry.message).textSelection(.enabled); HStack { Spacer(); Button("复制详情") { copy(entry) } } } } }
+            if let id=state.selection,let entry=snapshot.first(where:{$0.id == id}) { Panel { VStack(alignment:.leading,spacing:12) { Text("日志详情").font(.system(size:14,weight:.semibold)); Text(entry.message).textSelection(.enabled); HStack { Spacer(); Button("复制详情") { copy(entry) } } } } }
             HStack(spacing:6) { Image(systemName:"info.circle").foregroundStyle(.secondary); Text("导出诊断时自动隐藏订阅凭据").font(.system(size:12)).foregroundStyle(.secondary); Spacer() }
         }.fileExporter(isPresented:$state.exporting,document:state.exportDocument,contentTypes:[.plainText],defaultFilename:"LumaRoute-diagnostics.txt") { result in
             state.finishExport()
             if case .failure(let e)=result { store.report(e) }
         } onCancellation: { state.finishExport() }
     }
-    private var list:some View {
+    private func list(_ snapshot:[LogEntry])->some View {
         @Bindable var state=state
-        return LogsTableView(rows:items,selection:$state.selection,followsTail:state.autoScroll && !state.paused)
+        return LogsTableView(rows:snapshot,selection:$state.selection,followsTail:state.autoScroll && !state.paused)
     }
 
     private func copy(_ entry:LogEntry) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(entry.message,forType:.string) }

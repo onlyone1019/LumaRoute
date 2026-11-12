@@ -164,7 +164,7 @@ public struct Provider: Codable, Sendable {
     public var updatedAt: String?
 }
 public struct ProvidersResponse: Codable, Sendable { public var providers: [String: Provider] }
-public struct ConnectionMetadata: Codable, Sendable {
+public struct ConnectionMetadata: Codable, Equatable, Sendable {
     public var host: String?
     public var destinationIP: String?
     public var destinationPort: String?
@@ -176,7 +176,7 @@ public struct ConnectionMetadata: Codable, Sendable {
     public var processPath: String?
     public var processSource: String?
 }
-public struct LiveConnection: Codable, Identifiable, Sendable {
+public struct LiveConnection: Codable, Identifiable, Equatable, Sendable {
     public var id: String
     public var metadata: ConnectionMetadata
     public var upload: Int64

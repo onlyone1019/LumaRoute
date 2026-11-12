@@ -18,11 +18,11 @@ struct ConnectionsPage:View {
     var items:[LiveConnection] {
         store.connections.filter { $0.matches(state.search) && (state.network == "all" || $0.metadata.network?.lowercased() == state.network) && (state.policy == "all" || $0.chains?.contains(state.policy) == true) }.sorted(using:state.sortOrder)
     }
-    var selected:LiveConnection? { items.first { $0.id == state.selection } }
     var body:some View {
         @Bindable var state=state
-        VStack(spacing:16) {
-            PageHeader(title:"连接",subtitle:"\(items.count) 个连接") {
+        let snapshot=items
+        return VStack(spacing:16) {
+            PageHeader(title:"连接",subtitle:"\(snapshot.count) 个连接") {
                 StatusPill(text:store.coreReady ? "实时更新":"未连接内核",color:store.coreReady ? .green:.secondary)
                 Button("刷新") { Task { await store.refreshConnectionsSnapshot() } }.disabled(store.busy || !store.coreReady)
                 Button("关闭全部") { store.closeConnection(nil) }.disabled(store.connections.isEmpty)
@@ -33,19 +33,19 @@ struct ConnectionsPage:View {
                 LumaPicker("策略",selection:$state.policy,value:state.policy == "all" ? "全部策略":state.policy) { Text("全部策略").tag("all"); ForEach(policies,id:\.self) { Text($0).tag($0) } }.frame(width:190)
             }
             HStack(spacing:14) {
-                table
-                if let connection=selected { ConnectionDetails(connection:connection) { createRule(connection,application:$0) } }
+                table(snapshot)
+                if let connection=snapshot.first(where:{$0.id == state.selection}) { ConnectionDetails(connection:connection) { createRule(connection,application:$0) } }
             }
         }.sheet(item:$state.routingRule) { RoutingRuleSheet(rule:$0,profileID:store.database.activeProfileID) }
     }
-    private var table:some View {
+    private func table(_ snapshot:[LiveConnection])->some View {
         @Bindable var state=state
-        return ConnectionTableView(rows:items,selection:$state.selection,sortOrder:$state.sortOrder,
+        return ConnectionTableView(rows:snapshot,selection:$state.selection,sortOrder:$state.sortOrder,
             targets:store.routingTargets,canCreateRule:!store.busy && store.activeProfile != nil,
             createRule:{ connection,application,target in createRule(connection,application:application,target:target) })
         .frame(maxWidth:.infinity,maxHeight:.infinity)
         .overlay {
-            if items.isEmpty {
+            if snapshot.isEmpty {
                 EmptyMessage(icon:"network",title:store.connections.isEmpty ? "暂无连接":"没有匹配的连接",detail:store.connections.isEmpty ? "应用通过 LumaRoute 联网后，连接会显示在这里。":"试试其他关键词、协议或策略。")
             }
         }

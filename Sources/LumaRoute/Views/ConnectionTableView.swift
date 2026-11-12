@@ -86,15 +86,18 @@ struct ConnectionTableView:NSViewRepresentable {
         init(parent:ConnectionTableView) { self.parent=parent }
         func update(_ parent:ConnectionTableView,table:NSTableView) {
             updating=true;defer { updating=false }
-            self.parent=parent;displayed=parent.rows
+            self.parent=parent
+            let changed=displayed != parent.rows
+            if changed { displayed=parent.rows }
             let descriptors=parent.sortOrder.compactMap { comparator -> NSSortDescriptor? in
                 guard let column=Column.allCases.first(where:{$0.keyPath == comparator.keyPath}) else { return nil }
                 return NSSortDescriptor(key:column.rawValue,ascending:comparator.order == .forward)
             }
             if table.sortDescriptors != descriptors { table.sortDescriptors=descriptors }
-            table.reloadData()
+            if changed { table.reloadData() }
             let selected=parent.selection.flatMap { id in displayed.firstIndex { $0.id == id } }
-            table.selectRowIndexes(selected.map { IndexSet(integer:$0) } ?? [],byExtendingSelection:false)
+            let indexes=selected.map { IndexSet(integer:$0) } ?? []
+            if table.selectedRowIndexes != indexes { table.selectRowIndexes(indexes,byExtendingSelection:false) }
         }
         func numberOfRows(in tableView:NSTableView)->Int { displayed.count }
         func tableView(_ tableView:NSTableView,viewFor tableColumn:NSTableColumn?,row:Int)->NSView? {

@@ -15,9 +15,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private var buttonSignature = ""
     private let menuLogger = Logger(subsystem:"app.lumaroute.desktop",category:"MenuBar")
     private var columns: [ObjectIdentifier:(String,String,CGFloat)] = [:]
-    private var benchmarkItems: [NSMenuItem] = []
-    private var nodeItems: [(NSMenuItem,String)] = []
-    private var stateUpdates: [(AppStore)->Void] = []
+    private struct MenuContent {
+        var stateUpdates: [(AppStore)->Void] = []
+        var benchmarkItems: [NSMenuItem] = []
+        var nodeItems: [(NSMenuItem,String)] = []
+    }
+    private var contents: [ObjectIdentifier:MenuContent] = [:]
+    // Freeze membership for a root-menu session; live values still come from AppStore.
+    private var groupMenus: [ObjectIdentifier:ProxyNode] = [:]
     private struct GroupShape: Equatable {
         let name: String
         let type: String
@@ -82,13 +87,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu:NSMenu) {
-        guard menu === self.menu, let store else { return }
+        guard let store else { return }
+        if menu !== self.menu {
+            let id=ObjectIdentifier(menu)
+            if let group=groupMenus[id],contents[id] == nil {
+                contents[id]=MenuContent()
+                populateGroup(group,in:menu,store:store,enabled:store.coreReady && !store.busy)
+            }
+            refreshContents(of:menu)
+            return
+        }
         let groups = store.groups
         let next = MenuShape(groups:groups.map { GroupShape(name:$0.name,type:$0.type,members:$0.all ?? [],kinds:($0.all ?? []).map { store.proxies[$0]?.type ?? "" }) },profiles:store.database.profiles.map { ProfileShape(id:$0.id,name:$0.name,remote:$0.isRemote) },core:store.coreVersion,mixedPort:store.database.settings.mixedPort,controllerPort:store.database.settings.controllerPort)
         if shape == next || !openMenus.isEmpty { refreshMenuState(); return }
         shape = next
-        menu.removeAllItems(); columns.removeAll(); benchmarkItems.removeAll(); nodeItems.removeAll()
-        stateUpdates.removeAll(); shortCache.removeAll(); highlightedItems.removeAll(); columnHighlights.removeAll()
+        menu.removeAllItems(); columns.removeAll(); contents.removeAll(); groupMenus.removeAll()
+        shortCache.removeAll(); highlightedItems.removeAll(); columnHighlights.removeAll()
         let ready = store.coreReady && !store.busy
         let mode = NSMenu(title:"出站模式"); mode.autoenablesItems = false
         for (value,title,key) in [(RouteMode.global,"全局连接","g"),(.rule,"规则判断","r"),(.direct,"直接连接","d")] {
@@ -100,7 +114,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         track(modeItem) { item,store in item.title = "出站模式 (\(store.database.settings.mode.label))" }
         menu.addItem(.separator())
         for group in groups {
-            addGroup(group,store:store,enabled:ready)
+            addGroup(group,store:store)
         }
         if !groups.isEmpty { menu.addItem(.separator()) }
         let proxyItem = add("设置为系统代理",key:"s",enabled:ready,checked:store.database.settings.systemProxy) { store.setNetwork(systemProxy:!store.database.settings.systemProxy) }
@@ -143,10 +157,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         refreshMenuState()
     }
 
-    private func addGroup(_ group:ProxyNode,store:AppStore,enabled:Bool) {
+    private func addGroup(_ group:ProxyNode,store:AppStore) {
         let choices = NSMenu(title:group.name); choices.autoenablesItems = false; choices.delegate = self
         // Reserve the complete latency column, including its unit and trailing inset.
         choices.minimumWidth = 324
+        groupMenus[ObjectIdentifier(choices)]=group
+        let item = submenu(short(group.name,width:120),menu:choices)
+        item.toolTip = group.name+" → "+store.selectionChain(for:group)
+        setColumns(item,primary:short(group.name,width:100),secondary:short(group.now ?? "未选择",width:100),columnEnd:210)
+        track(item) { [weak self] item,store in
+            guard let self,let live = store.proxies[group.name] else { return }
+            item.toolTip = live.name+" → "+store.selectionChain(for:live)
+            self.setColumns(item,primary:self.short(live.name,width:100),secondary:self.short(live.now ?? "未选择",width:100),columnEnd:210,highlighted:item.isHighlighted)
+        }
+    }
+
+    private func populateGroup(_ group:ProxyNode,in choices:NSMenu,store:AppStore,enabled:Bool) {
         let measurable = testableNodes(store:store,names:group.all ?? [])
         if !measurable.isEmpty {
             addBenchmark(to:choices,enabled:enabled && !store.testRunning) { [weak self] in
@@ -166,19 +192,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             track(item) { item,store in item.isEnabled = store.coreReady && !store.busy && selectable; item.state = store.proxies[group.name]?.now == name ? .on:.off }
             item.toolTip = name
             if let node, !node.isGroup {
-                nodeItems.append((item,name))
+                contents[ObjectIdentifier(choices),default:MenuContent()].nodeItems.append((item,name))
                 let detail = node.delay.map { "\($0)\u{00A0}ms" } ?? (node.alive == false ? "超时":"")
                 if !detail.isEmpty { setColumns(item,primary:short(name,width:210),secondary:detail) }
                 item.toolTip = detail.isEmpty ? name:name+" · "+detail
             }
-        }
-        let item = submenu(short(group.name,width:120),menu:choices)
-        item.toolTip = group.name+" → "+store.selectionChain(for:group)
-        setColumns(item,primary:short(group.name,width:100),secondary:short(group.now ?? "未选择",width:100),columnEnd:210)
-        track(item) { [weak self] item,store in
-            guard let self,let live = store.proxies[group.name] else { return }
-            item.toolTip = live.name+" → "+store.selectionChain(for:live)
-            self.setColumns(item,primary:self.short(live.name,width:100),secondary:self.short(live.now ?? "未选择",width:100),columnEnd:210,highlighted:item.isHighlighted)
         }
     }
 
@@ -239,6 +257,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @discardableResult
     private func submenu(_ title:String,menu child:NSMenu,to target:NSMenu? = nil)->NSMenuItem {
         let item = NSMenuItem(title:title,action:nil,keyEquivalent:"")
+        child.delegate = self
         item.submenu = child; (target ?? menu).addItem(item)
         return item
     }
@@ -278,11 +297,23 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         highlightedItems[id] = item
     }
 
-    private func track(_ item:NSMenuItem,update:@escaping (NSMenuItem,AppStore)->Void) { stateUpdates.append { store in update(item,store) } }
+    private func track(_ item:NSMenuItem,update:@escaping (NSMenuItem,AppStore)->Void) {
+        guard let menu=item.menu else { return }
+        contents[ObjectIdentifier(menu),default:MenuContent()].stateUpdates.append { store in update(item,store) }
+    }
     @objc private func refreshMenuState() {
         guard let store else { return }
-        for update in stateUpdates { update(store) }
-        refreshTrackingMenu()
+        // Eager command menus keep keyboard shortcuts current. Large node menus
+        // only need work while visible; menuNeedsUpdate catches them up on entry.
+        for (id,content) in contents where groupMenus[id] == nil || openMenus.contains(id) {
+            for update in content.stateUpdates { update(store) }
+            refreshTrackingMenu(content,store:store)
+        }
+    }
+    private func refreshContents(of menu:NSMenu) {
+        guard let store,let content=contents[ObjectIdentifier(menu)] else { return }
+        for update in content.stateUpdates { update(store) }
+        refreshTrackingMenu(content,store:store)
     }
 
     private func addBenchmark(to target:NSMenu? = nil,key:String = "",enabled:Bool,action:@escaping ()->Void) {
@@ -290,9 +321,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         item.view = PersistentMenuActionView(shortcut:key.isEmpty ? "":"⌘T") { [weak self, weak item] in
             guard item?.isEnabled == true else { return }
             action()
-            self?.refreshTrackingMenu()
+            self?.refreshMenuState()
         }
-        benchmarkItems.append(item)
+        contents[ObjectIdentifier(target ?? menu),default:MenuContent()].benchmarkItems.append(item)
     }
 
     func menuWillOpen(_ menu:NSMenu) {
@@ -312,17 +343,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         if menu === self.menu { openMenus.removeAll() }
         if openMenus.isEmpty { trackingTimer?.invalidate(); trackingTimer = nil }
     }
-    @objc private func refreshTrackingMenu() {
-        guard let store else { return }
+    private func refreshTrackingMenu(_ content:MenuContent,store:AppStore) {
         let title = store.testRunning ? "正在测速 (\(store.testProgress)/\(store.testTotal))":"延迟测速"
-        for item in benchmarkItems {
+        for item in content.benchmarkItems {
             let enabled = store.coreReady && !store.busy && !store.testRunning
             if item.title != title || item.isEnabled != enabled {
                 item.title = title; item.isEnabled = enabled; item.view?.needsDisplay = true
             }
         }
         // Update existing items, preserving the open submenu and its scroll position.
-        for (item,name) in nodeItems {
+        for (item,name) in content.nodeItems {
             guard let node = store.proxies[name] else { continue }
             let detail = store.nodeErrors[name] != nil ? "超时":node.delay.map { "\($0)\u{00A0}ms" } ?? (node.alive == false ? "超时":"")
             let primary = short(name,width:210)

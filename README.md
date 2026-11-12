@@ -80,25 +80,25 @@ LumaRoute 使用 **SwiftUI + AppKit** 构建桌面界面，由独立的 **[Mihom
 
 同时提供“连接 → 右键创建分流”、“规则 → 应用分流”、“概览 → 网络诊断”和订阅更新变化详情。按应用分流需规则模式和具备进程识别权限的后台服务；应用使用辅助进程联网时，优先从实际连接创建规则。详见 [快捷分流与诊断验收记录](docs/routing-tools-2026-10-15.md)。
 
-**当前正式版：[0.1.18 · Build 48](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.18)** · macOS 14+ · Apple Silicon / Intel
+**当前正式版：[0.1.19 · Build 49](https://github.com/onlyone1019/LumaRoute/releases/tag/v0.1.19)** · macOS 14+ · Apple Silicon / Intel
 
 **从 Build 21 及以后版本更新，保留现有 SQLite 业务数据；从 Build 20 或更早版本更新，不自动迁移旧 JSON、订阅文件或钥匙串数据，需重新添加订阅，旧文件原样保留。**
 
 | 下载 | 安装方式 |
 | --- | --- |
-| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.18/LumaRoute-0.1.18-build.48-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
-| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.18/LumaRoute-0.1.18-build.48-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
-| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.18/LumaRoute-0.1.18-build.48-macos-x86_64.dmg) | Intel Mac；解压后放入“应用程序” |
-| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.18/LumaRoute-0.1.18-build.48-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
-| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.18/SHA256SUMS.txt) | 核对下载文件的完整性 |
+| [Apple Silicon · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.19/LumaRoute-0.1.19-build.49-macos-arm64.dmg) | M 系列 Mac；打开后安装到应用程序 |
+| [Apple Silicon · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.19/LumaRoute-0.1.19-build.49-macos-arm64.zip) | M 系列 Mac；解压后放入“应用程序” |
+| [Intel · DMG（推荐）](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.19/LumaRoute-0.1.19-build.49-macos-x86_64.dmg) | Intel Mac；解压后放入“应用程序” |
+| [Intel · ZIP](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.19/LumaRoute-0.1.19-build.49-macos-x86_64.zip) | Intel Mac；解压后放入“应用程序” |
+| [SHA-256 校验文件](https://github.com/onlyone1019/LumaRoute/releases/download/v0.1.19/SHA256SUMS.txt) | 核对下载文件的完整性 |
 
 更新旧版前先关闭系统代理与 TUN，再退出并在原安装位置替换应用。重新打开后会自动判断服务是否需要同步，点击“完成更新”并在 macOS 授权窗口确认即可。安装包包含内核、GEO 数据与后台服务资源，无需另外下载编译工具。
 
-0.1.18 修复 GEO 更新与回退时代理模式丢失、首次启动失败后未自动恢复，以及网络接管冲突后的重连问题。启动重试保留原有自动连接设置，检测到网络被其他程序接管后停止自动接管。
+0.1.19 减少连接页与日志页的重复筛选计算，相同连接数据和仅改变选择时避免整表重载；策略组菜单按需构建，只刷新已展开节点，保留现有实时状态与操作行为。
 
 0.1.8 已接入应用内更新：在原有“检查更新”入口下载新版，完成后选择“安装并重新启动”，应用会自动退出、替换并重新打开，保留订阅、规则、节点选择和外观设置。下载期间继续使用；安装时短暂暂停代理，重启后按更新前的状态恢复。后台服务绑定构建，重启后可能弹出管理员授权；取消后可通过原有“完成更新”入口重试。第一版仅手动检查更新，不自动下载或安装。0.1.7 及更早版本首次迁移仍需手动安装一次；已安装带 Sparkle 版本的用户可直接检查更新。发布流程见 [应用内更新说明](docs/app-updates.md)。
 
-这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.18 发布说明](docs/releases/v0.1.18.md)。
+这是未公证的本地签名安装包，下载后可能被 macOS 阻止。确认来源后，可在“系统设置 → 隐私与安全性”按系统提示手动允许打开；系统仍不允许时，可使用下面的源码构建方式。完整说明见 [0.1.19 发布说明](docs/releases/v0.1.19.md)。
 
 请按芯片架构选择安装包：M 系列使用 `arm64`，Intel 使用 `x86_64`。Intel 包在 Apple Silicon 上通过 Rosetta 验证，尚未完成 Intel 真机验收。
 

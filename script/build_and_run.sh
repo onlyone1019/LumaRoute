@@ -72,8 +72,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleLocalizations</key><array><string>zh_CN</string></array>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.17</string>
-<key>CFBundleVersion</key><string>47</string>
+<key>CFBundleShortVersionString</key><string>0.1.18</string>
+<key>CFBundleVersion</key><string>48</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 onlyone1019</string>
 <key>LSUIElement</key><false/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

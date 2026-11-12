@@ -25,7 +25,7 @@ class SystemNetworkRecoveryTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(binary), str(folder)], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(result.stdout.count('PASS '), 7)
+            self.assertEqual(result.stdout.count('PASS '), 8)
 
 
 if __name__ == '__main__':

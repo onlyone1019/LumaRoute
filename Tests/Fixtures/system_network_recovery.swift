@@ -65,6 +65,11 @@ func SCPreferencesApplyChanges(_ prefs:FixturePreferences)->Bool { true }
 
         fixtureServices=[SCNetworkService("live",["Proxies":live])]
         let overwritten=try journal("foreign",["live:Proxies":record,"deleted:DNS":record])
+        var ownershipLost=false
+        do { try SystemNetwork(journal:overwritten).verifyOwnership() }
+        catch NetworkOwnershipError.lost { ownershipLost=true }
+        guard ownershipLost,fixtureWrites==0 else { throw LumaError.message("ownership verification must report a typed conflict without modifying preferences") }
+        print("PASS ownership verification distinguishes conflicts without modifying preferences")
         try SystemNetwork(journal:overwritten).restore()
         guard try saved(overwritten).isEmpty,fixtureWrites==0,NSDictionary(dictionary:live.configuration!).isEqual(to:foreign) else { throw LumaError.message("another application's settings must remain intact") }
         print("PASS another application's proxy settings remain intact")

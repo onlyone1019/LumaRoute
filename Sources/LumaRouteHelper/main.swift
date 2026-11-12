@@ -117,8 +117,10 @@ actor HelperController {
         try checkOwnership(directory)
         switch request.action {
         case "status":
-            try networks[uid]?.verifyOwnership()
-            return HelperResponse(success:true,running:await runners[uid]?.running ?? false,canRollbackGeo:try GeoDataUpdates(home:directory.appendingPathComponent("runtime")).canRollback,serviceUID:geteuid(),protocolVersion:1)
+            var ownershipLost = false
+            do { try networks[uid]?.verifyOwnership() }
+            catch is NetworkOwnershipError { ownershipLost = true }
+            return HelperResponse(success:true,running:await runners[uid]?.running ?? false,canRollbackGeo:try GeoDataUpdates(home:directory.appendingPathComponent("runtime")).canRollback,serviceUID:geteuid(),protocolVersion:1,networkOwnershipLost:ownershipLost)
         case "geo-update", "geo-rollback":
             guard let core = runners[uid],await core.running else { throw LumaError.message("授权内核尚未运行") }
             do { try await core.updateGeoData(rollback:request.action == "geo-rollback") }

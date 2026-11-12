@@ -1,12 +1,14 @@
 import Foundation
 
 enum FixtureError: Error { case restoring, disconnected }
+enum NetworkOwnershipError: Error { case lost }
 enum LumaError: Error { case message(String) }
 enum ServiceStatus { case enabled }
 struct HelperRequest { let action:String }
 struct HelperResponse {
     let serviceUID = 0,protocolVersion = 1
     let running:Bool
+    let networkOwnershipLost = false
 }
 struct Installation { let healthOnly = false }
 @MainActor final class HelperClient {
@@ -40,7 +42,9 @@ enum Redactor { static func clean(_ text:String) -> String { text } }
     let runner:Int? = 1
     let helper = HelperClient(),api = API(),store = Store(),serviceLogger = Logger()
     var recovering = false,pendingServiceRefresh = true,busy = false,shuttingDown = false
-    var helperActive = false,serviceRunning = false,coreReady = false,recoveryNeeded = true,serviceInstalling = true
+    var helperActive = false,serviceRunning = false,coreReady = false,serviceInstalling = true
+    enum RecoveryReason { case startup, interrupted }
+    var recoveryReason:RecoveryReason? = .startup
     var serviceRefreshAttempts = 0,recoveryAttempts = 0,serviceSetup = 0
     var serviceInstallationDeadline:Date? = Date(),nextServiceRefresh = Date.distantPast
     var pendingServiceSettings:Int?
@@ -55,6 +59,7 @@ enum Redactor { static func clean(_ text:String) -> String { text } }
     }
     func appendLog(level:String = "info",source:String,message:String) {}
     func report(_ error:Error,source:String) { self.error = error.localizedDescription }
+    func handleRuntimeInterruption(_ error:Error) async { preconditionFailure("healthy service retry must not enter conflict recovery") }
     func retry() async { await refreshInstalledService() }
     // PRODUCTION_REFRESH
 }

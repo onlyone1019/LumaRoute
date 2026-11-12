@@ -401,7 +401,16 @@ public actor CoreRunner {
         return true
     }
     public func updateGeoData(payloads: [String:Data]? = nil,rollback: Bool = false) async throws {
-        guard let yaml = currentYAML,let settings = currentSettings,running else { throw LumaError.message("请先启动内核再维护规则数据库") }
+        guard let previousYAML = currentYAML,var settings = currentSettings,running else { throw LumaError.message("请先启动内核再维护规则数据库") }
+        // Mode can be PATCHed without a YAML reload. Both the maintenance
+        // restart and its failure recovery must use the effective live mode.
+        let api = MihomoAPI(port:settings.controllerPort,secret:secret)
+        let live = try JSONSerialization.jsonObject(with:await api.data(["configs"])) as? [String:Any]
+        guard let value = live?["mode"] as? String,let mode = RouteMode(rawValue:value) else { throw LumaError.message("无法确认当前代理模式，未更新规则数据库") }
+        settings.mode = mode
+        var configuration = try ConfigComposer.parse(previousYAML)
+        configuration["mode"] = mode.rawValue
+        let yaml = try Yams.dump(object:configuration,allowUnicode:true,sortKeys:true)
         guard let policyURL = geoPolicyURL ?? bundledGeoDirectory?.appendingPathComponent("GeoSite-policy.json") else { throw LumaError.message("缺少 GEO 许可规则，未应用更新") }
         let policy = try GeoSitePolicy.load(from:policyURL)
         let files = try GeoDataUpdates(home:home)

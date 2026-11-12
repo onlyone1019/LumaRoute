@@ -58,6 +58,11 @@ jobs:
       - name: Continuously refresh the real connections GUI
         if: matrix.arch == 'arm64'
         run: python3 script/check_connection_table.py --products .build/arm64/arm64-apple-macosx/release --output work/connection-table-gui
+      - name: Check runtime recovery and GEO mode preservation
+        if: matrix.arch == 'arm64'
+        run: |
+          python3 script/check_runtime_stability.py --products .build/arm64/arm64-apple-macosx/release --core dist/arm64/LumaRoute.app/Contents/Resources/mihomo --output work/runtime-stability
+          python3 script/check_apply_recovery.py --products .build/arm64/arm64-apple-macosx/release
       - name: Check log page navigation and native table warnings
         if: matrix.arch == 'arm64'
         run: python3 script/check_logs_page.py --products .build/arm64/arm64-apple-macosx/release --output work/logs-page-gui

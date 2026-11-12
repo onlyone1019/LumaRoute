@@ -40,7 +40,7 @@ final class SystemNetwork {
     var ownsSettings = true
     var failApply = false
     init(journal: URL) {}
-    func verifyOwnership() throws { if !ownsSettings { throw LumaError.message("fixture ownership lost") } }
+    func verifyOwnership() throws { if !ownsSettings { throw NetworkOwnershipError.lost } }
     func apply(settings: NetworkSettings) throws {
         applyCount += 1
         if failApply { throw LumaError.message("fixture network apply failed") }
@@ -69,6 +69,10 @@ final class SystemNetwork {
             if fault == "stopped" { _ = await original.stop() }
             if fault == "ownership-lost" { network.ownsSettings = false }
             if fault == "network-fails" { network.failApply = true }
+            let status = try await controller.execute(HelperRequest(action:"status"),uid:uid)
+            guard status.success,status.networkOwnershipLost == (fault == "ownership-lost") else {
+                fail("status did not distinguish ownership loss: "+fault)
+            }
             let stops = await original.stopCount,applies = network.applyCount
             var next = previous; next.mode = .global; next.systemProxy = false
             var failed = false

@@ -37,10 +37,12 @@ public struct HelperResponse: Codable, Sendable {
     public var canRollbackGeo: Bool?
     public var serviceUID:UInt32?
     public var protocolVersion:Int?
-    public init(success: Bool, message: String = "", running: Bool = false,canRollbackGeo: Bool? = nil,serviceUID:UInt32? = nil,protocolVersion:Int? = nil) {
+    public var networkOwnershipLost: Bool?
+    public init(success: Bool, message: String = "", running: Bool = false,canRollbackGeo: Bool? = nil,serviceUID:UInt32? = nil,protocolVersion:Int? = nil,networkOwnershipLost: Bool? = nil) {
         self.success = success; self.message = message; self.running = running
         self.canRollbackGeo = canRollbackGeo
         self.serviceUID = serviceUID; self.protocolVersion = protocolVersion
+        self.networkOwnershipLost = networkOwnershipLost
     }
 }
 

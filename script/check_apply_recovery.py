@@ -34,10 +34,16 @@ with tempfile.TemporaryDirectory(prefix='lumaroute-helper-apply-') as directory:
     binary = work / 'apply-recovery-check'
     products = args.products.resolve()
     sdk = configure(args.sdk)
+    native = (products / 'Modules').is_dir()
+    build_root = products.parent.parent if native else ROOT / '.build'
     command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-target', 'arm64-apple-macosx14.0',
-               '-sdk', sdk, '-I', str(products),
-               '-I', str(ROOT / '.build/checkouts/Yams/Sources/CYaml/include'),
+               '-sdk', sdk, '-I', str(products / 'Modules' if native else products),
+               '-I', str(build_root / 'checkouts/Yams/Sources/CYaml/include'),
                str(generated), str(ROOT / 'script/check_apply_recovery.swift')]
-    command += [str(products / name) for name in ['LumaRouteCore.o', 'Yams.o', 'CYaml.o']]
+    if native:
+        for target in ['LumaRouteCore', 'Yams', 'CYaml']:
+            command += [str(path) for path in sorted((products / (target + '.build')).rglob('*.o'))]
+    else:
+        command += [str(products / name) for name in ['LumaRouteCore.o', 'Yams.o', 'CYaml.o']]
     subprocess.run(command + ['-o', str(binary)], cwd=work, check=True)
     subprocess.run([str(binary), str(work)], cwd=work, check=True, timeout=30)

@@ -1,6 +1,11 @@
 import Foundation
 import SystemConfiguration
 
+public enum NetworkOwnershipError: LocalizedError, Sendable {
+    case lost
+    public var errorDescription: String? { "其他软件已覆盖系统网络设置，LumaRoute 将停止接管并保留该修改" }
+}
+
 /// Runs only inside the authorized helper. Restores only values still owned by LumaRoute.
 public final class SystemNetwork {
     private let journal: URL
@@ -98,7 +103,7 @@ public final class SystemNetwork {
             for type in [kSCNetworkProtocolTypeProxies,kSCNetworkProtocolTypeDNS] {
                 guard let record = records[id+":"+(type as String)],let proto = SCNetworkServiceCopyProtocol(service,type) else { continue }
                 guard Self.owns(SCNetworkProtocolGetConfiguration(proto) as? [String:Any],record:record) else {
-                    throw LumaError.message("其他软件已覆盖系统网络设置，LumaRoute 将停止接管并保留该修改")
+                    throw NetworkOwnershipError.lost
                 }
             }
         }

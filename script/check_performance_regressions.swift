@@ -118,7 +118,9 @@ import LumaRouteCore
         check(group.items.contains(where:{$0.title=="自动选择"}),"automatic strategy action remains available")
         let firstItems=group.items.map(ObjectIdentifier.init)
         store.proxies["g0"]?.now="n1";store.testRunning=true;store.testTotal=1000;store.testProgress=7
+        Probe.menuUpdates=0
         store.nodeErrors["n1"]="fixture timeout";controller.testTick()
+        check(Probe.menuUpdates>=1000,"periodic refresh counts the open group's node updates")
         check(group.items.map(ObjectIdentifier.init)==firstItems,"live menu refresh preserves item identity and scroll state")
         check(group.items.contains(where:{$0.toolTip=="n1 · 超时" && $0.state == .on}),"open submenu updates selected node and latency error")
         check(group.items.first?.title=="正在测速 (7/1000)" && group.items.first?.isEnabled==false,"submenu benchmark progress remains live")

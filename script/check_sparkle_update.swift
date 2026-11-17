@@ -21,7 +21,7 @@ import LumaRouteCore
     var appUpdateTargetBuild:Int?
     var shuttingDown = false
     var refreshing = false
-    var recovering = false
+    var recovery = CoreRecoveryState()
     var serviceInstalling = false
     var updatingProfiles:Set<UUID> = []
     var updatingRuleSubscriptions:Set<UUID> = []

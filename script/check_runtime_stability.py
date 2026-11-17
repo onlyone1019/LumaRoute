@@ -27,7 +27,7 @@ command = ['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library',
 command += [str(ROOT / path) for path in [
     'script/check_runtime_stability.swift', 'Tests/Fixtures/stability_helper.swift',
     'Sources/LumaRoute/Stores/AppStore.swift', 'Sources/LumaRoute/Stores/RuleSubscriptionStore.swift',
-    'Sources/LumaRoute/Stores/RuntimeData.swift']]
+    'Sources/LumaRoute/Stores/RuntimeData.swift', 'Sources/LumaRoute/Stores/CoreRecoveryState.swift']]
 for target in ['LumaRouteCore', 'Yams', 'CYaml']:
     objects = sorted((products / (target + '.build')).rglob('*.o'))
     if not objects:

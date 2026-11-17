@@ -25,8 +25,72 @@ import LumaRouteCore
         _ = withUnsafeMutablePointer(to:&address) { $0.withMemoryRebound(to:sockaddr.self,capacity:1) { getsockname(fd,$0,&size) } }
         return (fd,Int(UInt16(bigEndian:address.sin_port)))
     }
+    @MainActor static func checkRecoverySchedule() {
+        let now = Date(timeIntervalSinceReferenceDate:0)
+        var recovery = CoreRecoveryState()
+        recovery.schedule(.startup,now:now)
+        expect(recovery.begin(now:now) == nil,"startup retry waits one second")
+        let first = now.addingTimeInterval(1)
+        expect(recovery.begin(now:first) == .startup,"first retry retains the startup reason")
+        expect(recovery.begin(now:first) == nil,"an active recovery cannot overlap another")
+        recovery.configurationApplied()
+        expect(recovery.reason == .startup,"a recovery apply stays pending until settings are saved")
+        expect(!recovery.recordFailure(now:first),"first failure allows retry")
+        recovery.end()
+        expect(recovery.begin(now:first.addingTimeInterval(2)) == nil,"first retry backoff is three seconds")
+        let second = first.addingTimeInterval(3)
+        expect(recovery.begin(now:second) == .startup,"second attempt starts at the deadline")
+        expect(!recovery.recordFailure(now:second),"second failure allows retry")
+        recovery.end()
+        expect(recovery.begin(now:second.addingTimeInterval(5)) == nil,"second retry backoff is six seconds")
+        let third = second.addingTimeInterval(6)
+        expect(recovery.begin(now:third) == .startup,"third attempt starts at the deadline")
+        expect(recovery.recordFailure(now:third),"third failure exhausts automatic retries")
+        recovery.end()
+        expect(recovery.begin(now:third.addingTimeInterval(60)) == nil,"exhausted retries stay stopped")
+        recovery.allowImmediateRetry()
+        expect(recovery.begin(now:third) == .startup,"manual or network-triggered retry resets the budget")
+        recovery.complete()
+        recovery.end()
+        expect(recovery.reason == nil,"completed recovery clears the request")
+        recovery.schedule(.interrupted,now:now)
+        recovery.configurationApplied()
+        expect(recovery.reason == nil,"explicit apply supersedes a pending recovery")
+    }
+    @MainActor static func checkServiceRetry(root: URL, database: AppDatabase, secret: String) async throws {
+        let store = try LocalStore(root:root)
+        try store.save(database)
+        try store.secrets.write(secret,key:"controller-secret")
+        setenv("LUMAROUTE_DATA_DIR",root.path,1)
+        let app = AppStore()
+        app.helper.networkSetup = .update
+        await app.bootstrap()
+        app.refreshTask?.cancel(); await app.refreshTask?.value
+
+        // Observe the completed installation through the normal refresh entry point.
+        app.serviceInstalling = true
+        app.helper.status = .enabled
+        app.helper.networkSetup = .ready
+        app.helper.running = false
+        app.helper.statusFailures = 1
+        await app.refresh()
+        expect(!app.coreReady && app.helper.calls == ["status"],"service restoring on first status leaves the core stopped")
+        await app.refresh()
+        expect(app.helper.calls == ["status"],"service retry observes the backoff")
+        do {
+            try await Task.sleep(for:.seconds(3.1))
+            await app.refresh()
+            expect(app.coreReady && app.helper.running && !app.serviceInstalling,"service retries startup and completes installation")
+            expect(app.helper.calls.prefix(3).elementsEqual(["status","status","start"]),"service retries status before starting the core")
+            expect(app.helper.disconnectCount == 0,"service retry keeps the existing helper connection")
+        } catch {
+            await app.shutdown(); throw error
+        }
+        await app.shutdown()
+    }
     @MainActor static func main() async throws {
         setbuf(stdout,nil)
+        checkRecoverySchedule()
         let root = URL(fileURLWithPath:CommandLine.arguments[1])
         let binary = URL(fileURLWithPath:CommandLine.arguments[2])
         setenv("LUMAROUTE_CORE",binary.path,1)
@@ -53,6 +117,8 @@ import LumaRouteCore
             if !app.coreReady { await app.recheck() } // Continue exercising other failures on the baseline.
             guard app.coreReady else { throw LumaError.message("fixture core did not start") }
             app.refreshTask?.cancel(); await app.refreshTask?.value
+
+            try await checkServiceRetry(root:root.appendingPathComponent("service-retry"),database:db,secret:app.secret)
 
             for scenario in ["transport","conflict","restore-failure","healthy"] {
                 let check = AppStore(); check.store = try LocalStore(root:root.appendingPathComponent(scenario))

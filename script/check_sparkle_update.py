@@ -46,7 +46,8 @@ command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-swift-version', '6', 
            '-I', str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include'),
            '-F', str(frameworks), '-framework', 'Sparkle', '-Xlinker', '-rpath', '-Xlinker', '@executable_path/../Frameworks',
            str(ROOT/'Sources/LumaRoute/App/AppUpdater.swift'), str(ROOT/'script/check_sparkle_update.swift'),
-           str(work/'AppDelegate.swift'), str(work/'PrepareUpdate.swift')]
+           str(work/'AppDelegate.swift'), str(work/'PrepareUpdate.swift'),
+           str(ROOT/'Sources/LumaRoute/Stores/CoreRecoveryState.swift')]
 command += [str(p) for name in ['LumaRouteCore','Yams','CYaml'] for p in (products/(name+'.build')).rglob('*.o')]
 subprocess.run(command+['-o', str(binary)], check=True)
 spec = importlib.util.spec_from_file_location('appcast', ROOT/'script/generate_appcast.py')

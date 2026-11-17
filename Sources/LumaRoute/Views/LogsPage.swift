@@ -24,6 +24,9 @@ struct LogsPage:View {
     @EnvironmentObject var store:AppStore
     @State var state=LogsPageState()
     var items:[LogEntry] {
+        #if PERFORMANCE_REGRESSION
+        Probe.logFilters += 1
+        #endif
         let logs=state.paused ? state.snapshot:store.logs
         let search=state.search,level=state.level,source=state.source
         guard !search.isEmpty || level != "全部级别" || source != "全部来源" else { return logs }

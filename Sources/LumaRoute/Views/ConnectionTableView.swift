@@ -94,7 +94,12 @@ struct ConnectionTableView:NSViewRepresentable {
                 return NSSortDescriptor(key:column.rawValue,ascending:comparator.order == .forward)
             }
             if table.sortDescriptors != descriptors { table.sortDescriptors=descriptors }
-            if changed { table.reloadData() }
+            if changed {
+                #if PERFORMANCE_REGRESSION
+                Probe.connectionReloads += 1
+                #endif
+                table.reloadData()
+            }
             let selected=parent.selection.flatMap { id in displayed.firstIndex { $0.id == id } }
             let indexes=selected.map { IndexSet(integer:$0) } ?? []
             if table.selectedRowIndexes != indexes { table.selectRowIndexes(indexes,byExtendingSelection:false) }

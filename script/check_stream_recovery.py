@@ -2,7 +2,8 @@
 
 CoreRunner and HelperClient effects are replaced by the Swift fixture; no real
 core, privileged service, app window or system network settings are touched.
-Build first; --products selects an isolated build and --baseline uses HEAD's store.
+Build first; --products selects an isolated build and --baseline uses all Stores
+sources from one HEAD commit instead of the working tree or --source-root.
 Use --preparation-check for YAML/metadata/UI-heartbeat regressions, and
 --source-root for a frozen source snapshot in before/after checks.
 """
@@ -17,10 +18,11 @@ import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
+STORES = Path('Sources/LumaRoute/Stores')
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, default=ROOT / '.build/out/Products/Release')
 parser.add_argument('--sdk')
-parser.add_argument('--baseline', action='store_true')
+parser.add_argument('--baseline', action='store_true', help='Compile the Stores sources from HEAD')
 parser.add_argument('--preparation-check', action='store_true', help='Check YAML preparation and main-thread responsiveness')
 parser.add_argument('--source-root', type=Path, default=ROOT, help='Source snapshot for before/after checks')
 args = parser.parse_args()
@@ -29,6 +31,25 @@ lock = threading.Lock()
 sequence = 0
 stop = threading.Event()
 subscription_file = None
+
+
+def store_sources(destination):
+    if not args.baseline:
+        return sorted((args.source_root.resolve() / STORES).glob('*.swift'))
+
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD^{commit}'], cwd=ROOT, text=True).strip()
+    tracked = subprocess.check_output(
+        ['git', 'ls-tree', '-r', '-z', '--name-only', revision, '--', STORES.as_posix()], cwd=ROOT,
+    ).decode().split('\0')
+    destination.mkdir()
+    sources = []
+    for path in map(Path, tracked):
+        if path.parent != STORES or path.suffix != '.swift':
+            continue
+        source = destination / path.name
+        source.write_bytes(subprocess.check_output(['git', 'show', f'{revision}:{path.as_posix()}'], cwd=ROOT))
+        sources.append(source)
+    return sources
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -100,21 +121,27 @@ try:
         subscription_file = work / 'subscription.yaml'
         products = args.products.resolve()
         sdk = configure(args.sdk)
-        store = work / 'AppStore.swift'
-        store.write_text(subprocess.check_output(['git', 'show', 'HEAD:Sources/LumaRoute/Stores/AppStore.swift'], cwd=ROOT, text=True)
-                         if args.baseline else (args.source_root / 'Sources/LumaRoute/Stores/AppStore.swift').read_text())
+        sources = store_sources(work / 'stores')
+        if not any(path.name == 'AppStore.swift' for path in sources):
+            raise SystemExit('Missing AppStore.swift in the selected Stores sources')
         binary = work / 'stream-recovery-check'
         fixture = ROOT / 'script/check_stream_recovery.swift'
         if args.preparation_check:
             fixture = work / 'PreparationCheck.swift'
             doubles = (ROOT / 'script/check_stream_recovery.swift').read_text().split('@main struct StreamRecoveryCheck', 1)[0]
             fixture.write_text(doubles + (ROOT / 'script/check_configuration_preparation.swift').read_text())
+        native = (products / 'Modules').is_dir()
+        build_root = products.parent.parent if native else ROOT / '.build'
         command = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-swift-version', '6',
                    '-target', 'arm64-apple-macosx14.0', '-sdk', sdk,
-                   '-I', str(products), '-I', str(ROOT / '.build/checkouts/Yams/Sources/CYaml/include'),
-                   str(store), str(fixture)]
-        command += [str(path) for path in sorted((args.source_root / 'Sources/LumaRoute/Stores').glob('*.swift')) if path.name != 'AppStore.swift']
-        command += [str(products / name) for name in ['LumaRouteCore.o', 'Yams.o', 'CYaml.o']]
+                   '-I', str(products / 'Modules' if native else products),
+                   '-I', str(build_root / 'checkouts/Yams/Sources/CYaml/include'),
+                   str(fixture), *map(str, sources)]
+        for name in ['LumaRouteCore', 'Yams', 'CYaml']:
+            objects = sorted((products / (name + '.build')).rglob('*.o')) if native else [products / (name + '.o')]
+            if not objects or not all(obj.is_file() for obj in objects):
+                raise SystemExit('Missing build objects for ' + name)
+            command.extend(map(str, objects))
         subprocess.run(command + ['-o', str(binary)], cwd=work, check=True)
         subprocess.run([str(binary), str(server.server_port), str(work / 'data')], cwd=work, check=True, timeout=45)
 finally:

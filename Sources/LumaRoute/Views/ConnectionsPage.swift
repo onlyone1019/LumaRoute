@@ -16,7 +16,10 @@ struct ConnectionsPage:View {
     @State var state=ConnectionsPageState()
     var policies:[String] { Array(Set(store.connections.flatMap { $0.chains ?? [] })).sorted() }
     var items:[LiveConnection] {
-        store.connections.filter { $0.matches(state.search) && (state.network == "all" || $0.metadata.network?.lowercased() == state.network) && (state.policy == "all" || $0.chains?.contains(state.policy) == true) }.sorted(using:state.sortOrder)
+        #if PERFORMANCE_REGRESSION
+        Probe.connectionFilters += 1
+        #endif
+        return store.connections.filter { $0.matches(state.search) && (state.network == "all" || $0.metadata.network?.lowercased() == state.network) && (state.policy == "all" || $0.chains?.contains(state.policy) == true) }.sorted(using:state.sortOrder)
     }
     var body:some View {
         @Bindable var state=state

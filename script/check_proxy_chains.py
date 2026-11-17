@@ -98,7 +98,7 @@ generated.write_text(source.replace(needle, 'let serviceBackend = false'))
 files = [generated, ROOT / 'script/check_proxy_chains.swift']
 files += [ROOT / 'Sources/LumaRoute' / name for name in (
     'Stores/RoutingStore.swift', 'Stores/RuleSubscriptionStore.swift',
-    'Stores/RuntimeData.swift', 'Support/HelperClient.swift',
+    'Stores/RuntimeData.swift', 'Stores/CoreRecoveryState.swift', 'Support/HelperClient.swift',
     'Views/ProxiesPage.swift', 'Views/ProxyChainsView.swift',
     'Views/ProxyGroupCard.swift', 'Views/GroupStrategySheet.swift',
     'Views/Components.swift', 'Views/Controls.swift', 'Views/Theme.swift')]

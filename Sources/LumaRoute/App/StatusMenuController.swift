@@ -306,13 +306,23 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         // Eager command menus keep keyboard shortcuts current. Large node menus
         // only need work while visible; menuNeedsUpdate catches them up on entry.
         for (id,content) in contents where groupMenus[id] == nil || openMenus.contains(id) {
-            for update in content.stateUpdates { update(store) }
+            for update in content.stateUpdates {
+                #if PERFORMANCE_REGRESSION
+                Probe.menuUpdates += 1
+                #endif
+                update(store)
+            }
             refreshTrackingMenu(content,store:store)
         }
     }
     private func refreshContents(of menu:NSMenu) {
         guard let store,let content=contents[ObjectIdentifier(menu)] else { return }
-        for update in content.stateUpdates { update(store) }
+        for update in content.stateUpdates {
+            #if PERFORMANCE_REGRESSION
+            Probe.menuUpdates += 1
+            #endif
+            update(store)
+        }
         refreshTrackingMenu(content,store:store)
     }
 
@@ -365,6 +375,21 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
 /// A view receives the click directly, so AppKit does not dismiss the menu as it
 /// does after a regular menu-item action. Node selection still uses native actions.
+#if PERFORMANCE_REGRESSION
+extension StatusMenuController {
+    func testMenu() -> NSMenu { menuNeedsUpdate(menu); return menu }
+    func testShow(at view: NSView) {
+        menu.popUp(positioning:nil,at:NSPoint(x:20,y:view.bounds.height-20),in:view)
+    }
+    func testTick() { refreshMenuState() }
+    var testTimerRunning: Bool { trackingTimer != nil }
+    func testDispose() {
+        trackingTimer?.invalidate()
+        NSStatusBar.system.removeStatusItem(statusItem)
+    }
+}
+#endif
+
 @MainActor
 private final class PersistentMenuActionView: NSView {
     private let shortcut:String

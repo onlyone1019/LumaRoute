@@ -11,7 +11,7 @@ WORK.mkdir(parents=True,exist_ok=True)
 products = ROOT/'.build/out/Products/Release'
 binary = WORK/'appstore-check'
 command=['xcrun','swiftc','-O','-g','-parse-as-library','-target','arm64-apple-macosx14.0','-sdk',SDK,'-I',str(products),'-I',str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include')]
-command += [str(ROOT/name) for name in ['script/check_composition_store.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RoutingStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift','Sources/LumaRoute/Support/HelperClient.swift']]
+command += [str(ROOT/name) for name in ['script/check_composition_store.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RoutingStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift', 'Sources/LumaRoute/Stores/CoreRecoveryState.swift','Sources/LumaRoute/Support/HelperClient.swift']]
 command += [str(products/name) for name in ['LumaRouteCore.o','Yams.o','CYaml.o']]
 command += ['-o',str(binary)]
 subprocess.run(command,cwd=ROOT,check=True)

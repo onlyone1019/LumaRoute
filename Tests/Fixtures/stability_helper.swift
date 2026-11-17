@@ -13,6 +13,8 @@ import LumaRouteCore
     var calls: [String] = []
     var requests: [HelperRequest] = []
     var startFailures = 0
+    var statusFailures = 0
+    private(set) var disconnectCount = 0
     var running = true
     var enforceOwnership = false
     var ownershipLost = false
@@ -21,7 +23,13 @@ import LumaRouteCore
     func send(_ request: HelperRequest,responseTimeout: TimeInterval? = nil) async throws -> HelperResponse {
         calls.append(request.action)
         requests.append(request)
-        if request.action == "status",statusUnavailable { throw LumaError.message("fixture transport unavailable") }
+        if request.action == "status" {
+            if statusFailures > 0 {
+                statusFailures -= 1
+                throw LumaError.message("fixture service is still restoring")
+            }
+            if statusUnavailable { throw LumaError.message("fixture transport unavailable") }
+        }
         if request.action == "stop",stopUnavailable { throw LumaError.message("fixture restore unavailable") }
         if ["start","apply"].contains(request.action) {
             if startFailures > 0 { startFailures -= 1; throw LumaError.message("fixture startup temporarily unavailable") }
@@ -43,6 +51,6 @@ import LumaRouteCore
     func requireSupportedSigning() throws {}
     func register(networkReady: Bool = false) async throws {}
     func unregister() async throws {}
-    func disconnect() {}
+    func disconnect() { disconnectCount += 1 }
     func openApproval() {}
 }

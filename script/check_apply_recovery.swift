@@ -1,8 +1,8 @@
 import Foundation
 import LumaRouteCore
 
-// Test doubles replace process/network effects while the generated companion
-// file exercises the production HelperController, including its catch block.
+// Test doubles replace process and network effects while the production
+// HelperController handles requests and recovery.
 actor CoreRunner {
     let secret: String
     let home: URL
@@ -61,7 +61,12 @@ final class SystemNetwork {
         let secret = String(repeating:"x",count:40)
         var previous = NetworkSettings(); previous.tun = true; previous.systemProxy = true
         for fault in ["recovered","unknown","ordinary","stopped","ownership-lost","network-fails","restart-request"] {
-            let controller = HelperController(app:root.appendingPathComponent("fixture.app"))
+            let app = root.appendingPathComponent("fixture.app")
+            #if HELPER_RECOVERY_TEST
+            let controller = HelperController(app:app,usersDirectory:root.appendingPathComponent("service/users"))
+            #else
+            let controller = HelperController(app:app)
+            #endif
             await controller.prepareHealthOnly()
             _ = try await controller.execute(HelperRequest(action:"start",settings:previous,secret:secret),uid:uid)
             guard let original = await controller.runners[uid],let network = await controller.networks[uid] else { fail("fixture not started") }

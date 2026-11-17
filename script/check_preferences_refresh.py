@@ -55,7 +55,7 @@ products = ROOT / '.build/out/Products/Release'
 binary = WORK / ('after-check' if optimized else 'before-check')
 command = ['xcrun','swiftc','-O','-parse-as-library','-target','arm64-apple-macosx14.0','-sdk',SDK,'-I',str(products),'-I',str(ROOT/'.build/checkouts/Yams/Sources/CYaml/include')]
 if optimized: command += ['-D','OPTIMIZED']
-command += [str(ROOT / name) for name in ['script/check_preferences_refresh.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift','Sources/LumaRoute/Support/HelperClient.swift']]
+command += [str(ROOT / name) for name in ['script/check_preferences_refresh.swift','Sources/LumaRoute/Stores/AppStore.swift','Sources/LumaRoute/Stores/RuleSubscriptionStore.swift','Sources/LumaRoute/Stores/RuntimeData.swift', 'Sources/LumaRoute/Stores/CoreRecoveryState.swift','Sources/LumaRoute/Support/HelperClient.swift']]
 command += [str(products/name) for name in ['LumaRouteCore.o','Yams.o','CYaml.o']]
 command += ['-o',str(binary)]
 subprocess.run(command,cwd=ROOT,check=True)

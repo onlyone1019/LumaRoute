@@ -103,11 +103,7 @@ final class AppStore: ObservableObject {
     private var testGeneration = UUID()
     var shuttingDown = false
     private var sleeping = false
-    private enum RecoveryReason { case startup, interrupted }
-    private var recoveryReason: RecoveryReason?
-    private var recovering = false
-    private var recoveryAttempts = 0
-    private var nextRecovery = Date.distantPast
+    private var recovery = CoreRecoveryState()
     private var pathMonitor: NWPathMonitor?
     private var lastPathFingerprint: String?
     private var bootstrapping = false
@@ -216,7 +212,7 @@ final class AppStore: ObservableObject {
             if runner != nil,!Task.isCancelled,!(error is CancellationError),!shuttingDown,
                helper.networkSetup != .update,
                helper.networkSetup == .ready || !(database.settings.tun || database.settings.systemProxy) {
-                recoveryReason = .startup; recoveryAttempts = 0; nextRecovery = Date().addingTimeInterval(1)
+                recovery.schedule(.startup,now:Date())
             }
             report(error,source:"启动")
         }
@@ -353,9 +349,7 @@ final class AppStore: ObservableObject {
         groupOrder = prepared.metadata.groupOrder
         guard !shuttingDown else { throw CancellationError() }
         coreReady = true
-        // An explicit successful apply supersedes a pending startup retry.
-        // Recovery itself clears its reason only after persistence succeeds.
-        if !recovering { recoveryReason = nil }
+        recovery.configurationApplied()
         restartStreams()
         await refresh()
     }
@@ -403,7 +397,7 @@ final class AppStore: ObservableObject {
                 _ = try await helper.send(HelperRequest(action:"system-proxy",systemProxyEnabled:previous.settings.systemProxy))
                 database = previous
             } catch {
-                coreReady = false; recoveryReason = .interrupted
+                coreReady = false; recovery.reason = .interrupted
                 throw LumaError.message("系统代理设置保存失败，回退未完成，请重新检查后台服务："+Redactor.clean(error.localizedDescription))
             }
             throw original
@@ -430,6 +424,9 @@ final class AppStore: ObservableObject {
             if self.refreshPending { await self.refresh(force:false) }
         }
     }
+    private func canPublishRefresh(revision: UUID) -> Bool {
+        !busy && !shuttingDown && revision == configurationRevision
+    }
     func refresh(force: Bool = true,now: Date = Date()) async {
         let label = helper.label
         if serviceLabel != label { serviceLabel = label }
@@ -443,7 +440,7 @@ final class AppStore: ObservableObject {
             return
         }
         guard coreReady else {
-            if recoveryReason != nil { await recoverLocalCore() }
+            if recovery.reason != nil { await recoverLocalCore() }
             return
         }
         refreshing = true
@@ -465,21 +462,21 @@ final class AppStore: ObservableObject {
             var versionError: Error?
             do {
                 let version = try await api.version(timeout:3)
-                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                guard canPublishRefresh(revision:revision) else { return }
                 if version != coreVersion { coreVersion = version }
             } catch { versionError = error }
-            guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            guard canPublishRefresh(revision:revision) else { return }
             var confirmedStopped = false
             if helperActive {
                 // An XPC timeout alone does not mean a healthy controller died.
                 if let status = try? await helper.send(HelperRequest(action:"status"),responseTimeout:3) {
-                    guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                    guard canPublishRefresh(revision:revision) else { return }
                     if status.networkOwnershipLost == true { throw NetworkOwnershipError.lost }
                     updateServiceSnapshot(running:status.running,canRollbackGeo:status.canRollbackGeo ?? false)
                     confirmedStopped = !status.running
                 }
             } else if let runner,versionError != nil { confirmedStopped = !(await runner.running) }
-            guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            guard canPublishRefresh(revision:revision) else { return }
             if confirmedStopped { throw LumaError.message("后台内核已退出") }
             if let versionError {
                 healthFailures += 1
@@ -495,7 +492,7 @@ final class AppStore: ObservableObject {
                 var providerResult: [String:Provider]?
                 if refreshProviders { providerResult = try? await api.providers() }
                 if let providerResult { providers = providerResult }
-                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                guard canPublishRefresh(revision:revision) else { return }
                 if providerResult != nil { cachedProviders = providers; lastProviderRefresh = now }
                 var availableProxies = freshProxies
                 for (name, provider) in providers where provider.vehicleType != "Compatible" {
@@ -511,20 +508,20 @@ final class AppStore: ObservableObject {
                 lastNodeRefresh = now
             }
             if needsConnections,let response = try? await api.connections() {
-                guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
+                guard canPublishRefresh(revision:revision),mainWindowVisible,page == .connections else { return }
                 let enriched = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:database.settings.mixedPort)
-                guard !busy,revision == configurationRevision,!shuttingDown,mainWindowVisible,page == .connections else { return }
+                guard canPublishRefresh(revision:revision),mainWindowVisible,page == .connections else { return }
                 connections = enriched
             }
             if needsRules,let rules = try? await api.rules() {
-                guard !busy,revision == configurationRevision,!shuttingDown else { return }
+                guard canPublishRefresh(revision:revision) else { return }
                 if rules != liveRules { liveRules = rules }
                 lastRuleRefresh = now
             }
         } catch {
             // An observation started before a configuration change is stale.
             // It must never stop the new core or undo the user's new settings.
-            guard !busy,revision == configurationRevision,!shuttingDown else { return }
+            guard canPublishRefresh(revision:revision) else { return }
             busy = true
             defer { busy = false }
             await handleRuntimeInterruption(error)
@@ -542,7 +539,7 @@ final class AppStore: ObservableObject {
             helperActive = true
         }
         coreReady = false
-        recoveryReason = .interrupted; recoveryAttempts = 0; nextRecovery = Date().addingTimeInterval(1)
+        recovery.schedule(.interrupted,now:Date())
         trafficTask?.cancel(); logTask?.cancel()
         appendLog(level:"error",source:"内核",message:"内核连接中断，正在检查网络恢复状态："+Redactor.clean(error.localizedDescription))
         if helperActive {
@@ -580,7 +577,7 @@ final class AppStore: ObservableObject {
         }
     }
     private func refreshInstalledService() async {
-        guard runner != nil,helper.status == .enabled,!recovering else { return }
+        guard runner != nil,helper.status == .enabled,!recovery.isRunning else { return }
         pendingServiceRefresh = false
         serviceRefreshAttempts += 1
         busy = true
@@ -610,7 +607,7 @@ final class AppStore: ObservableObject {
             guard !shuttingDown else { return }
             proxies = nodes; coreVersion = version; serviceLabel = helper.label
             if pendingServiceSettings != nil { try await store.saveSettingsAsync(database.settings); pendingServiceSettings = nil }
-            recoveryReason = nil; recoveryAttempts = 0
+            recovery.complete()
             serviceInstalling = false; serviceInstallationDeadline = nil
             serviceSetup = helper.networkSetup
             if error == serviceFailureMessage { error = nil }
@@ -639,11 +636,10 @@ final class AppStore: ObservableObject {
         }
     }
     private func recoverLocalCore() async {
-        guard runner != nil,!recovering,recoveryAttempts < 3,Date() >= nextRecovery else { return }
-        recovering = true; busy = true
-        defer { recovering = false; busy = false }
-        recoveryAttempts += 1
-        let starting = recoveryReason == .startup
+        guard runner != nil,let reason = recovery.begin(now:Date()) else { return }
+        busy = true
+        defer { recovery.end(); busy = false }
+        let starting = reason == .startup
         do {
             if helperActive {
                 _ = try await helper.send(HelperRequest(action:"stop"))
@@ -654,14 +650,14 @@ final class AppStore: ObservableObject {
             if !starting { settings.tun = false; settings.systemProxy = false }
             try await applyConfiguration(settings:settings)
             try await store.saveSettingsAsync(database.settings)
-            recoveryReason = nil; recoveryAttempts = 0
+            recovery.complete()
             notice = starting ? "启动已恢复，已应用原连接设置":"本机内核已恢复；网络接管保持关闭"
             appendLog(source:"恢复",message:starting ? "启动重试成功，已保留原连接设置":"内核已恢复，可手动重新连接")
         } catch {
             coreReady = false
-            nextRecovery = Date().addingTimeInterval(Double(recoveryAttempts*3))
+            let exhausted = recovery.recordFailure(now:Date())
             appendLog(level:"error",source:"恢复",message:Redactor.clean(error.localizedDescription))
-            if recoveryAttempts >= 3 { self.error = "内核恢复失败，请检查日志、端口和后台服务后点击重新检查" }
+            if exhausted { self.error = "内核恢复失败，请检查日志、端口和后台服务后点击重新检查" }
         }
     }
     func prepareForSleep() {
@@ -670,11 +666,11 @@ final class AppStore: ObservableObject {
     func recheck() async {
         if runner == nil { await bootstrap(); return }
         startRuntimeObservation()
-        recoveryAttempts = 0; nextRecovery = .distantPast
+        recovery.allowImmediateRetry()
         if !coreReady {
             if helper.status == .enabled {
                 pendingServiceRefresh = true; serviceRefreshAttempts = 0; nextServiceRefresh = .distantPast
-            } else if recoveryReason == nil { recoveryReason = .interrupted }
+            } else if recovery.reason == nil { recovery.reason = .interrupted }
         }
         await refresh()
         if helper.localInstallation != nil {
@@ -689,7 +685,7 @@ final class AppStore: ObservableObject {
     }
     func resumeAfterNetworkChange() async {
         guard !shuttingDown,runner != nil else { return }
-        sleeping = false; recoveryAttempts = 0; nextRecovery = .distantPast
+        sleeping = false; recovery.allowImmediateRetry()
         await refresh()
         if coreReady { restartStreams(); appendLog(source:"网络",message:"已重新检查网络与内核连接") }
     }
@@ -991,7 +987,7 @@ final class AppStore: ObservableObject {
         let revision = configurationRevision,port = database.settings.mixedPort
         guard let response = try? await api.connections() else { return }
         let enriched = await ConnectionProcesses.enrich(response.connections ?? [],mixedPort:port)
-        guard !Task.isCancelled,!busy,!shuttingDown,revision == configurationRevision,page == .connections else { return }
+        guard !Task.isCancelled,canPublishRefresh(revision:revision),page == .connections else { return }
         connections = enriched
     }
     func applyRoutingConfiguration(source: String? = nil,rules: [CustomRule]? = nil,configuration: AppDatabase? = nil) async throws {
@@ -1180,7 +1176,7 @@ final class AppStore: ObservableObject {
                 helperActive = false; serviceRunning = false
                 try? coreUpdates.cancelSwitch()
                 do { try await applyConfiguration() }
-                catch { coreReady = false; recoveryReason = .interrupted; recoveryAttempts = 0 }
+                catch { coreReady = false; recovery.reason = .interrupted; recovery.resetAttempts() }
                 throw original
             }
             return
@@ -1206,7 +1202,7 @@ final class AppStore: ObservableObject {
             do {
                 try await previous.start(yaml:yaml,settings:database.settings)
                 coreReady = true; restartStreams()
-            } catch { coreReady = false; recoveryReason = .interrupted; recoveryAttempts = 0 }
+            } catch { coreReady = false; recovery.reason = .interrupted; recovery.resetAttempts() }
             throw error
         }
     }
@@ -1258,7 +1254,7 @@ final class AppStore: ObservableObject {
     }
     func prepareAppUpdateRestart() async throws {
         guard let target = appUpdateTargetBuild else { return }
-        guard !busy,!recovering,!serviceInstalling,updatingProfiles.isEmpty,updatingRuleSubscriptions.isEmpty else {
+        guard !busy,!recovery.isRunning,!serviceInstalling,updatingProfiles.isEmpty,updatingRuleSubscriptions.isEmpty else {
             throw LumaError.message("当前操作尚未结束，请稍后在更新窗口中重试安装")
         }
         busy = true

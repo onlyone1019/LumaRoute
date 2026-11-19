@@ -36,6 +36,7 @@ struct SubscriptionOptionsSheet:View {
     @EnvironmentObject var store:AppStore
     @Environment(\.dismiss) var dismiss
     let profile:Profile
+    @State private var replacementAddress=""
     @State private var userAgent:String
     @State private var downloadRoute: SubscriptionDownloadRoute
     @State private var failure:String?
@@ -47,9 +48,15 @@ struct SubscriptionOptionsSheet:View {
         VStack(alignment:.leading,spacing:18) {
             Text("订阅设置").font(.title2.bold())
             Text(profile.name).font(.headline)
+            VStack(alignment:.leading,spacing:6) {
+                Text("订阅链接").font(.callout.weight(.medium))
+                TextField("粘贴新链接，留空保留原链接",text:$replacementAddress)
+                    .textFieldStyle(LumaTextFieldStyle()).accessibilityLabel("新订阅链接")
+                Text(profile.displaySource).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
             SubscriptionDownloadRouteField(value:$downloadRoute)
             SubscriptionUserAgentField(value:$userAgent)
-            Text("仅影响此订阅。保存后，手动更新和自动更新都会使用所选下载方式和标识。").font(.caption).foregroundStyle(.secondary)
+            Text("保存后，可点击「更新」下载新配置。完整链接仅保存在本机。").font(.caption).foregroundStyle(.secondary)
             if let failure { SubscriptionFailureMessage(message:failure) }
             HStack {
                 Button("恢复默认") { userAgent=""; downloadRoute = .direct; failure=nil }
@@ -57,7 +64,7 @@ struct SubscriptionOptionsSheet:View {
                 Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("保存") {
                     store.perform {
-                        do { try await store.saveSubscriptionOptions(profile,userAgent:userAgent,downloadRoute:downloadRoute); dismiss() }
+                        do { try await store.saveSubscriptionOptions(profile,userAgent:userAgent,downloadRoute:downloadRoute,replacementAddress:replacementAddress); dismiss() }
                         catch { failure=Redactor.clean(error.localizedDescription) }
                     }
                 }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)

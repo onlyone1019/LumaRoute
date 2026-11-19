@@ -783,13 +783,21 @@ final class AppStore: ObservableObject {
         catch is CancellationError { throw CancellationError() }
         catch { throw SubscriptionError.configuration(error.localizedDescription) }
     }
-    func saveSubscriptionOptions(_ profile: Profile,userAgent: String,downloadRoute: SubscriptionDownloadRoute? = nil) async throws {
+    func saveSubscriptionOptions(_ profile: Profile,userAgent: String,downloadRoute: SubscriptionDownloadRoute? = nil,replacementAddress: String = "") async throws {
         let agent = try SubscriptionFetcher.normalizedUserAgent(userAgent)
         guard let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index].isRemote else { throw LumaError.message("此远程订阅已不存在") }
         var next = database
         next.profiles[index].userAgent = agent
         if let downloadRoute { next.profiles[index].downloadRoute = downloadRoute }
-        try await store.saveAsync(next)
+        let address = replacementAddress.trimmingCharacters(in:.whitespacesAndNewlines)
+        var addresses: [UUID:String] = [:]
+        if !address.isEmpty {
+            let url = try SubscriptionFetcher.validatedURL(address)
+            next.profiles[index].displaySource = SubscriptionFetcher.displayURL(url)
+            next.profiles[index].lastError = nil
+            addresses[profile.id] = address
+        }
+        try await store.commitAsync(next,profiles:[:],subscriptionAddresses:addresses)
         database = next
     }
     func activate(_ profile: Profile) async throws {
@@ -824,10 +832,14 @@ final class AppStore: ObservableObject {
         var appliedSource: String?
         var change: SubscriptionChange?
         var attemptedApply = false
+        let addressKey = "subscription-\(profile.id.uuidString)"
+        var fetchedAddress: String?
         do {
-            guard let url = try await store.secrets.readAsync("subscription-\(profile.id.uuidString)") else { throw LumaError.message("此订阅的链接未保存在本机数据库，请重新导入") }
+            guard let url = try await store.secrets.readAsync(addressKey) else { throw LumaError.message("此订阅的链接未保存在本机数据库，请在订阅设置中填写链接") }
+            fetchedAddress = url
             let download = try await SubscriptionFetcher.fetch(url,userAgent:profile.userAgent,versionInfo:subscriptionVersionInfo,route:profile.downloadRoute,localProxyPort:coreReady ? database.settings.mixedPort:nil)
             if background { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
+            if background, try await store.secrets.readAsync(addressKey) != url { return }
             try Task.checkCancellation()
             guard !shuttingDown,let index = database.profiles.firstIndex(where:{$0.id == profile.id}),
                   database.profiles[index] == profile else { return }
@@ -869,6 +881,7 @@ final class AppStore: ObservableObject {
                 if attemptedApply,let previousSource { try? await applyConfiguration(source:previousSource) }
             }
             if background && !ownsLock { try await waitForSubscriptionCommit(); busy = true; ownsLock = true }
+            if background, (try? await store.secrets.readAsync(addressKey)) != fetchedAddress { return }
             if let index = database.profiles.firstIndex(where:{$0.id == profile.id}),database.profiles[index] == profile {
                 database.profiles[index].lastAttempt = Date()
                 database.profiles[index].lastError = Redactor.clean(error.localizedDescription)

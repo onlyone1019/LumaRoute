@@ -16,8 +16,13 @@ public enum SubscriptionFetcher {
         return trimmed.isEmpty ? nil : trimmed
     }
     public static func displayURL(_ url: URL) -> String { "\(url.scheme ?? "https")://\(url.host ?? "未知来源")/••••" }
+    public static func validatedURL(_ source: String) throws -> URL {
+        guard let url = URL(string:source), ["https","http"].contains(url.scheme?.lowercased() ?? ""),
+              let host = url.host, !host.isEmpty else { throw SubscriptionError.invalidAddress }
+        return url
+    }
     public static func fetch(_ source: String, userAgent: String? = nil, session: URLSession? = nil,versionInfo: VersionInfo = .current,route: SubscriptionDownloadRoute = .direct,localProxyPort: Int? = nil) async throws -> SubscriptionDownload {
-        guard let url = URL(string:source), ["https","http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { throw SubscriptionError.invalidAddress }
+        let url = try validatedURL(source)
         let agent = try normalizedUserAgent(userAgent) ?? versionInfo.subscriptionUserAgent
         var request = URLRequest(url:url,timeoutInterval:25)
         request.setValue(agent,forHTTPHeaderField:"User-Agent")
